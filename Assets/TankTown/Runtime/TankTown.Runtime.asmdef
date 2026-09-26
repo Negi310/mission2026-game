@@ -1,0 +1,4 @@
+{
+  "name": "TankTown.Runtime",
+  "references": ["Unity.InputSystem", "UnityEngine.UI"]
+}
