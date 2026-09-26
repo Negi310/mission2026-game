@@ -29,12 +29,16 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator AutoDriveAndSteeringMoveTank()
         {
-            var start = game.Tank.transform.position;
+            var body = game.Tank.GetComponent<Rigidbody>();
+            var start = body.position;
             game.Input.useHardware = true;
             game.Input.SetWheel(1);
-            yield return new WaitForSeconds(.4f);
-            Assert.That(Vector3.Distance(start, game.Tank.transform.position), Is.GreaterThan(1));
-            Assert.That(Quaternion.Angle(Quaternion.identity, game.Tank.transform.rotation), Is.GreaterThan(10));
+            // Poll input once, then measure simulated physics steps rather than the
+            // interpolated render pose after a wall-clock wait during scene warm-up.
+            yield return null;
+            for (int i = 0; i < 20; i++) yield return new WaitForFixedUpdate();
+            Assert.That(Vector3.Distance(start, body.position), Is.GreaterThan(1));
+            Assert.That(Quaternion.Angle(Quaternion.identity, body.rotation), Is.GreaterThan(10));
         }
 
         [UnityTest]

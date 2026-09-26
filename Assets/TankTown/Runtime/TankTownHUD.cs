@@ -12,7 +12,7 @@ namespace TankTown
         private Transform canvas;
         private Text timer, score, counter, notice, cardTitle, cardBody, buttonText;
         private Image fill;
-        private GameObject card;
+        private GameObject card, noticePanel;
         private readonly Color ink = new Color(.08f, .17f, .22f);
         private readonly Color yellow = new Color(.86f, .97f, .32f);
         public void Initialize(TankTownGame owner)
@@ -40,10 +40,12 @@ namespace TankTown
             var track = Panel("Progress track", progress.transform, new Vector2(20, -59), new Vector2(270, 10), new Color(.8f, .84f, .79f));
             fill = Panel("Progress fill", track.transform, Vector2.zero, new Vector2(0, 10), new Color(.22f, .66f, .51f)).GetComponent<Image>();
             counter = Label(progress.transform, "", new Vector2(20, -79), new Vector2(280, 23), 14, ink);
-            notice = Label(canvas, "", new Vector2(0, -132), new Vector2(680, 52), 24, ink);
-            var noticeRect = notice.rectTransform;
+            noticePanel = Panel("Respawn notice", canvas, new Vector2(0, -132), new Vector2(720, 64), ink);
+            var noticeRect = noticePanel.GetComponent<RectTransform>();
             noticeRect.anchorMin = noticeRect.anchorMax = new Vector2(.5f, 1);
             noticeRect.pivot = new Vector2(.5f, 1);
+            notice = Label(noticePanel.transform, "", new Vector2(16, -7), new Vector2(688, 50), 22, Color.white);
+            notice.fontStyle = FontStyle.Bold;
             notice.alignment = TextAnchor.MiddleCenter;
             var bottom = Panel("Controls", canvas, new Vector2(0, 24), new Vector2(900, 54), ink);
             var br = bottom.GetComponent<RectTransform>();
@@ -102,6 +104,7 @@ namespace TankTown
             counter.text = $"{game.BrokenBlocks} / {game.TotalBlocks} ブロック";
             fill.rectTransform.sizeDelta = new Vector2(270 * game.Destruction / 100, 10);
             notice.text = game.Tank.Respawning && game.IsPlaying ? $"ドカーン！ 安全な場所へもどるよ  −{game.Settings.respawnPenalty:0.#}秒" : "";
+            noticePanel.SetActive(game.Tank.Respawning && game.IsPlaying);
             card.SetActive(game.State != RoundState.Playing);
             if (game.State == RoundState.Ready)
             {

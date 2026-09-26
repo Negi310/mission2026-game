@@ -62,4 +62,6 @@ Unity.exe -batchmode -projectPath <project> -executeMethod TankTown.Editor.TankT
 
 出力先は `Builds/TankTown/TankTown.exe`。初回起動時のパッケージ解決にはネットワークが必要です。
 
+Development Buildを `TankTown.exe -batchmode -force-d3d11 --tank-town-smoke` で起動すると、開始・破壊・復帰・結果の描画検証を行い、実行ファイル横の `Captures` に4枚の画像を保存して終了します。
+
 ネイティブUnityゲームのため、ブラウザ上のUI検証は対象外です。Unity PlayModeとWindows実行画面で検証します。
