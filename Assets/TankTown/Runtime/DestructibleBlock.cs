@@ -1,7 +1,9 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TankTown
 {
+    public enum BuildingPart { Pillar, Beam, Slab, Wall, Prop }
     public sealed class DestructibleBlock : MonoBehaviour
     {
         public BlockBuilding Building { get; set; }
@@ -9,6 +11,9 @@ namespace TankTown
         public bool Detached { get; private set; }
         public int Column { get; set; }
         public int Level { get; set; }
+        public BuildingPart Kind { get; set; }
+        public bool Foundation { get; set; }
+        public readonly List<DestructibleBlock> Links = new List<DestructibleBlock>();
         private TankTownGame game;
 
         public void Initialize(TankTownGame owner)
@@ -22,12 +27,12 @@ namespace TankTown
             if (Detached || game == null || !game.IsPlaying) return;
             Detached = true;
             game.ScoreBlock();
-            // Debris collides with the ground but never traps the player or future shots.
-            gameObject.layer = 2;
+            gameObject.layer = TownPhysics.DebrisLayer;
             var body = gameObject.AddComponent<Rigidbody>();
-            body.mass = 0.7f;
+            body.mass = Kind == BuildingPart.Slab ? 1.4f : .55f;
+            body.maxAngularVelocity = 12;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-            body.AddExplosionForce(impulse, origin, game.Settings.blastRadius * 2, 1.5f, ForceMode.Impulse);
+            body.AddExplosionForce(impulse, origin, game.Stats.BlastRadius * 2, 1.5f, ForceMode.Impulse);
             body.AddTorque(Random.insideUnitSphere * impulse * 0.3f, ForceMode.Impulse);
             game.TrackDebris(gameObject);
             Destroy(gameObject, game.Settings.debrisLifetime);

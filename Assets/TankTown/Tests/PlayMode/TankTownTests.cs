@@ -44,11 +44,13 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator BlastReleasesSupportsAndScoresOnlyOnce()
         {
-            var building = Object.FindFirstObjectByType<BlockBuilding>();
-            var low = building.Blocks.Find(x => x.Level == 0);
-            var high = building.Blocks.Find(x => x.Column == low.Column && x.Level == 2);
+            var building = game.World.Buildings[0];
+            var foundations = building.Blocks.FindAll(x => x.Foundation);
+            var high = building.Blocks.Find(x => x.Kind == BuildingPart.Pillar && x.Level == 2);
+            var low = foundations[0];
             var point = low.transform.position;
-            game.Blast(point);
+            foreach (var support in foundations) support.Break(support.transform.position, 0);
+            building.ReleaseUnsupported(point, game.Stats.BlastImpulse);
             Assert.That(low.Detached, Is.True);
             Assert.That(high.Detached, Is.True);
             Assert.That(high.GetComponent<Rigidbody>(), Is.Not.Null);
@@ -115,7 +117,8 @@ namespace TankTown.Tests
         public IEnumerator RealShellHitsBuildingAndCrushablePropsBreakOnContact()
         {
             var body = game.Tank.GetComponent<Rigidbody>();
-            body.position = new Vector3(12, 1, -44);
+            var building = game.World.Buildings[0];
+            body.position = building.transform.position + new Vector3(-4.6f, 1, -game.Settings.buildingWidth / 2 - 6);
             body.rotation = Quaternion.identity;
             yield return new WaitForFixedUpdate();
             game.Tank.Fire(0);
@@ -133,11 +136,103 @@ namespace TankTown.Tests
         public IEnumerator SolidBuildingCollisionTriggersRespawn()
         {
             var body = game.Tank.GetComponent<Rigidbody>();
-            body.position = new Vector3(12, 1, -43);
+            body.position = game.World.Buildings[0].transform.position + new Vector3(-4.6f, 1, -game.Settings.buildingWidth / 2 - 4);
             body.rotation = Quaternion.identity;
             yield return new WaitForSeconds(.6f);
             Assert.That(game.Crashes, Is.EqualTo(1));
             Assert.That(game.Tank.Respawning, Is.True);
         }
-    }
+        [UnityTest]
+        public IEnumerator ExpandedBuildingsAreHollowAndFacadesDoNotCarryTheFrame()
+        {
+            Assert.That(game.World.HalfExtent, Is.EqualTo(110));
+            Assert.That(game.World.Buildings.Count, Is.EqualTo(36));
+            var building = game.World.Buildings[0];
+            Physics.SyncTransforms();
+            var interior = Physics.OverlapBox(building.transform.position + Vector3.up * 1.8f, Vector3.one, Quaternion.identity, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore);
+            Assert.That(System.Array.Exists(interior, c => c.GetComponent<DestructibleBlock>() != null), Is.False, "The room must contain air, not hidden cubes");
+            foreach (var wall in building.Blocks.FindAll(x => x.Kind == BuildingPart.Wall)) wall.Break(wall.transform.position, 0);
+            building.ReleaseUnsupported(building.transform.position, 0);
+            Assert.That(building.Blocks.FindAll(x => x.Kind == BuildingPart.Pillar).TrueForAll(x => !x.Detached), Is.True, "Removing facade cladding must leave the frame supported");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DebrisPhysicallyContactsTankAndIsPushedAside()
+        {
+            var fragment = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Crushable crate");
+            fragment.Break(fragment.transform.position, 0);
+            var debrisBody = fragment.GetComponent<Rigidbody>();
+            var tankBody = game.Tank.GetComponent<Rigidbody>();
+            var start = tankBody.position;
+            debrisBody.useGravity = false;
+            debrisBody.position = start + Vector3.forward * 4;
+            debrisBody.linearVelocity = Vector3.back * 20;
+            Assert.That(Physics.GetIgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer), Is.False);
+            for (int i = 0; i < 10; i++) yield return new WaitForFixedUpdate();
+            Assert.That(debrisBody.linearVelocity.z, Is.GreaterThan(0), "Incoming debris must be deflected by an actual contact");
+            Assert.That(tankBody.position.z - start.z, Is.GreaterThan(1.2f));
+            Assert.That(game.Crashes, Is.Zero);
+            Assert.That(game.Tank.Respawning, Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator PickupTriggerAppliesOnceAndEveryStatChanges()
+        {
+            float speed = game.Stats.Speed, power = game.Stats.BlastImpulse, cooldown = game.Stats.ShotCooldown, turn = game.Stats.TurnSpeed;
+            var body = game.Tank.GetComponent<Rigidbody>();
+            for (int i = 0; i < 4; i++)
+            {
+                var kind = (UpgradeKind)i;
+                var pickup = game.World.Pickups.Find(x => x.Kind == kind && !x.Collected);
+                body.position = pickup.transform.position;
+                body.rotation = Quaternion.identity;
+                for (int step = 0; step < 3; step++) yield return new WaitForFixedUpdate();
+                Assert.That(pickup.Collected, Is.True);
+                int level = game.Stats.Level(kind);
+                Assert.That(pickup.Collect(), Is.False);
+                Assert.That(game.Stats.Level(kind), Is.EqualTo(level));
+            }
+            Assert.That(game.Stats.Speed, Is.GreaterThan(speed));
+            Assert.That(game.Stats.BlastImpulse, Is.GreaterThan(power));
+            Assert.That(game.Stats.ShotCooldown, Is.LessThan(cooldown));
+            Assert.That(game.Stats.TurnSpeed, Is.GreaterThan(turn));
+            body.position = game.World.SpawnPosition;
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            Assert.That(body.linearVelocity.magnitude, Is.EqualTo(game.Stats.Speed).Within(.1f));
+        }
+
+        [UnityTest]
+        public IEnumerator UpgradesAreCappedSurviveCrashAndResetOnNewRound()
+        {
+            for (int i = 0; i < 30; i++) game.Stats.Upgrade(UpgradeKind.Rapid);
+            Assert.That(game.Stats.Level(UpgradeKind.Rapid), Is.EqualTo(game.Settings.maxUpgradeLevel));
+            Assert.That(game.Stats.ShotCooldown, Is.GreaterThanOrEqualTo(.12f));
+            game.Tank.Explode();
+            yield return new WaitForSeconds(game.Settings.respawnDelay + .1f);
+            Assert.That(game.Stats.Level(UpgradeKind.Rapid), Is.EqualTo(game.Settings.maxUpgradeLevel));
+            game.AdvanceTime(1000);
+            game.StartOrRestart();
+            yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>();
+            Assert.That(game.Stats.Level(UpgradeKind.Rapid), Is.Zero);
+        }
+        [UnityTest]
+        public IEnumerator UpgradedCannonAcceptsShotsSoonerAndReachesFurther()
+        {
+            for (int i = 0; i < game.Settings.maxUpgradeLevel; i++) game.Stats.Upgrade(UpgradeKind.Rapid);
+            game.Tank.Fire(0);
+            yield return new WaitForSeconds(game.Stats.ShotCooldown + .025f);
+            game.Tank.Fire(1);
+            Assert.That(Object.FindObjectsByType<TankShell>(FindObjectsSortMode.None).Length, Is.EqualTo(2), "Both shots must be accepted within the old cooldown");
+            var crate = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Crushable crate");
+            var point = crate.transform.position + Vector3.right * (game.Settings.blastRadius + 1.5f);
+            game.Blast(point);
+            Assert.That(crate.Detached, Is.False);
+            for (int i = 0; i < game.Settings.maxUpgradeLevel; i++) game.Stats.Upgrade(UpgradeKind.Power);
+            game.Blast(point);
+            Assert.That(crate.Detached, Is.True, "The power upgrade must expand the real destruction query");
+            yield return null;
+        }    }
 }

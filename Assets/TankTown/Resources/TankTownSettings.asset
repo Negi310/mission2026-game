@@ -21,8 +21,18 @@ MonoBehaviour:
   blastRadius: 3.8
   blastImpulse: 12
   fatalImpactSpeed: 5
-  maxDebris: 180
+  maxDebris: 280
   debrisLifetime: 9
   pressureThreshold: 0.55
   pressureRelease: 0.25
   citySeed: 2026
+  cityHalfBlocks: 3
+  blockSpacing: 32
+  buildingWidth: 20
+  floorHeight: 3.6
+  maxUpgradeLevel: 8
+  speedUpgrade: 0.08
+  powerUpgrade: 0.18
+  radiusUpgrade: 0.07
+  rapidUpgrade: 0.16
+  handlingUpgrade: 0.06

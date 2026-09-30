@@ -12,6 +12,10 @@ namespace TankTown
         private Transform canvas;
         private Text timer, score, counter, notice, cardTitle, cardBody, buttonText;
         private Image fill;
+        private readonly Text[] statRows = new Text[4];
+        private Text pickupText;
+        private GameObject pickupPanel;
+        private float pickupUntil;
         private GameObject card, noticePanel;
         private readonly Color ink = new Color(.08f, .17f, .22f);
         private readonly Color yellow = new Color(.86f, .97f, .32f);
@@ -40,6 +44,22 @@ namespace TankTown
             var track = Panel("Progress track", progress.transform, new Vector2(20, -59), new Vector2(270, 10), new Color(.8f, .84f, .79f));
             fill = Panel("Progress fill", track.transform, Vector2.zero, new Vector2(0, 10), new Color(.22f, .66f, .51f)).GetComponent<Image>();
             counter = Label(progress.transform, "", new Vector2(20, -79), new Vector2(280, 23), 14, ink);
+            var stats = Panel("Upgrades", canvas, new Vector2(-26, -128), new Vector2(318, 238), ink, true);
+            Label(stats.transform, "パワーアップ", new Vector2(18, -12), new Vector2(280, 28), 18, Color.white);
+            for (int i = 0; i < 4; i++)
+            {
+                var icon = Panel("Stat icon", stats.transform, new Vector2(16, -48 - i * 44), new Vector2(32, 32), Color.white).GetComponent<Image>();
+                icon.sprite = game.World.Icons.Sprite((UpgradeKind)i);
+                statRows[i] = Label(stats.transform, "", new Vector2(60, -49 - i * 44), new Vector2(250, 32), 17, TankStats.Color((UpgradeKind)i));
+                statRows[i].fontStyle = FontStyle.Bold;
+            }
+            pickupPanel = Panel("Pickup notice", canvas, new Vector2(0, -215), new Vector2(350, 54), ink);
+            var pickupRect = pickupPanel.GetComponent<RectTransform>();
+            pickupRect.anchorMin = pickupRect.anchorMax = new Vector2(.5f, 1);
+            pickupRect.pivot = new Vector2(.5f, 1);
+            pickupText = Label(pickupPanel.transform, "", new Vector2(12, -5), new Vector2(326, 44), 23, Color.white);
+            pickupText.alignment = TextAnchor.MiddleCenter;
+            game.Stats.Changed += ShowUpgrade;
             noticePanel = Panel("Respawn notice", canvas, new Vector2(0, -132), new Vector2(720, 64), ink);
             var noticeRect = noticePanel.GetComponent<RectTransform>();
             noticeRect.anchorMin = noticeRect.anchorMax = new Vector2(.5f, 1);
@@ -105,11 +125,18 @@ namespace TankTown
             fill.rectTransform.sizeDelta = new Vector2(270 * game.Destruction / 100, 10);
             notice.text = game.Tank.Respawning && game.IsPlaying ? $"ドカーン！ 安全な場所へもどるよ  −{game.Settings.respawnPenalty:0.#}秒" : "";
             noticePanel.SetActive(game.Tank.Respawning && game.IsPlaying);
+            for (int i = 0; i < 4; i++)
+            {
+                var kind = (UpgradeKind)i;
+                string value = kind == UpgradeKind.Speed ? $"{game.Stats.Speed:0.0}" : kind == UpgradeKind.Power ? $"x{game.Stats.BlastImpulse / game.Settings.blastImpulse:0.00}" : kind == UpgradeKind.Rapid ? $"{1 / game.Stats.ShotCooldown:0.0}/秒" : $"{game.Stats.TurnSpeed:0}°/秒";
+                statRows[i].text = $"{TankStats.Label(kind)} Lv.{game.Stats.Level(kind)}  {value}";
+            }
+            pickupPanel.SetActive(game.IsPlaying && !game.Tank.Respawning && Time.time < pickupUntil);
             card.SetActive(game.State != RoundState.Playing);
             if (game.State == RoundState.Ready)
             {
                 cardTitle.text = "街を、バラバラに！";
-                cardBody.text = "ハンドルで曲がる。たたいて撃つ。\n小さいものは、そのまま体当たり！\n大きなビルは、砲撃でこわそう。";
+                cardBody.text = "ハンドルで曲がる。たたいて撃つ。\n小さいものは、そのまま体当たり！\n大きなビルは、砲撃でこわそう。\n浮かぶアイコンを取ってパワーアップ！";
                 buttonText.text = "あそぶ   →   ENTER";
             }
             else if (game.State == RoundState.Paused)
@@ -126,6 +153,16 @@ namespace TankTown
             }
         }
 
-        private void OnDestroy() { if (font != null) Destroy(font); }
+        private void ShowUpgrade(UpgradeKind kind)
+        {
+            pickupText.text = $"{TankStats.Label(kind)} UP!   Lv.{game.Stats.Level(kind)}";
+            pickupText.color = TankStats.Color(kind);
+            pickupUntil = Time.time + 1.7f;
+        }
+        private void OnDestroy()
+        {
+            if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
+            if (font != null) Destroy(font);
+        }
     }
 }

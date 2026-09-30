@@ -10,6 +10,8 @@ namespace TankTown
     {
         public TankTownSettings Settings { get; private set; }
         public TankInput Input { get; private set; }
+        public TankStats Stats { get; private set; }
+        public TankTownEffects Effects { get; private set; }
         public TankMotor Tank { get; private set; }
         public TankTownWorld World { get; private set; }
         public TankCamera CameraRig { get; private set; }
@@ -23,7 +25,7 @@ namespace TankTown
         private readonly Queue<GameObject> debris = new Queue<GameObject>();
         private readonly List<AudioClip> clips = new List<AudioClip>();
         private AudioSource speaker;
-        private bool ownedSettings, oldIgnore;
+        private bool ownedSettings, oldDebrisIgnore, oldTankIgnore;
 
         private void Awake()
         {
@@ -31,8 +33,12 @@ namespace TankTown
             Settings = Resources.Load<TankTownSettings>("TankTownSettings");
             if (Settings == null) { Settings = ScriptableObject.CreateInstance<TankTownSettings>(); ownedSettings = true; }
             Remaining = Settings.roundSeconds;
-            oldIgnore = Physics.GetIgnoreLayerCollision(2, 2);
-            Physics.IgnoreLayerCollision(2, 2, true);
+            Stats = new TankStats(Settings);
+            Effects = gameObject.AddComponent<TankTownEffects>();
+            oldDebrisIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer);
+            oldTankIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer);
+            Physics.IgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer, true);
+            Physics.IgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer, false);
             Input = gameObject.AddComponent<TankInput>();
             Input.settings = Settings;
             var worldRoot = new GameObject("Procedural Town");
@@ -58,9 +64,9 @@ namespace TankTown
                 camera = item.GetComponent<Camera>();
             }
             camera.fieldOfView = 58;
-            camera.farClipPlane = 220;
+            camera.farClipPlane = 360;
             camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(.64f, .84f, .89f);
+            camera.backgroundColor = new Color(.25f, .75f, 1);
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Target = Tank.transform;
             CameraRig.Snap();
@@ -68,8 +74,8 @@ namespace TankTown
             RenderSettings.fog = true;
             RenderSettings.fogColor = camera.backgroundColor;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 85;
-            RenderSettings.fogEndDistance = 185;
+            RenderSettings.fogStartDistance = 130;
+            RenderSettings.fogEndDistance = 300;
             var sun = new GameObject("Sun").AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.intensity = 1.6f;
@@ -111,45 +117,33 @@ namespace TankTown
             while (debris.Count > Mathf.Max(1, Settings.maxDebris))
             {
                 var old = debris.Dequeue();
-                if (old != null) Destroy(old);
+                if (old != null) { old.SetActive(false); Destroy(old); }
             }
         }
 
-        public void Blast(Vector3 point)
+        public void Blast(Vector3 point) => Blast(point, Stats.BlastRadius, Stats.BlastImpulse);
+
+        public void Blast(Vector3 point, float radius, float impulse)
         {
             if (!IsPlaying) return;
             var buildings = new HashSet<BlockBuilding>();
-            foreach (var collider in Physics.OverlapSphere(point, Settings.blastRadius, ~(1 << 2), QueryTriggerInteraction.Ignore))
+            foreach (var collider in Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
             {
                 var block = collider.GetComponent<DestructibleBlock>();
                 if (block == null || block.Detached) continue;
-                block.Break(point, Settings.blastImpulse);
+                block.Break(point, impulse);
                 if (block.Building != null) buildings.Add(block.Building);
             }
-            foreach (var building in buildings) building.ReleaseUnsupported(point, Settings.blastImpulse);
-            Burst(point, new Color(1, .57f, .16f), 2);
+            foreach (var building in buildings) building.ReleaseUnsupported(point, impulse);
+            Effects.Impact(point, radius);
+            CameraRig?.Kick(.12f);
             PlayTone(85, .16f, .2f);
-        }
-
-        public void Burst(Vector3 position, Color color, float size)
-        {
-            var effect = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            effect.name = "Impact flash";
-            Destroy(effect.GetComponent<Collider>());
-            effect.transform.position = position;
-            var renderer = effect.GetComponent<Renderer>();
-            renderer.sharedMaterial = World.ShotMaterial;
-            var properties = new MaterialPropertyBlock();
-            properties.SetColor("_BaseColor", color);
-            properties.SetColor("_Color", color);
-            renderer.SetPropertyBlock(properties);
-            effect.AddComponent<ImpactFlash>().Size = size;
         }
 
         public void PlayTone(float frequency, float duration, float volume)
         {
-            // Three cached synthesized arcade sounds; no external asset dependency.
-            int index = frequency > 100 ? 0 : frequency > 70 ? 1 : 2;
+            // Cached synthesized arcade sounds, including a distinct pickup chime.
+            int index = frequency >= 300 ? 3 : frequency > 100 ? 0 : frequency > 70 ? 1 : 2;
             while (clips.Count <= index) clips.Add(null);
             if (clips[index] == null)
             {
@@ -169,21 +163,11 @@ namespace TankTown
         private void OnDestroy()
         {
             Time.timeScale = 1;
-            Physics.IgnoreLayerCollision(2, 2, oldIgnore);
+            Physics.IgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer, oldDebrisIgnore);
+            Physics.IgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer, oldTankIgnore);
             foreach (var clip in clips) if (clip != null) Destroy(clip);
             if (ownedSettings) Destroy(Settings);
         }
     }
 
-    public sealed class ImpactFlash : MonoBehaviour
-    {
-        public float Size = 1;
-        private float age;
-        private void Update()
-        {
-            age += Time.deltaTime;
-            transform.localScale = Vector3.one * Size * Mathf.Sin(Mathf.Clamp01(age / .24f) * Mathf.PI);
-            if (age > .24f) Destroy(gameObject);
-        }
-    }
 }

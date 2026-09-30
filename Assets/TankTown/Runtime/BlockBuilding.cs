@@ -7,20 +7,32 @@ namespace TankTown
     {
         public readonly List<DestructibleBlock> Blocks = new List<DestructibleBlock>();
 
-        // Each vertical stack carries the blocks above it. Destroying support releases
-        // those blocks as real rigidbodies, without a baked collapse animation.
+        // A simplified structural graph: columns, beams and slabs must reach the
+        // foundation. Facades receive support but cannot carry the frame themselves.
         public void ReleaseUnsupported(Vector3 origin, float impulse)
         {
-            var brokenLevels = new Dictionary<int, int>();
+            var supported = new HashSet<DestructibleBlock>();
+            var queue = new Queue<DestructibleBlock>();
             foreach (var block in Blocks)
             {
-                if (block == null || !block.Detached) continue;
-                if (!brokenLevels.TryGetValue(block.Column, out int level) || block.Level < level)
-                    brokenLevels[block.Column] = block.Level;
+                if (block == null || block.Detached || !block.Foundation) continue;
+                supported.Add(block);
+                queue.Enqueue(block);
+            }
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                foreach (var next in current.Links)
+                    if (next != null && !next.Detached && next.Kind != BuildingPart.Wall && supported.Add(next)) queue.Enqueue(next);
             }
             foreach (var block in Blocks)
-                if (block != null && !block.Detached && brokenLevels.TryGetValue(block.Column, out int level) && block.Level > level)
-                    block.Break(origin, impulse * 0.45f);
+                if (block != null && !block.Detached && block.Kind == BuildingPart.Wall)
+                    foreach (var support in block.Links)
+                        if (support != null && supported.Contains(support)) { supported.Add(block); break; }
+            foreach (var block in Blocks)
+                if (block != null && !block.Detached && !supported.Contains(block)) block.Break(origin, impulse * .18f);
         }
+
+        public static void Connect(DestructibleBlock a, DestructibleBlock b) { a.Links.Add(b); b.Links.Add(a); }
     }
 }

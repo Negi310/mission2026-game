@@ -25,7 +25,11 @@ namespace TankTown.Editor
             if (!File.Exists("Assets/TankTown/Resources/TankTownSettings.asset"))
                 AssetDatabase.CreateAsset(ScriptableObject.CreateInstance<TankTownSettings>(), "Assets/TankTown/Resources/TankTownSettings.asset");
             if (!File.Exists("Assets/TankTown/Resources/TankTownSurface.mat"))
-                AssetDatabase.CreateAsset(new Material(Shader.Find("Universal Render Pipeline/Lit")), "Assets/TankTown/Resources/TankTownSurface.mat");
+                AssetDatabase.CreateAsset(new Material(Shader.Find("TankTown/Saturated Toon")), "Assets/TankTown/Resources/TankTownSurface.mat");
+            var surface = AssetDatabase.LoadAssetAtPath<Material>("Assets/TankTown/Resources/TankTownSurface.mat");
+            surface.shader = Shader.Find("TankTown/Saturated Toon");
+            surface.enableInstancing = true;
+            EditorUtility.SetDirty(surface);
             if (!File.Exists(ScenePath))
             {
                 var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
