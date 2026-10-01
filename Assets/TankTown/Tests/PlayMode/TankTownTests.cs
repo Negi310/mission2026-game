@@ -36,7 +36,7 @@ namespace TankTown.Tests
             // Poll input once, then measure simulated physics steps rather than the
             // interpolated render pose after a wall-clock wait during scene warm-up.
             yield return null;
-            for (int i = 0; i < 20; i++) yield return new WaitForFixedUpdate();
+            for (int i = 0; i < 60; i++) yield return new WaitForFixedUpdate();
             Assert.That(Vector3.Distance(start, body.position), Is.GreaterThan(1));
             Assert.That(Quaternion.Angle(Quaternion.identity, body.rotation), Is.GreaterThan(10));
         }
@@ -118,7 +118,7 @@ namespace TankTown.Tests
         {
             var body = game.Tank.GetComponent<Rigidbody>();
             var building = game.World.Buildings[0];
-            body.position = building.transform.position + new Vector3(-4.6f, 1, -game.World.BuildingWidth / 2 - 6);
+            body.position = building.transform.position + new Vector3(-4.6f, 1, -building.Width / 2 - 6);
             body.rotation = Quaternion.identity;
             yield return new WaitForFixedUpdate();
             game.Tank.Fire(0);
@@ -126,9 +126,11 @@ namespace TankTown.Tests
             Assert.That(game.BrokenBlocks, Is.GreaterThan(0), "A swept cannonball must hit and destroy the building ahead");
             var crate = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Crushable crate");
             Assert.That(crate, Is.Not.Null);
-            body.position = new Vector3(crate.transform.position.x, 1, crate.transform.position.z - 3);
+            body.position = game.World.GroundPoint(new Vector3(crate.transform.position.x, 0, crate.transform.position.z - 3), game.Settings.rideHeight);
             body.rotation = Quaternion.identity;
-            yield return new WaitForSeconds(.3f);
+            game.Tank.transform.SetPositionAndRotation(body.position, body.rotation);
+            Physics.SyncTransforms();
+            yield return new WaitForSeconds(.55f);
             Assert.That(crate.Detached, Is.True);
         }
 
@@ -136,9 +138,9 @@ namespace TankTown.Tests
         public IEnumerator SolidBuildingCollisionTriggersRespawn()
         {
             var body = game.Tank.GetComponent<Rigidbody>();
-            body.position = game.World.Buildings[0].transform.position + new Vector3(-4.6f, 1, -game.World.BuildingWidth / 2 - 4);
+            body.position = game.World.Buildings[0].transform.position + new Vector3(-4.6f, 1, -game.World.Buildings[0].Width / 2 - 4);
             body.rotation = Quaternion.identity;
-            yield return new WaitForSeconds(.6f);
+            yield return new WaitForSeconds(1.3f);
             Assert.That(game.Crashes, Is.EqualTo(1));
             Assert.That(game.Tank.Respawning, Is.True);
         }
@@ -146,7 +148,8 @@ namespace TankTown.Tests
         public IEnumerator ExpandedBuildingsAreHollowAndFacadesDoNotCarryTheFrame()
         {
             Assert.That(game.World.HalfExtent, Is.EqualTo(134));
-            Assert.That(game.World.Buildings.Count, Is.EqualTo(36));
+            Assert.That(game.World.Buildings.Count, Is.EqualTo(33));
+            Assert.That(game.World.ParkCount, Is.EqualTo(3));
             var building = game.World.Buildings[0];
             Physics.SyncTransforms();
             var interior = Physics.OverlapBox(building.transform.position + Vector3.up * 1.8f, Vector3.one, Quaternion.identity, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore);
@@ -169,9 +172,9 @@ namespace TankTown.Tests
             debrisBody.position = start + new Vector3(1.65f, 0, 4);
             debrisBody.linearVelocity = Vector3.back * 20;
             Assert.That(Physics.GetIgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer), Is.False);
-            for (int i = 0; i < 10; i++) yield return new WaitForFixedUpdate();
+            for (int i = 0; i < 20; i++) yield return new WaitForFixedUpdate();
             Assert.That(debrisBody.linearVelocity.z, Is.GreaterThan(0), "Incoming debris must be deflected by an actual contact");
-            Assert.That(tankBody.position.z - start.z, Is.GreaterThan(1.2f));
+            Assert.That(tankBody.position.z - start.z, Is.GreaterThan(.3f));
             Assert.That(Quaternion.Angle(tankBody.rotation, Quaternion.identity), Is.LessThan(.2f), "Off-centre debris must not steer the tank");
             Assert.That(game.Crashes, Is.Zero);
             Assert.That(game.Tank.Respawning, Is.False);
@@ -199,8 +202,7 @@ namespace TankTown.Tests
             Assert.That(game.Stats.ShotCooldown, Is.LessThan(cooldown));
             Assert.That(game.Stats.TurnSpeed, Is.GreaterThan(turn));
             body.position = game.World.SpawnPosition;
-            yield return new WaitForFixedUpdate();
-            yield return new WaitForFixedUpdate();
+            for (int i = 0; i < 100; i++) yield return new WaitForFixedUpdate();
             Assert.That(body.linearVelocity.magnitude, Is.EqualTo(game.Stats.Speed).Within(.1f));
         }
 
@@ -301,7 +303,7 @@ namespace TankTown.Tests
             var building = game.World.Buildings[0];
             var pillar = building.Blocks.Find(x => x.Foundation && x.Column == 0);
             Assert.That(pillar.transform.localScale.x, Is.EqualTo(1.8f).Within(.01f));
-            game.Blast(building.transform.position + new Vector3(-4.6f, 1.72f, -game.World.BuildingWidth / 2));
+            game.Blast(building.transform.position + new Vector3(-4.6f, 1.72f, -building.Width / 2));
             Assert.That(pillar.Detached, Is.True, "Hitting a facade panel must reach its nearby supporting post");
             yield return null;
         }
@@ -309,14 +311,14 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator TreeCrownContactImmediatelyPushesTheWholeTree()
         {
-            var tree = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Tree");
+            var tree = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Tree" && x.transform.position.x < -60 && x.transform.position.z < -60);
             var tankBody = game.Tank.GetComponent<Rigidbody>();
-            tankBody.position = tree.transform.position + new Vector3(2.2f, 1, -3.8f);
+            tankBody.position = tree.transform.position + new Vector3(2.2f, game.Settings.rideHeight, -3.8f);
             tankBody.rotation = Quaternion.identity;
             game.Tank.transform.SetPositionAndRotation(tankBody.position, tankBody.rotation);
             Physics.SyncTransforms();
             // This lateral offset misses the narrow trunk and contacts only the crown.
-            for (int i = 0; i < 20; i++) yield return new WaitForFixedUpdate();
+            for (int i = 0; i < 50; i++) yield return new WaitForFixedUpdate();
             Assert.That(tree.Detached, Is.True);
             Assert.That(tree.GetComponent<Rigidbody>().linearVelocity.z, Is.GreaterThan(0));
             Assert.That(tree.transform.Find("Tree crown").gameObject.layer, Is.EqualTo(TownPhysics.DebrisLayer));
@@ -329,11 +331,113 @@ namespace TankTown.Tests
         {
             game.CameraRig.Snap();
             var body = game.Tank.GetComponent<Rigidbody>();
-            Assert.That(Vector3.Distance(game.CameraRig.transform.position, body.position), Is.LessThan(3));
-            Assert.That(game.CameraRig.transform.position.y - body.position.y, Is.InRange(1.3f, 2));
+            Assert.That(Vector3.Distance(game.CameraRig.transform.position, body.position), Is.InRange(3, 4));
+            Assert.That(game.CameraRig.transform.position.y - body.position.y, Is.InRange(2.2f, 2.6f));
             Assert.That(Vector3.Angle(game.CameraRig.transform.forward, body.rotation * Vector3.forward), Is.LessThan(5));
             Assert.That(Camera.main.fieldOfView, Is.EqualTo(72));
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator AccelerationAndSteeringPreserveMomentum()
+        {
+            var body = game.Tank.GetComponent<Rigidbody>();
+            game.Input.useHardware = true; game.Input.SetWheel(0);
+            yield return null;
+            for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
+            Assert.That(game.Tank.ActualSpeed, Is.LessThan(game.Stats.Speed * .2f), "Starting must accelerate instead of jumping to full speed");
+            for (int i = 0; i < 47; i++) yield return new WaitForFixedUpdate();
+            Assert.That(game.Tank.ActualSpeed, Is.InRange(5, 7));
+            game.Input.SetWheel(1); yield return null;
+            for (int i = 0; i < 15; i++) yield return new WaitForFixedUpdate();
+            Assert.That(Mathf.Abs(Vector3.Dot(body.linearVelocity, body.rotation * Vector3.right)), Is.GreaterThan(.1f), "A turn must retain some lateral momentum");
+            var beforeRelease = body.rotation;
+            game.Input.SetWheel(0); yield return null; yield return new WaitForFixedUpdate();
+            Assert.That(Quaternion.Angle(beforeRelease, body.rotation), Is.GreaterThan(.2f), "The steering wheel must return smoothly");
+            for (int i = 0; i < 30; i++) yield return new WaitForFixedUpdate();
+            var straight = body.rotation;
+            for (int i = 0; i < 10; i++) yield return new WaitForFixedUpdate();
+            Assert.That(Quaternion.Angle(straight, body.rotation), Is.LessThan(.4f), "The car must straighten after the steering returns");
+        }
+
+        [UnityTest]
+        public IEnumerator VehicleClimbsAndFollowsTheRealRoadSurface()
+        {
+            var body = game.Tank.GetComponent<Rigidbody>();
+            game.Input.useHardware = true; game.Input.SetWheel(0);
+            body.position = game.World.GroundPoint(new Vector3(0, 0, 8), game.Settings.rideHeight);
+            body.rotation = Quaternion.identity; body.linearVelocity = Vector3.zero;
+            game.Tank.transform.SetPositionAndRotation(body.position, body.rotation); Physics.SyncTransforms();
+            float startHeight = body.position.y, maxPitch = 0;
+            yield return null;
+            for (int i = 0; i < 200; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                maxPitch = Mathf.Max(maxPitch, Mathf.Abs((body.rotation * Vector3.forward).y));
+            }
+            Assert.That(body.position.z, Is.GreaterThan(30));
+            Assert.That(body.position.y, Is.GreaterThan(startHeight + 2));
+            Assert.That(maxPitch, Is.GreaterThan(.1f), "The tank must pitch upward on a slope");
+            Assert.That(Physics.Raycast(body.position + Vector3.up, Vector3.down, out var ground, 5, TownPhysics.GroundMask), Is.True);
+            Assert.That(body.position.y - ground.point.y, Is.EqualTo(game.Settings.rideHeight).Within(.25f));
+            Assert.That(game.Crashes, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator VariedPlotsAndPickupsStandOnTheElevatedGround()
+        {
+            var widths = new System.Collections.Generic.HashSet<float>();
+            var floors = new System.Collections.Generic.HashSet<int>();
+            float min = float.MaxValue, max = float.MinValue;
+            foreach (var building in game.World.Buildings)
+            {
+                var p = building.transform.position; widths.Add(building.Width); floors.Add(building.Floors);
+                min = Mathf.Min(min, p.y); max = Mathf.Max(max, p.y);
+                Assert.That(p.y, Is.EqualTo(game.World.Terrain.HeightAt(p)).Within(.01f));
+                foreach (var post in building.Blocks.FindAll(x => x.Foundation))
+                    Assert.That(game.World.Terrain.HeightAt(post.transform.position), Is.EqualTo(p.y).Within(.01f), "Foundations must lie on a flat plot");
+            }
+            Assert.That(max - min, Is.GreaterThan(7));
+            Assert.That(widths.Count, Is.GreaterThanOrEqualTo(3)); Assert.That(floors.Count, Is.GreaterThanOrEqualTo(4));
+            foreach (var pickup in game.World.Pickups)
+                Assert.That(pickup.transform.position.y - game.World.Terrain.HeightAt(pickup.transform.position), Is.EqualTo(1.2f).Within(.3f));
+            var p1 = new Vector3(-80, 0, 20);
+            Assert.That(Physics.Raycast(p1 + Vector3.up * 20, Vector3.down, out var hit, 30, TownPhysics.GroundMask), Is.True);
+            Assert.That(hit.point.y, Is.EqualTo(game.World.Terrain.HeightAt(p1)).Within(.1f), "The rendered ramps must also be physical terrain");
+            Assert.That(game.World.Terrain.HeightAt(new Vector3(0, 0, 39.99f)), Is.EqualTo(game.World.Terrain.HeightAt(new Vector3(0, 0, 40.01f))).Within(.01f));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SlantedTerrainCannotSteerTheTankWithoutInput()
+        {
+            var body = game.Tank.GetComponent<Rigidbody>();
+            game.Input.useHardware = true; game.Input.SetWheel(0);
+            body.position = game.World.GroundPoint(new Vector3(8.1f, 0, 18), game.Settings.rideHeight);
+            body.rotation = Quaternion.identity; body.linearVelocity = Vector3.zero;
+            game.Tank.transform.SetPositionAndRotation(body.position, body.rotation); Physics.SyncTransforms();
+            yield return null;
+            for (int i = 0; i < 30; i++) yield return new WaitForFixedUpdate();
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, body.rotation.eulerAngles.y)), Is.LessThan(.4f), "Following a diagonal ground normal must not change heading");
+            Assert.That(game.Crashes, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator PlazaFountainHasAMatchingColliderAndIsCrushable()
+        {
+            var fountain = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Crushable fountain" && x.transform.position.x < 0);
+            var collider = fountain.GetComponent<MeshCollider>();
+            Assert.That(collider.convex, Is.True);
+            Physics.SyncTransforms();
+            Assert.That(collider.bounds.size.y, Is.EqualTo(1).Within(.1f), "The low fountain must not use an oversized spherical collision shape");
+            var body = game.Tank.GetComponent<Rigidbody>();
+            body.position = game.World.GroundPoint(fountain.transform.position + Vector3.back * 4.3f, game.Settings.rideHeight);
+            body.rotation = Quaternion.identity; body.linearVelocity = Vector3.zero;
+            game.Tank.transform.SetPositionAndRotation(body.position, body.rotation); Physics.SyncTransforms();
+            for (int i = 0; i < 40; i++) yield return new WaitForFixedUpdate();
+            Assert.That(fountain.Detached, Is.True);
+            Assert.That(fountain.GetComponent<Rigidbody>().linearVelocity.z, Is.GreaterThan(0));
+            Assert.That(game.Crashes, Is.Zero);
         }
     }
 }

@@ -10,6 +10,13 @@ namespace TankTown
         [Min(0.1f)] public float respawnDelay = 1.2f;
         [Min(1)] public float driveSpeed = 9;
         [Min(1)] public float turnSpeed = 85;
+        [Header("Driving")]
+        [Min(.1f)] public float acceleration = 6;
+        [Min(2)] public float wheelbase = 3.8f;
+        [Range(10, 45)] public float steeringAngle = 32;
+        [Min(.1f)] public float steeringResponse = 5;
+        [Min(.1f)] public float tireGrip = 7;
+        [Min(.8f)] public float rideHeight = 1;
         [Min(0)] public float shotCooldown = 0.35f;
         [Min(1)] public float blastRadius = 6.5f;
         [Min(0)] public float blastImpulse = 20;
@@ -27,8 +34,11 @@ namespace TankTown
         [Range(.6f, 3)] public float pillarWidth = 1.8f;
         [Range(0, 1)] public float stabilityMargin = .25f;
         [Min(2)] public float floorHeight = 3.6f;
+        [Range(0, 5)] public float terraceHeight = 3.5f;
+        [Header("Effects")]
+        [Range(1, 2.5f)] public float explosionVisualScale = 1.55f;
         [Header("Camera")]
-        public Vector3 cameraOffset = new Vector3(0, 1.6f, .25f);
+        public Vector3 cameraOffset = new Vector3(0, 2.4f, -2.2f);
         [Range(50, 90)] public float cameraFieldOfView = 72;
         [Header("Power-ups (per level)")]
         [Range(1, 12)] public int maxUpgradeLevel = 8;

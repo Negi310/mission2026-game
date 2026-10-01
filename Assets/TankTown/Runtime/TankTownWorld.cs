@@ -10,7 +10,10 @@ namespace TankTown
         public float HalfExtent { get; private set; }
         public float RoadWidth => Mathf.Clamp(game.Settings.roadWidth, 8, game.Settings.blockSpacing - 14);
         public float BuildingWidth => Mathf.Clamp(game.Settings.buildingWidth, 10, game.Settings.blockSpacing - RoadWidth - 4);
-        public Vector3 SpawnPosition => new Vector3(0, 1, -HalfExtent + 20);
+        public Vector3 SpawnPosition => GroundPoint(new Vector3(0, 0, -HalfExtent + 20), game.Settings.rideHeight);
+        public TownTerrain Terrain { get; private set; }
+        public int ParkCount { get; private set; }
+        public Vector3 GroundPoint(Vector3 p, float lift = 0) { p.y = Terrain.HeightAt(p) + lift; return p; }
         public readonly List<BlockBuilding> Buildings = new List<BlockBuilding>();
         public readonly List<TankPickup> Pickups = new List<TankPickup>();
         private readonly List<Material> materials = new List<Material>();
@@ -53,34 +56,42 @@ namespace TankTown
             frame = MakeMaterial(new Color(.85f, .91f, 1));
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
             Icons = new UpgradeIcons();
-            Box("Island", new Vector3(0, -.9f, 0), new Vector3(HalfExtent * 2, 1.8f, HalfExtent * 2), grass);
+            Terrain = new TownTerrain(game.Settings, transform, RoadWidth);
+            Box("Island", new Vector3(0, -.9f, 0), new Vector3(HalfExtent * 2, 1.8f, HalfExtent * 2), grass, solid: false);
             float paving = HalfExtent * 2 - 8;
-            Box("Town paving", new Vector3(0, .015f, 0), new Vector3(paving, .03f, paving), cream, solid: false);
+            Terrain.Surface("Terraced ground", new Vector2(-HalfExtent, -HalfExtent), Vector2.one * HalfExtent * 2, 0, grass, true);
+            Terrain.Surface("Town paving", Vector2.one * -paving / 2, Vector2.one * paving, .015f, cream);
             float spacing = game.Settings.blockSpacing;
             int half = game.Settings.cityHalfBlocks;
             for (int i = -half; i <= half; i++)
             {
                 float lane = i * spacing;
-                Box("North south avenue", new Vector3(lane, .04f, 0), new Vector3(RoadWidth, .04f, paving), road, solid: false);
-                Box("East west avenue", new Vector3(0, .045f, lane), new Vector3(paving, .04f, RoadWidth), road, solid: false);
+                Terrain.Surface("North south ramp avenue", new Vector2(lane - RoadWidth / 2, -paving / 2), new Vector2(RoadWidth, paving), .045f, road);
+                Terrain.Surface("East west ramp avenue", new Vector2(-paving / 2, lane - RoadWidth / 2), new Vector2(paving, RoadWidth), .05f, road);
                 for (float d = -paving / 2 + 2; d < paving / 2; d += 4)
                 {
                     if (Mathf.Abs(d - Mathf.Round(d / spacing) * spacing) < RoadWidth / 2 + 1) continue;
-                    Box("Lane dash", new Vector3(lane, .075f, d), new Vector3(.18f, .02f, 1.8f), cream, solid: false);
-                    Box("Lane dash", new Vector3(d, .075f, lane), new Vector3(1.8f, .02f, .18f), cream, solid: false);
+                    SurfaceBox("Lane dash", new Vector3(lane, 0, d), new Vector3(.18f, .02f, 1.8f), cream);
+                    SurfaceBox("Lane dash", new Vector3(d, 0, lane), new Vector3(1.8f, .02f, .18f), cream);
                 }
             }
             var random = new System.Random(game.Settings.citySeed);
             for (int x = -half; x < half; x++)
                 for (int z = -half; z < half; z++)
                 {
-                    var center = new Vector3((x + .5f) * spacing, 0, (z + .5f) * spacing);
-                    CreateBuilding(center, random.Next(4, 8), MakeMaterial(palette[random.Next(palette.Length)]));
+                    var center = GroundPoint(new Vector3((x + .5f) * spacing, 0, (z + .5f) * spacing));
+                    bool park = (x == 0 && z == 0) || (x == -2 && z == -1) || (x == 1 && z == -2);
+                    int style = (x - z + half * 3 + 6) % 3;
+                    if (x == -half && z == -half) style = 1;
+                    int floors = style == 0 ? random.Next(6, 9) : style == 1 ? random.Next(4, 7) : random.Next(2, 4);
+                    float width = Mathf.Max(10, BuildingWidth * (style == 0 ? .72f : style == 2 ? .88f : 1));
+                    if (park) CreatePark(center);
+                    else CreateBuilding(center, floors, MakeMaterial(palette[random.Next(palette.Length)]), width, style);
                     float sidewalk = BuildingWidth / 2 + 1.5f;
                     CreateProp(center + new Vector3(-sidewalk, 0, -sidewalk), "Street sign", ShotMaterial, true);
                     CreateProp(center + new Vector3(sidewalk, 0, sidewalk), "Tree", grass, false);
                     CreateProp(center + new Vector3(-sidewalk, 0, sidewalk), "Street lamp", cream, true);
-                    var crate = Box("Crushable crate", center + new Vector3(sidewalk, .6f, -sidewalk), Vector3.one * 1.2f, lime);
+                    var crate = Box("Crushable crate", GroundPoint(center + new Vector3(sidewalk, 0, -sidewalk), .6f), Vector3.one * 1.2f, lime);
                     AddBlock(crate, true);
                     var pickupPosition = x == 0 && z == -half ? new Vector3(spacing * .375f, 1.2f, z * spacing) : new Vector3(x * spacing, 1.2f, (z + .45f) * spacing);
                     CreatePickup(pickupPosition, (UpgradeKind)random.Next(4));
@@ -91,15 +102,55 @@ namespace TankTown
             float edge = HalfExtent - 4;
             for (float i = -edge; i <= edge; i += 4)
             {
-                Box("Edge stripe", new Vector3(i, .09f, edge), new Vector3(2, .1f, .6f), ShotMaterial, solid: false);
-                Box("Edge stripe", new Vector3(i, .09f, -edge), new Vector3(2, .1f, .6f), ShotMaterial, solid: false);
-                Box("Edge stripe", new Vector3(edge, .09f, i), new Vector3(.6f, .1f, 2), ShotMaterial, solid: false);
-                Box("Edge stripe", new Vector3(-edge, .09f, i), new Vector3(.6f, .1f, 2), ShotMaterial, solid: false);
+                SurfaceBox("Edge stripe", new Vector3(i, 0, edge), new Vector3(2, .1f, .6f), ShotMaterial);
+                SurfaceBox("Edge stripe", new Vector3(i, 0, -edge), new Vector3(2, .1f, .6f), ShotMaterial);
+                SurfaceBox("Edge stripe", new Vector3(edge, 0, i), new Vector3(.6f, .1f, 2), ShotMaterial);
+                SurfaceBox("Edge stripe", new Vector3(-edge, 0, i), new Vector3(.6f, .1f, 2), ShotMaterial);
+                foreach (var p in new[] { new Vector3(i, 0, HalfExtent), new Vector3(i, 0, -HalfExtent), new Vector3(HalfExtent, 0, i), new Vector3(-HalfExtent, 0, i) })
+                {
+                    float height = Terrain.HeightAt(p) + 1.8f;
+                    Box("Island retaining edge", new Vector3(p.x, height / 2 - 1.8f, p.z), Mathf.Abs(p.x) == HalfExtent ? new Vector3(.3f, height, 4) : new Vector3(4, height, .3f), grass, solid: false);
+                }
+            }
+        }
+
+        private void SurfaceBox(string label, Vector3 p, Vector3 size, Material material)
+        {
+            var item = Box(label, GroundPoint(p, .08f), size, material, solid: false);
+            item.transform.rotation = Quaternion.FromToRotation(Vector3.up, Terrain.NormalAt(p));
+        }
+        private void CreatePark(Vector3 center)
+        {
+            ParkCount++;
+            float width = BuildingWidth;
+            Terrain.Surface("Garden plaza", new Vector2(center.x - width / 2, center.z - width / 2), Vector2.one * width, .04f, grass);
+            var fountain = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            fountain.name = "Crushable fountain";
+            fountain.transform.SetParent(transform, false);
+            fountain.transform.position = center + Vector3.up * .5f;
+            fountain.transform.localScale = new Vector3(4, .5f, 4);
+            fountain.GetComponent<Renderer>().sharedMaterial = cream;
+            fountain.GetComponent<Collider>().enabled = false; Destroy(fountain.GetComponent<Collider>());
+            var fountainCollider = fountain.AddComponent<MeshCollider>();
+            fountainCollider.sharedMesh = fountain.GetComponent<MeshFilter>().sharedMesh; fountainCollider.convex = true;
+            AddBlock(fountain, true);
+            var water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            water.name = "Fountain water"; water.transform.SetParent(fountain.transform, false);
+            water.transform.localPosition = Vector3.up * 1.03f; water.transform.localScale = new Vector3(.78f, .04f, .78f);
+            water.GetComponent<Collider>().enabled = false; Destroy(water.GetComponent<Collider>());
+            water.GetComponent<Renderer>().sharedMaterial = glass;
+            for (int i = 0; i < 4; i++)
+            {
+                var direction = Quaternion.Euler(0, i * 90, 0) * Vector3.forward;
+                var bench = Box("Crushable bench", GroundPoint(center + direction * 7, .45f), new Vector3(2.6f, .9f, .8f), ShotMaterial);
+                bench.transform.rotation = Quaternion.Euler(0, i * 90, 0); AddBlock(bench, true);
+                CreateProp(center + Quaternion.Euler(0, i * 90 + 45, 0) * Vector3.forward * 8, "Tree", grass, false);
             }
         }
 
         private void CreatePickup(Vector3 position, UpgradeKind kind)
         {
+            position = GroundPoint(position, 1.2f);
             var item = new GameObject(TankStats.Label(kind) + " UP");
             item.transform.SetParent(transform, false);
             item.transform.position = position;
@@ -117,15 +168,15 @@ namespace TankTown
             return block;
         }
 
-        private void CreateBuilding(Vector3 center, int floors, Material color)
+        private void CreateBuilding(Vector3 center, int floors, Material color, float width, int style)
         {
-            var root = new GameObject("Frame building");
+            var root = new GameObject(style == 0 ? "Tower frame" : style == 1 ? "Apartment frame" : "Shop frame");
             root.transform.SetParent(transform);
             root.transform.position = center;
             var building = root.AddComponent<BlockBuilding>();
             building.Initialize(game);
+            building.Width = width; building.Floors = floors;
             Buildings.Add(building);
-            float width = BuildingWidth;
             float pillar = Mathf.Clamp(game.Settings.pillarWidth, .6f, width / 5);
             float height = game.Settings.floorHeight, h = (width - pillar) / 2;
             var corners = new[] { new Vector3(-h, 0, -h), new Vector3(h, 0, -h), new Vector3(h, 0, h), new Vector3(-h, 0, h) };
@@ -167,6 +218,21 @@ namespace TankTown
                 }
                 previous = pillars;
             }
+            if (style == 2)
+            {
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var roof = Part("Shop gable roof", new Vector3(0, floors * height + .65f, side * width / 4), new Vector3(width + .3f, .3f, width * .54f), color, BuildingPart.Prop, floors - 1, -1, building);
+                    roof.transform.localRotation = Quaternion.Euler(side * 15, 0, 0);
+                    foreach (var post in previous) BlockBuilding.Connect(roof, post);
+                }
+            }
+            else
+            {
+                float roofHeight = style == 0 ? 3 : 1.2f;
+                var roof = Part(style == 0 ? "Tower crown" : "Roof utility", new Vector3(0, floors * height + roofHeight / 2), new Vector3(width * .3f, roofHeight, width * .3f), style == 0 ? color : dark, BuildingPart.Prop, floors - 1, -1, building);
+                foreach (var post in previous) BlockBuilding.Connect(roof, post);
+            }
         }
 
         private DestructibleBlock Part(string label, Vector3 position, Vector3 size, Material material, BuildingPart kind, int level, int column, BlockBuilding building)
@@ -182,6 +248,7 @@ namespace TankTown
 
         private void CreateProp(Vector3 position, string label, Material color, bool sign)
         {
+            position = GroundPoint(position);
             var item = new GameObject(label);
             item.transform.SetParent(transform, false);
             item.transform.position = position;
@@ -236,6 +303,7 @@ namespace TankTown
 
         private void OnDestroy()
         {
+            Terrain?.Dispose();
             foreach (var material in materials) if (material != null) Destroy(material);
             Icons?.Dispose();
         }

@@ -5,7 +5,7 @@ namespace TankTown
     public sealed class TankCamera : MonoBehaviour
     {
         public Transform Target { get; set; }
-        public Vector3 Offset { get; set; } = new Vector3(0, 1.6f, .25f);
+        public Vector3 Offset { get; set; } = new Vector3(0, 2.4f, -2.2f);
         private Vector3 velocity, smoothPosition;
         private float kick;
         public void Kick(float amount) => kick = Mathf.Min(.12f, kick + amount);

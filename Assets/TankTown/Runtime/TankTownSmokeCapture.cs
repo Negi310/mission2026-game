@@ -39,12 +39,12 @@ namespace TankTown
             game.CameraRig.enabled = true;
             game.CameraRig.Snap();
             game.StartOrRestart();
-            yield return new WaitForSeconds(1.35f);
+            yield return new WaitForSeconds(3.25f);
             Capture(Path.Combine(output, "03-upgrades.png"));
             yield return new WaitForSeconds(2.2f);
             var body = game.Tank.GetComponent<Rigidbody>();
-            var building = game.World.Buildings.Find(x => x.transform.position.x > 0 && x.transform.position.z < -60);
-            body.position = building.transform.position + new Vector3(-4.6f, 1, -game.World.BuildingWidth / 2 - 6);
+            var building = game.World.Buildings[0];
+            body.position = building.transform.position + new Vector3(-4.6f, game.Settings.rideHeight, -building.Width / 2 - 9);
             body.rotation = Quaternion.identity;
             game.Tank.transform.SetPositionAndRotation(body.position, body.rotation);
             Physics.SyncTransforms();
@@ -53,7 +53,7 @@ namespace TankTown
             game.Tank.Fire(0);
             yield return null;
             Capture(Path.Combine(output, "04-muzzle.png"));
-            yield return new WaitForSeconds(.22f);
+            yield return new WaitForSeconds(.28f);
             Capture(Path.Combine(output, "05-explosion.png"));
             yield return new WaitForSeconds(.2f);
             game.CameraRig.enabled = false;
@@ -69,6 +69,13 @@ namespace TankTown
             yield return new WaitForSeconds(.15f);
             Capture(Path.Combine(output, "07-respawn.png"));
             yield return new WaitForSeconds(game.Settings.respawnDelay + .3f);
+            body.position = game.World.GroundPoint(new Vector3(0, 0, 8), game.Settings.rideHeight);
+            body.rotation = Quaternion.identity; body.linearVelocity = Vector3.zero;
+            game.Tank.transform.SetPositionAndRotation(body.position, body.rotation);
+            Physics.SyncTransforms(); game.CameraRig.Snap();
+            yield return new WaitForSeconds(2.8f);
+            float hillHeight = body.position.y;
+            Capture(Path.Combine(output, "08-slope.png"));
             // Exercise large collapses and the active-debris budget, with normal physics running.
             int peakBodies = 0;
             foreach (var targetBuilding in game.World.Buildings)
@@ -80,9 +87,9 @@ namespace TankTown
             }
             game.AdvanceTime(1000);
             yield return new WaitForSecondsRealtime(.2f);
-            Capture(Path.Combine(output, "08-results.png"));
+            Capture(Path.Combine(output, "09-results.png"));
             yield return new WaitForSecondsRealtime(.4f);
-            Debug.Log($"SMOKE COMPLETE: blocks={game.BrokenBlocks}/{game.TotalBlocks}, crashes={game.Crashes}, state={game.State}, debrisPeak={peakBodies}, speedLevel={game.Stats.Level(UpgradeKind.Speed)}, powerLevel={game.Stats.Level(UpgradeKind.Power)}, rapidLevel={game.Stats.Level(UpgradeKind.Rapid)}, handlingLevel={game.Stats.Level(UpgradeKind.Handling)}, collapsedBuildings={game.World.Buildings.FindAll(x => x.Collapsed).Count}");
+            Debug.Log($"SMOKE COMPLETE: blocks={game.BrokenBlocks}/{game.TotalBlocks}, crashes={game.Crashes}, state={game.State}, debrisPeak={peakBodies}, speedLevel={game.Stats.Level(UpgradeKind.Speed)}, powerLevel={game.Stats.Level(UpgradeKind.Power)}, rapidLevel={game.Stats.Level(UpgradeKind.Rapid)}, handlingLevel={game.Stats.Level(UpgradeKind.Handling)}, collapsedBuildings={game.World.Buildings.FindAll(x => x.Collapsed).Count}, parks={game.World.ParkCount}, hillHeight={hillHeight:0.00}");
             Application.Quit(0);
         }
 

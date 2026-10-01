@@ -17,6 +17,12 @@ MonoBehaviour:
   respawnDelay: 1.2
   driveSpeed: 9
   turnSpeed: 85
+  acceleration: 6
+  wheelbase: 3.8
+  steeringAngle: 32
+  steeringResponse: 5
+  tireGrip: 7
+  rideHeight: 1
   shotCooldown: 0.35
   blastRadius: 6.5
   blastImpulse: 20
@@ -32,9 +38,11 @@ MonoBehaviour:
   roadWidth: 16
   pillarWidth: 1.8
   stabilityMargin: 0.25
-  cameraOffset: {x: 0, y: 1.6, z: 0.25}
+  cameraOffset: {x: 0, y: 2.4, z: -2.2}
   cameraFieldOfView: 72
   floorHeight: 3.6
+  terraceHeight: 3.5
+  explosionVisualScale: 1.55
   maxUpgradeLevel: 8
   speedUpgrade: 0.08
   powerUpgrade: 0.18

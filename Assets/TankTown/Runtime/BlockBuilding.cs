@@ -7,6 +7,8 @@ namespace TankTown
     {
         public readonly List<DestructibleBlock> Blocks = new List<DestructibleBlock>();
         public bool Collapsed { get; private set; }
+        public float Width { get; set; }
+        public int Floors { get; set; }
         public int CollapsedFromLevel { get; private set; } = int.MaxValue;
         private TankTownGame game;
         public void Initialize(TankTownGame owner) => game = owner;
