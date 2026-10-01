@@ -14,7 +14,8 @@ namespace TankTown
         private static void Install()
         {
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-smoke") >= 0 ||
-                Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-items-smoke") >= 0)
+                Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-items-smoke") >= 0 ||
+                Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-smoke") >= 0)
                 new GameObject("Visual smoke capture").AddComponent<TankTownSmokeCapture>();
         }
 
@@ -26,6 +27,11 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(2);
             var game = FindFirstObjectByType<TankTownGame>();
             if (game == null) { Debug.LogError("SMOKE: missing game"); Application.Quit(1); yield break; }
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-smoke") >= 0)
+            {
+                yield return CameraTour(game, output);
+                yield break;
+            }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-items-smoke") >= 0)
             {
                 yield return ItemsTour(game, output);
@@ -100,6 +106,32 @@ namespace TankTown
             Debug.Log($"SMOKE COMPLETE: blocks={game.BrokenBlocks}/{game.TotalBlocks}, crashes={game.Crashes}, state={game.State}, debrisPeak={peakBodies}, speedLevel={game.Stats.Level(UpgradeKind.Speed)}, powerLevel={game.Stats.Level(UpgradeKind.Power)}, rapidLevel={game.Stats.Level(UpgradeKind.Rapid)}, handlingLevel={game.Stats.Level(UpgradeKind.Handling)}, collapsedBuildings={game.World.Buildings.FindAll(x => x.Collapsed).Count}, parks={game.World.ParkCount}, hillHeight={hillHeight:0.00}, hillSpeed={hillSpeed:0.00}, cannonElevation={cannonElevation:0.00}");
             Application.Quit(0);
         }
+
+        private IEnumerator CameraTour(TankTownGame game, string output)
+        {
+            game.StartOrRestart(); game.Input.useHardware = true; game.Input.SetWheel(1);
+            yield return null;
+            for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
+            var body = game.Tank.GetComponent<Rigidbody>();
+            float turretLead = Mathf.DeltaAngle(0, game.Tank.Turret.localEulerAngles.y);
+            float earlyHull = Mathf.DeltaAngle(0, body.rotation.eulerAngles.y);
+            game.CameraRig.Snap();
+            float earlyCamera = HorizontalAngle(Camera.main.transform.forward, body.rotation * Vector3.forward);
+            float cameraTurret = HorizontalAngle(Camera.main.transform.forward, game.Tank.Muzzle.forward);
+            Capture(Path.Combine(output, "camera-01-turret-lead.png"));
+            yield return new WaitForSeconds(.45f);
+            float followCamera = HorizontalAngle(Camera.main.transform.forward, body.rotation * Vector3.forward);
+            Capture(Path.Combine(output, "camera-02-hull-follow.png"));
+            game.Input.SetWheel(0);
+            yield return new WaitForSeconds(.7f);
+            float centeredCamera = HorizontalAngle(Camera.main.transform.forward, body.rotation * Vector3.forward);
+            Capture(Path.Combine(output, "camera-03-centered.png"));
+            Debug.Log($"CAMERA SMOKE COMPLETE: turretLead={turretLead:0.00}, earlyHull={earlyHull:0.00}, earlyCameraHullAngle={earlyCamera:0.00}, earlyCameraTurretAngle={cameraTurret:0.00}, followCameraHullAngle={followCamera:0.00}, centeredCameraHullAngle={centeredCamera:0.00}, crashes={game.Crashes}");
+            Application.Quit(0);
+        }
+
+        private static float HorizontalAngle(Vector3 a, Vector3 b)
+            => Vector3.Angle(Vector3.ProjectOnPlane(a, Vector3.up), Vector3.ProjectOnPlane(b, Vector3.up));
 
         private IEnumerator ItemsTour(TankTownGame game, string output)
         {

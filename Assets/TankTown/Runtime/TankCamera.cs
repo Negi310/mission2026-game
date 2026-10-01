@@ -5,7 +5,6 @@ namespace TankTown
     public sealed class TankCamera : MonoBehaviour
     {
         public Transform Target { get; set; }
-        public Transform AimTarget { get; set; }
         public Vector3 Offset { get; set; } = new Vector3(0, 2.4f, -2.2f);
         private Vector3 velocity, smoothPosition;
         private float kick;
@@ -18,7 +17,6 @@ namespace TankTown
             var position = body != null ? body.position : Target.position;
             var rotation = body != null ? body.rotation : Target.rotation;
             var forward = rotation * Vector3.forward;
-            if (AimTarget != null) forward = rotation * Quaternion.Inverse(Target.rotation) * AimTarget.forward;
             float scale = Target.GetComponent<TankMotor>()?.VehicleScale ?? 1;
             transform.position = position + rotation * Offset * scale;
             transform.LookAt(Aim(position, forward));
@@ -37,7 +35,7 @@ namespace TankTown
             smoothPosition = Vector3.SmoothDamp(smoothPosition, desired, ref velocity, .045f);
             kick = Mathf.MoveTowards(kick, 0, Time.deltaTime * .9f);
             transform.position = smoothPosition + Random.insideUnitSphere * kick;
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(Aim(Target.position, AimTarget != null ? AimTarget.forward : Target.forward) - transform.position), 1 - Mathf.Exp(-24 * Time.deltaTime));
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(Aim(Target.position, Target.forward) - transform.position), 1 - Mathf.Exp(-24 * Time.deltaTime));
         }
     }
 }

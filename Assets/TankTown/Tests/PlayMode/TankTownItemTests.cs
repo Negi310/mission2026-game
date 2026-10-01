@@ -40,6 +40,9 @@ namespace TankTown.Tests
             for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
             Assert.That(game.Tank.Turret.localEulerAngles.y, Is.GreaterThan(8));
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, body.rotation.eulerAngles.y)), Is.LessThan(.4f), "The hull must wait while the turret turns first");
+            game.CameraRig.Snap();
+            Assert.That(Vector3.Angle(game.CameraRig.transform.forward, body.rotation * Vector3.forward), Is.LessThan(5), "Camera snap must follow the hull while the turret leads");
+            Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(game.Tank.Muzzle.forward, Vector3.up)), Is.GreaterThan(8));
             var origin = game.Tank.Muzzle.position; var direction = game.Tank.Muzzle.forward;
             game.Input.PulsePad(0);
             var shot = Object.FindFirstObjectByType<TankShell>(); Assert.That(shot, Is.Not.Null);
@@ -48,6 +51,8 @@ namespace TankTown.Tests
             for (int i = 0; i < 25; i++) yield return new WaitForFixedUpdate();
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, body.rotation.eulerAngles.y)), Is.GreaterThan(10));
             Assert.That(game.Tank.Turret.localEulerAngles.y, Is.EqualTo(game.Settings.turretMaxYaw).Within(.1f));
+            yield return new WaitForSeconds(.15f);
+            Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(body.rotation * Vector3.forward, Vector3.up)), Is.LessThan(6), "The moving camera must follow hull rotation rather than turret rotation");
         }
         [UnityTest]
         public IEnumerator FieldHasSixTypesAndWeaponPickupUsesTheNextPressurePulse()
