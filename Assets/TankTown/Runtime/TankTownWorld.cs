@@ -284,16 +284,20 @@ namespace TankTown
             visual.SetParent(tank.transform, false);
             Box("Hull", Vector3.zero, new Vector3(2.4f, .85f, 3.1f), lime, visual, false);
             Box("Turret", new Vector3(0, .68f, -.15f), new Vector3(1.5f, .75f, 1.6f), lime, visual, false);
-            Box("Fixed cannon", new Vector3(0, .72f, 1.65f), new Vector3(.4f, .4f, 2.5f), cream, visual, false);
-            Box("Muzzle", new Vector3(0, .72f, 2.88f), new Vector3(.6f, .6f, .3f), dark, visual, false);
+            var cannon = new GameObject("Fixed cannon pivot").transform;
+            cannon.SetParent(visual, false);
+            cannon.localPosition = new Vector3(0, .72f, .4f);
+            cannon.localRotation = Quaternion.Euler(-game.Settings.cannonElevation, 0, 0);
+            Box("Fixed cannon", new Vector3(0, 0, 1.25f), new Vector3(.4f, .4f, 2.5f), cream, cannon, false);
+            Box("Muzzle", new Vector3(0, 0, 2.48f), new Vector3(.6f, .6f, .3f), dark, cannon, false);
             foreach (int side in new[] { -1, 1 })
             {
                 Box("Track", new Vector3(side * 1.2f, -.35f, 0), new Vector3(.65f, .9f, 3.5f), dark, visual, false);
                 for (int w = -2; w <= 2; w++) Box("Track pad", new Vector3(side * 1.54f, -.35f, w * .62f), new Vector3(.07f, .56f, .32f), cream, visual, false);
             }
             var muzzle = new GameObject("Shot origin").transform;
-            muzzle.SetParent(tank.transform, false);
-            muzzle.localPosition = new Vector3(0, .72f, 3.2f);
+            muzzle.SetParent(cannon, false);
+            muzzle.localPosition = new Vector3(0, 0, 2.8f);
             var motor = tank.AddComponent<TankMotor>();
             motor.Visual = visual;
             motor.Muzzle = muzzle;

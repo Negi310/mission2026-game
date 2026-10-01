@@ -75,6 +75,8 @@ namespace TankTown
             Physics.SyncTransforms(); game.CameraRig.Snap();
             yield return new WaitForSeconds(2.8f);
             float hillHeight = body.position.y;
+            float hillSpeed = game.Tank.ActualSpeed;
+            float cannonElevation = Mathf.Asin(Vector3.Dot(game.Tank.Muzzle.forward, game.Tank.transform.up)) * Mathf.Rad2Deg;
             Capture(Path.Combine(output, "08-slope.png"));
             // Exercise large collapses and the active-debris budget, with normal physics running.
             int peakBodies = 0;
@@ -89,7 +91,7 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(.2f);
             Capture(Path.Combine(output, "09-results.png"));
             yield return new WaitForSecondsRealtime(.4f);
-            Debug.Log($"SMOKE COMPLETE: blocks={game.BrokenBlocks}/{game.TotalBlocks}, crashes={game.Crashes}, state={game.State}, debrisPeak={peakBodies}, speedLevel={game.Stats.Level(UpgradeKind.Speed)}, powerLevel={game.Stats.Level(UpgradeKind.Power)}, rapidLevel={game.Stats.Level(UpgradeKind.Rapid)}, handlingLevel={game.Stats.Level(UpgradeKind.Handling)}, collapsedBuildings={game.World.Buildings.FindAll(x => x.Collapsed).Count}, parks={game.World.ParkCount}, hillHeight={hillHeight:0.00}");
+            Debug.Log($"SMOKE COMPLETE: blocks={game.BrokenBlocks}/{game.TotalBlocks}, crashes={game.Crashes}, state={game.State}, debrisPeak={peakBodies}, speedLevel={game.Stats.Level(UpgradeKind.Speed)}, powerLevel={game.Stats.Level(UpgradeKind.Power)}, rapidLevel={game.Stats.Level(UpgradeKind.Rapid)}, handlingLevel={game.Stats.Level(UpgradeKind.Handling)}, collapsedBuildings={game.World.Buildings.FindAll(x => x.Collapsed).Count}, parks={game.World.ParkCount}, hillHeight={hillHeight:0.00}, hillSpeed={hillSpeed:0.00}, cannonElevation={cannonElevation:0.00}");
             Application.Quit(0);
         }
 

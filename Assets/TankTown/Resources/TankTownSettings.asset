@@ -15,7 +15,7 @@ MonoBehaviour:
   roundSeconds: 180
   respawnPenalty: 3
   respawnDelay: 1.2
-  driveSpeed: 9
+  driveSpeed: 11
   turnSpeed: 85
   acceleration: 6
   wheelbase: 3.8
@@ -23,6 +23,7 @@ MonoBehaviour:
   steeringResponse: 5
   tireGrip: 7
   rideHeight: 1
+  cannonElevation: 4
   shotCooldown: 0.35
   blastRadius: 6.5
   blastImpulse: 20

@@ -8,7 +8,7 @@ namespace TankTown
         [Min(1)] public float roundSeconds = 180;
         [Min(0)] public float respawnPenalty = 3;
         [Min(0.1f)] public float respawnDelay = 1.2f;
-        [Min(1)] public float driveSpeed = 9;
+        [Min(1)] public float driveSpeed = 11;
         [Min(1)] public float turnSpeed = 85;
         [Header("Driving")]
         [Min(.1f)] public float acceleration = 6;
@@ -17,6 +17,8 @@ namespace TankTown
         [Min(.1f)] public float steeringResponse = 5;
         [Min(.1f)] public float tireGrip = 7;
         [Min(.8f)] public float rideHeight = 1;
+        [Header("Cannon")]
+        [Range(0, 10)] public float cannonElevation = 4;
         [Min(0)] public float shotCooldown = 0.35f;
         [Min(1)] public float blastRadius = 6.5f;
         [Min(0)] public float blastImpulse = 20;

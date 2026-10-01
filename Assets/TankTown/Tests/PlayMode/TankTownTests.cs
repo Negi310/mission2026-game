@@ -384,6 +384,71 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
+        public IEnumerator VehicleCrossesSteepRoadAndItsCrestWithoutStalling()
+        {
+            yield return DriveTerrainRoute(new Vector3(-80, 0, 6), 0, 260, Vector3.forward, 35);
+        }
+
+        [UnityTest]
+        public IEnumerator VehicleClimbsThePlazaShoulderWithoutStalling()
+        {
+            yield return DriveTerrainRoute(new Vector3(5, 0, 11), 90, 170, Vector3.right, 18);
+        }
+
+        [UnityTest]
+        public IEnumerator VehicleDescendsThePlazaShoulderWithoutStalling()
+        {
+            yield return DriveTerrainRoute(new Vector3(23, 0, 11), 270, 140, Vector3.left, 15);
+        }
+
+        [UnityTest]
+        public IEnumerator VehicleCrossesTheBankAtMaximumSpeedUpgrade()
+        {
+            for (int i = 0; i < game.Settings.maxUpgradeLevel; i++) game.Stats.Upgrade(UpgradeKind.Speed);
+            yield return DriveTerrainRoute(new Vector3(5, 0, 11), 90, 80, Vector3.right, 24, true);
+        }
+
+        private IEnumerator DriveTerrainRoute(Vector3 start, float yaw, int steps, Vector3 direction, float minimumDistance, bool atCruise = false)
+        {
+            var body = game.Tank.GetComponent<Rigidbody>();
+            game.Input.useHardware = true; game.Input.SetWheel(0);
+            body.position = game.World.GroundPoint(start, game.Settings.rideHeight);
+            body.rotation = Quaternion.Euler(0, yaw, 0); body.linearVelocity = atCruise ? direction * game.Stats.Speed : Vector3.zero;
+            game.Tank.transform.SetPositionAndRotation(body.position, body.rotation); Physics.SyncTransforms();
+            var origin = body.position;
+            yield return null;
+            for (int i = 0; i < steps; i++) yield return new WaitForFixedUpdate();
+            Assert.That(game.Crashes, Is.Zero, "Ground alone must not cause a crash");
+            Assert.That(Vector3.Dot(body.position - origin, direction), Is.GreaterThan(minimumDistance), $"Terrain blocked the vehicle at {body.position}, speed={game.Tank.ActualSpeed:0.00}");
+            Assert.That(game.Tank.ActualSpeed, Is.GreaterThan(game.Stats.Speed * .75f), "The vehicle must recover cruising speed after the slope");
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(yaw, body.rotation.eulerAngles.y)), Is.LessThan(.5f), "Ground contacts must not steer the vehicle");
+        }
+
+        [UnityTest]
+        public IEnumerator ElevatedCannonLaunchesAlongTheVisibleBarrel()
+        {
+            var body = game.Tank.GetComponent<Rigidbody>();
+            body.position = game.World.GroundPoint(new Vector3(0, 0, -60), game.Settings.rideHeight);
+            body.rotation = Quaternion.Euler(0, 35, 0); body.linearVelocity = Vector3.zero;
+            game.Tank.transform.SetPositionAndRotation(body.position, body.rotation);
+            game.Tank.Visual.localRotation = Quaternion.identity;
+            Physics.SyncTransforms();
+            var barrel = game.Tank.Visual.Find("Fixed cannon pivot/Fixed cannon");
+            var direction = game.Tank.Muzzle.forward;
+            var origin = game.Tank.Muzzle.position;
+            float elevation = Mathf.Asin(Vector3.Dot(direction, game.Tank.transform.up)) * Mathf.Rad2Deg;
+            Assert.That(elevation, Is.EqualTo(4).Within(.01f));
+            Assert.That(Vector3.Angle(barrel.forward, direction), Is.LessThan(.01f));
+            game.Tank.Fire(0);
+            var shell = Object.FindFirstObjectByType<TankShell>();
+            Assert.That(shell, Is.Not.Null);
+            yield return null;
+            var travel = shell.transform.position - origin;
+            Assert.That(travel.y, Is.GreaterThan(.01f), "The actual shell must rise above its launch point");
+            Assert.That(Vector3.Angle(travel, direction), Is.LessThan(.05f), "The shell must follow the barrel rather than the hull forward vector");
+        }
+
+        [UnityTest]
         public IEnumerator VariedPlotsAndPickupsStandOnTheElevatedGround()
         {
             var widths = new System.Collections.Generic.HashSet<float>();

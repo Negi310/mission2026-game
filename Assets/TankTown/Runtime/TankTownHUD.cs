@@ -141,7 +141,7 @@ namespace TankTown
             aim.gameObject.SetActive(game.IsPlaying && !game.Tank.Respawning);
             if (game.IsPlaying && Camera.main != null)
             {
-                Vector3 projected = Camera.main.WorldToScreenPoint(game.Tank.Muzzle.position + game.Tank.transform.forward * 70);
+                Vector3 projected = Camera.main.WorldToScreenPoint(game.Tank.Muzzle.position + game.Tank.Muzzle.forward * 70);
                 aim.rectTransform.anchoredPosition = ((Vector2)projected - new Vector2(Screen.width, Screen.height) * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
             }
             card.SetActive(game.State != RoundState.Playing);

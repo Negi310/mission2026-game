@@ -17,6 +17,7 @@ namespace TankTown
         private Pose initial;
         private Vector3 commandedVelocity;
         private Vector3 groundUp = Vector3.up;
+        private Vector3 hullHalfSize;
         private float steering;
         private readonly Collider[] nearby = new Collider[64];
 
@@ -28,6 +29,7 @@ namespace TankTown
             body.constraints = RigidbodyConstraints.FreezeRotation;
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            hullHalfSize = GetComponent<BoxCollider>().size * .5f;
             initial = new Pose(transform.position, transform.rotation);
             safe.Add(initial);
         }
@@ -44,50 +46,59 @@ namespace TankTown
             shot.GetComponent<Collider>().enabled = false;
             Destroy(shot.GetComponent<Collider>());
             shot.GetComponent<Renderer>().sharedMaterial = game.World.ShotMaterial;
-            shot.AddComponent<TankShell>().Initialize(game, transform.forward);
+            shot.AddComponent<TankShell>().Initialize(game, Muzzle.forward);
             game.Effects.Trail(shot);
-            game.Effects.Muzzle(Muzzle.position, transform.forward);
+            game.Effects.Muzzle(Muzzle.position, Muzzle.forward);
             game.CameraRig.Kick(.055f);
             game.PlayTone(130, 0.12f, 0.22f);
         }
 
         private void FixedUpdate()
         {
-            bool grounded = Physics.Raycast(body.position + Vector3.up * 4, Vector3.down, out var ground, 12, TownPhysics.GroundMask, QueryTriggerInteraction.Ignore);
-            float verticalCorrection = grounded ? Mathf.Clamp((ground.point.y + game.Settings.rideHeight - body.position.y) * 12, -12, 12) : body.linearVelocity.y;
-            if (grounded)
-            {
-                var slopeUp = Vector3.RotateTowards(Vector3.up, ground.normal, 30 * Mathf.Deg2Rad, 0);
-                groundUp = Vector3.Slerp(groundUp, slopeUp, 1 - Mathf.Exp(-10 * Time.fixedDeltaTime));
-                body.AddForce(-Physics.gravity, ForceMode.Acceleration);
-            }
-            if (!game.IsPlaying || Respawning)
-            {
-                body.linearVelocity = Vector3.up * verticalCorrection;
-                body.angularVelocity = Vector3.zero;
-                steering = 0;
-                return;
-            }
             // Bicycle steering preserves momentum. Collision torque still cannot steer the tank.
             body.angularVelocity = Vector3.zero;
             float dt = Time.fixedDeltaTime;
-            steering = Mathf.MoveTowards(steering, game.Input.Steering, game.Settings.steeringResponse * dt);
+            bool driving = game.IsPlaying && !Respawning;
+            steering = driving ? Mathf.MoveTowards(steering, game.Input.Steering, game.Settings.steeringResponse * dt) : 0;
             var velocity = new Vector3(body.linearVelocity.x, 0, body.linearVelocity.z);
             var oldForward = Vector3.ProjectOnPlane(body.rotation * Vector3.forward, Vector3.up).normalized;
             float currentSpeed = Mathf.Max(0, Vector3.Dot(velocity, oldForward));
-            float speed = Mathf.MoveTowards(currentSpeed, game.Stats.Speed, game.Settings.acceleration * dt);
+            float speed = driving ? Mathf.MoveTowards(currentSpeed, game.Stats.Speed, game.Settings.acceleration * dt) : 0;
             float yawRate = currentSpeed / game.Settings.wheelbase * Mathf.Tan(steering * game.Settings.steeringAngle * Mathf.Deg2Rad) * Mathf.Rad2Deg * (game.Stats.TurnSpeed / 85);
             var heading = Quaternion.Euler(0, body.rotation.eulerAngles.y + yawRate * dt, 0);
             var forward = heading * Vector3.forward;
             var right = heading * Vector3.right;
-            float slip = Vector3.Dot(velocity, right) * Mathf.Exp(-game.Settings.tireGrip * dt);
+            float slip = driving ? Vector3.Dot(velocity, right) * Mathf.Exp(-game.Settings.tireGrip * dt) : 0;
             commandedVelocity = forward * speed + right * slip;
-            float slopeSpeed = grounded ? -(ground.normal.x * commandedVelocity.x + ground.normal.z * commandedVelocity.z) / Mathf.Max(.35f, ground.normal.y) : 0;
-            commandedVelocity.y = grounded ? slopeSpeed + verticalCorrection : body.linearVelocity.y;
+            // Look ahead over the footprint: a centre ray misses the nose at a ramp entrance.
+            var nextPosition = body.position + commandedVelocity * dt;
+            if (SampleGround(nextPosition, out _) &&
+                SampleGround(nextPosition + forward * hullHalfSize.z, out float front) &&
+                SampleGround(nextPosition - forward * hullHalfSize.z, out float rear) &&
+                SampleGround(nextPosition + right * hullHalfSize.x, out float rightHeight) &&
+                SampleGround(nextPosition - right * hullHalfSize.x, out float leftHeight))
+            {
+                var slopeUp = (Vector3.up - forward * ((front - rear) / (2 * hullHalfSize.z)) - right * ((rightHeight - leftHeight) / (2 * hullHalfSize.x))).normalized;
+                slopeUp = Vector3.RotateTowards(Vector3.up, slopeUp, 55 * Mathf.Deg2Rad, 0);
+                groundUp = Vector3.Slerp(groundUp, slopeUp, 1 - Mathf.Exp(-10 * dt));
+            }
             var slopeForward = new Vector3(forward.x, -(groundUp.x * forward.x + groundUp.z * forward.z) / Mathf.Max(.35f, groundUp.y), forward.z).normalized;
-            body.MoveRotation(Quaternion.LookRotation(slopeForward, groundUp));
+            var rotation = Quaternion.LookRotation(slopeForward, groundUp);
+            // Sweep the entire hull onto the real ground mesh, including banks and crests.
+            // Only ground is sampled; buildings and flying debris retain physical collisions.
+            var castOrigin = nextPosition + Vector3.up * 12;
+            if (Physics.BoxCast(castOrigin, hullHalfSize, Vector3.down, out var support, rotation, 32, TownPhysics.GroundMask, QueryTriggerInteraction.Ignore))
+            {
+                float clearance = Mathf.Max(.05f, game.Settings.rideHeight - hullHalfSize.y);
+                float nextHeight = castOrigin.y - support.distance + clearance;
+                commandedVelocity.y = (nextHeight - body.position.y) / dt;
+                body.AddForce(-Physics.gravity, ForceMode.Acceleration);
+            }
+            else commandedVelocity.y = body.linearVelocity.y;
+            body.MoveRotation(rotation);
             body.linearVelocity = commandedVelocity;
-            Visual.localRotation = Quaternion.Slerp(Visual.localRotation, Quaternion.Euler(-(speed - currentSpeed) / dt * .12f, 0, -steering * Mathf.Clamp01(speed / 9) * 3), 1 - Mathf.Exp(-8 * dt));
+            if (!driving) return;
+            Visual.localRotation = Quaternion.Slerp(Visual.localRotation, Quaternion.Euler(-(speed - currentSpeed) / dt * .12f, 0, -steering * Mathf.Clamp01(speed / game.Settings.driveSpeed) * 3), 1 - Mathf.Exp(-8 * dt));
             if (Time.time >= nextSafeSample)
             {
                 nextSafeSample = Time.time + 0.6f;
@@ -99,6 +110,13 @@ namespace TankTown
                 }
             }
             if (Mathf.Abs(body.position.x) > game.World.HalfExtent - 1 || Mathf.Abs(body.position.z) > game.World.HalfExtent - 1) Explode();
+        }
+
+        private bool SampleGround(Vector3 position, out float height)
+        {
+            bool found = Physics.Raycast(position + Vector3.up * 12, Vector3.down, out var hit, 32, TownPhysics.GroundMask, QueryTriggerInteraction.Ignore);
+            height = hit.point.y;
+            return found;
         }
 
         private bool IsSafe(Pose pose)
