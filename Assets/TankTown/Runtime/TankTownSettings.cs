@@ -12,10 +12,10 @@ namespace TankTown
         [Min(1)] public float turnSpeed = 85;
         [Header("Driving")]
         [Min(.1f)] public float acceleration = 10;
-        [Min(.1f)] public float steeringResponse = 5;
+        [Min(.1f)] public float steeringResponse = 12;
         [Header("Tank steering")]
-        [Range(0, .5f)] public float hullTurnDelay = .2f;
-        [Range(15, 60)] public float turretMaxYaw = 38;
+        [Range(0, .5f)] public float hullTurnDelay = .08f;
+        [Range(15, 60)] public float turretMaxYaw = 22;
         [Min(30)] public float turretTurnSpeed = 210;
         [Min(.1f)] public float tireGrip = 7;
         [Min(.8f)] public float rideHeight = 1;

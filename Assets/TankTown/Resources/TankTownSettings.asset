@@ -18,9 +18,9 @@ MonoBehaviour:
   driveSpeed: 16
   turnSpeed: 85
   acceleration: 10
-  steeringResponse: 5
-  hullTurnDelay: 0.2
-  turretMaxYaw: 38
+  steeringResponse: 12
+  hullTurnDelay: 0.08
+  turretMaxYaw: 22
   turretTurnSpeed: 210
   tireGrip: 7
   rideHeight: 1

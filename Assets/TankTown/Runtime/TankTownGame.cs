@@ -74,6 +74,7 @@ namespace TankTown
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Offset = Settings.cameraOffset;
             CameraRig.Target = Tank.transform;
+            CameraRig.AimTarget = Tank.Turret;
             CameraRig.Snap();
             RenderSettings.ambientLight = new Color(.75f, .82f, .9f);
             RenderSettings.fog = true;

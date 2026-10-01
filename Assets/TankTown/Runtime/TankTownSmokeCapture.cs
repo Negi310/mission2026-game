@@ -118,15 +118,17 @@ namespace TankTown
             game.CameraRig.Snap();
             float earlyCamera = HorizontalAngle(Camera.main.transform.forward, body.rotation * Vector3.forward);
             float cameraTurret = HorizontalAngle(Camera.main.transform.forward, game.Tank.Muzzle.forward);
-            Capture(Path.Combine(output, "camera-01-turret-lead.png"));
+            Capture(Path.Combine(output, "turret-camera-01-lead.png"));
             yield return new WaitForSeconds(.45f);
             float followCamera = HorizontalAngle(Camera.main.transform.forward, body.rotation * Vector3.forward);
-            Capture(Path.Combine(output, "camera-02-hull-follow.png"));
+            float followTurret = HorizontalAngle(Camera.main.transform.forward, game.Tank.Turret.forward);
+            float hullTurn = Mathf.DeltaAngle(earlyHull, body.rotation.eulerAngles.y);
+            Capture(Path.Combine(output, "turret-camera-02-follow.png"));
             game.Input.SetWheel(0);
             yield return new WaitForSeconds(.7f);
             float centeredCamera = HorizontalAngle(Camera.main.transform.forward, body.rotation * Vector3.forward);
-            Capture(Path.Combine(output, "camera-03-centered.png"));
-            Debug.Log($"CAMERA SMOKE COMPLETE: turretLead={turretLead:0.00}, earlyHull={earlyHull:0.00}, earlyCameraHullAngle={earlyCamera:0.00}, earlyCameraTurretAngle={cameraTurret:0.00}, followCameraHullAngle={followCamera:0.00}, centeredCameraHullAngle={centeredCamera:0.00}, crashes={game.Crashes}");
+            Capture(Path.Combine(output, "turret-camera-03-centered.png"));
+            Debug.Log($"TURRET CAMERA SMOKE COMPLETE: turretLead={turretLead:0.00}, earlyHull={earlyHull:0.00}, earlyCameraHullAngle={earlyCamera:0.00}, earlyCameraTurretAngle={cameraTurret:0.00}, followCameraHullAngle={followCamera:0.00}, followCameraTurretAngle={followTurret:0.00}, hullTurn={hullTurn:0.00}, centeredCameraHullAngle={centeredCamera:0.00}, hullDelay={game.Settings.hullTurnDelay:0.00}, steeringResponse={game.Settings.steeringResponse:0.0}, maxTurretYaw={game.Settings.turretMaxYaw:0.0}, crashes={game.Crashes}");
             Application.Quit(0);
         }
 
