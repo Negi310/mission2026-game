@@ -16,6 +16,8 @@ namespace TankTown
         private readonly Text[] statRows = new Text[4];
         private Text pickupText;
         private GameObject pickupPanel;
+        private Text heldName, heldHint, activeItems;
+        private Image heldIcon;
         private float pickupUntil;
         private GameObject card, noticePanel;
         private readonly Color ink = new Color(.08f, .17f, .22f);
@@ -61,6 +63,13 @@ namespace TankTown
             pickupText = Label(pickupPanel.transform, "", new Vector2(12, -5), new Vector2(326, 44), 23, Color.white);
             pickupText.alignment = TextAnchor.MiddleCenter;
             game.Stats.Changed += ShowUpgrade;
+            var itemPanel = Panel("Special items", canvas, new Vector2(-26, -385), new Vector2(318, 216), ink, true);
+            Label(itemPanel.transform, "スペシャルアイテム", new Vector2(18, -10), new Vector2(285, 26), 17, Color.white);
+            heldIcon = Panel("Held item icon", itemPanel.transform, new Vector2(16, -45), new Vector2(54, 54), Color.white).GetComponent<Image>();
+            heldName = Label(itemPanel.transform, "", new Vector2(82, -43), new Vector2(220, 29), 20, yellow);
+            heldName.fontStyle = FontStyle.Bold;
+            heldHint = Label(itemPanel.transform, "", new Vector2(82, -77), new Vector2(222, 26), 14, Color.white);
+            activeItems = Label(itemPanel.transform, "", new Vector2(18, -115), new Vector2(285, 92), 16, Color.white);
             noticePanel = Panel("Respawn notice", canvas, new Vector2(0, -132), new Vector2(720, 64), ink);
             var noticeRect = noticePanel.GetComponent<RectTransform>();
             noticeRect.anchorMin = noticeRect.anchorMax = new Vector2(.5f, 1);
@@ -148,7 +157,7 @@ namespace TankTown
             if (game.State == RoundState.Ready)
             {
                 cardTitle.text = "街を、バラバラに！";
-                cardBody.text = "ハンドルで曲がる。たたいて撃つ。\n小さいものは、そのまま体当たり！\n大きなビルは、砲撃でこわそう。\n浮かぶアイコンを取ってパワーアップ！";
+                cardBody.text = "ハンドルで砲塔が向く。車体がついてくる。\nたたいて砲撃！ 武器アイテムも砲撃で発動！\n磁石・ブルドーザー・高速は取ると発動。\n街を走って、バラバラにしよう！";
                 buttonText.text = "あそぶ   →   ENTER";
             }
             else if (game.State == RoundState.Paused)
@@ -163,6 +172,12 @@ namespace TankTown
                 cardBody.text = $"{game.BrokenBlocks} 個のブロックがバラバラ！\nリスポーン {game.Crashes} 回\n次はどの道を走ろう？";
                 buttonText.text = "もういちど   →   ENTER";
             }
+            var shown = game.Items.Held != ItemKind.None ? game.Items.Held : game.Items.Active;
+            heldIcon.gameObject.SetActive(shown != ItemKind.None);
+            if (shown != ItemKind.None) heldIcon.sprite = game.World.SpecialIcons.Sprite(shown);
+            heldName.text = game.Items.Held != ItemKind.None ? ItemIcons.Label(game.Items.Held) : shown != ItemKind.None ? "発動中！" : "アイテムをひろおう";
+            heldHint.text = game.Items.Held != ItemKind.None ? game.Items.Weapon == ItemKind.None ? "次の砲撃でつかう！" : "発動後、砲撃でつかう" : "武器は砲撃・ほかは自動";
+            activeItems.text = game.Items.ActiveSummary;
         }
 
         private void ShowUpgrade(UpgradeKind kind)

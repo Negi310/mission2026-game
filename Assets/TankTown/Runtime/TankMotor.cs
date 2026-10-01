@@ -7,6 +7,9 @@ namespace TankTown
     {
         public Transform Muzzle { get; set; }
         public Transform Visual { get; set; }
+        public Transform Turret { get; set; }
+        public float VehicleScale { get; private set; } = 1;
+        public BoxCollider HullCollider { get; private set; }
         public float Cooldown01 => Mathf.Clamp01((nextShot - Time.time) / Mathf.Max(0.01f, game.Stats.ShotCooldown));
         public bool Respawning => respawnAt > 0;
         public float ActualSpeed => body == null ? 0 : new Vector2(body.linearVelocity.x, body.linearVelocity.z).magnitude;
@@ -19,6 +22,9 @@ namespace TankTown
         private Vector3 groundUp = Vector3.up;
         private Vector3 hullHalfSize;
         private float steering;
+        private float turretYaw, delayedSteering;
+        private struct SteeringSample { public float time, value; }
+        private readonly Queue<SteeringSample> steeringHistory = new Queue<SteeringSample>();
         private readonly Collider[] nearby = new Collider[64];
 
         public void Initialize(TankTownGame owner)
@@ -29,7 +35,8 @@ namespace TankTown
             body.constraints = RigidbodyConstraints.FreezeRotation;
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            hullHalfSize = GetComponent<BoxCollider>().size * .5f;
+            HullCollider = GetComponent<BoxCollider>();
+            hullHalfSize = HullCollider.size * .5f;
             initial = new Pose(transform.position, transform.rotation);
             safe.Add(initial);
         }
@@ -37,8 +44,9 @@ namespace TankTown
         public void Fire(int pad)
         {
             // Provisional: both pads fire the same cannon; pad identity stays available at the input boundary.
-            if (!game.IsPlaying || Respawning || Time.time < nextShot) return;
+            if (!game.IsPlaying || Respawning || game.Items.StopsForward || Time.time < nextShot) return;
             nextShot = Time.time + game.Stats.ShotCooldown;
+            if (game.Items.UseHeld()) return;
             var shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             shot.name = "Cannonball";
             shot.transform.position = Muzzle.position;
@@ -55,20 +63,31 @@ namespace TankTown
 
         private void FixedUpdate()
         {
-            // Bicycle steering preserves momentum. Collision torque still cannot steer the tank.
+            // The turret responds first; the hull receives the wheel input after a short delay.
             body.angularVelocity = Vector3.zero;
             float dt = Time.fixedDeltaTime;
             bool driving = game.IsPlaying && !Respawning;
-            steering = driving ? Mathf.MoveTowards(steering, game.Input.Steering, game.Settings.steeringResponse * dt) : 0;
+            float wheel = driving ? game.Input.Steering : 0;
+            turretYaw = Mathf.MoveTowards(turretYaw, wheel * game.Settings.turretMaxYaw, game.Settings.turretTurnSpeed * dt);
+            Turret.localRotation = Quaternion.Euler(0, turretYaw, 0);
+            if (driving)
+            {
+                steeringHistory.Enqueue(new SteeringSample { time = Time.fixedTime, value = wheel });
+                while (steeringHistory.Count > 0 && steeringHistory.Peek().time <= Time.fixedTime - game.Settings.hullTurnDelay)
+                    delayedSteering = steeringHistory.Dequeue().value;
+                steering = Mathf.MoveTowards(steering, delayedSteering, game.Settings.steeringResponse * dt);
+            }
+            else { steering = delayedSteering = 0; steeringHistory.Clear(); }
             var velocity = new Vector3(body.linearVelocity.x, 0, body.linearVelocity.z);
             var oldForward = Vector3.ProjectOnPlane(body.rotation * Vector3.forward, Vector3.up).normalized;
             float currentSpeed = Mathf.Max(0, Vector3.Dot(velocity, oldForward));
-            float speed = driving ? Mathf.MoveTowards(currentSpeed, game.Stats.Speed, game.Settings.acceleration * dt) : 0;
-            float yawRate = currentSpeed / game.Settings.wheelbase * Mathf.Tan(steering * game.Settings.steeringAngle * Mathf.Deg2Rad) * Mathf.Rad2Deg * (game.Stats.TurnSpeed / 85);
+            float multiplier = game.Items.SpeedMultiplier;
+            float speed = driving && !game.Items.StopsForward ? Mathf.MoveTowards(currentSpeed, game.Stats.Speed * multiplier, game.Settings.acceleration * Mathf.Max(1, multiplier) * dt) : 0;
+            float yawRate = driving && !game.Items.StopsForward ? game.Stats.TurnSpeed * steering : 0;
             var heading = Quaternion.Euler(0, body.rotation.eulerAngles.y + yawRate * dt, 0);
             var forward = heading * Vector3.forward;
             var right = heading * Vector3.right;
-            float slip = driving ? Vector3.Dot(velocity, right) * Mathf.Exp(-game.Settings.tireGrip * dt) : 0;
+            float slip = driving && !game.Items.StopsForward ? Vector3.Dot(velocity, right) * Mathf.Exp(-game.Settings.tireGrip * dt) : 0;
             commandedVelocity = forward * speed + right * slip;
             // Look ahead over the footprint: a centre ray misses the nose at a ramp entrance.
             var nextPosition = body.position + commandedVelocity * dt;
@@ -89,7 +108,7 @@ namespace TankTown
             var castOrigin = nextPosition + Vector3.up * 12;
             if (Physics.BoxCast(castOrigin, hullHalfSize, Vector3.down, out var support, rotation, 32, TownPhysics.GroundMask, QueryTriggerInteraction.Ignore))
             {
-                float clearance = Mathf.Max(.05f, game.Settings.rideHeight - hullHalfSize.y);
+                float clearance = Mathf.Max(.05f, game.Settings.rideHeight * VehicleScale - hullHalfSize.y);
                 float nextHeight = castOrigin.y - support.distance + clearance;
                 commandedVelocity.y = (nextHeight - body.position.y) / dt;
                 body.AddForce(-Physics.gravity, ForceMode.Acceleration);
@@ -109,7 +128,34 @@ namespace TankTown
                     if (safe.Count > 9) safe.RemoveAt(0);
                 }
             }
-            if (Mathf.Abs(body.position.x) > game.World.HalfExtent - 1 || Mathf.Abs(body.position.z) > game.World.HalfExtent - 1) Explode();
+            if (Mathf.Abs(body.position.x) > game.World.HalfExtent - 1 || Mathf.Abs(body.position.z) > game.World.HalfExtent - 1)
+            {
+                if (game.Items.Invincible) { Warp(initial); game.CameraRig.Snap(); }
+                else Explode();
+            }
+        }
+
+        public void SetVehicleScale(float scale, bool bulldozer)
+        {
+            VehicleScale = scale;
+            Visual.localScale = Vector3.one * scale;
+            HullCollider.size = (bulldozer ? new Vector3(3.8f, 1.6f, 4.6f) : new Vector3(2.6f, 1.6f, 3.4f)) * scale;
+            hullHalfSize = HullCollider.size * .5f;
+            protectedUntil = Mathf.Max(protectedUntil, Time.time + .35f);
+        }
+
+        internal void Warp(Pose pose)
+        {
+            pose.position = game.World.GroundPoint(pose.position, game.Settings.rideHeight * VehicleScale);
+            body.position = pose.position; body.rotation = pose.rotation;
+            transform.SetPositionAndRotation(pose.position, pose.rotation);
+            Physics.SyncTransforms();
+            body.linearVelocity = body.angularVelocity = Vector3.zero;
+            steering = delayedSteering = turretYaw = 0; steeringHistory.Clear();
+            Turret.localRotation = Quaternion.identity;
+            groundUp = Vector3.RotateTowards(Vector3.up, game.World.Terrain.NormalAt(pose.position), 30 * Mathf.Deg2Rad, 0);
+            Visual.localRotation = Quaternion.identity;
+            protectedUntil = Time.time + 1.5f;
         }
 
         private bool SampleGround(Vector3 position, out float height)
@@ -136,15 +182,7 @@ namespace TankTown
             // Prefer positions a few seconds behind, then fall back to the guaranteed clear spawn road.
             for (int i = Mathf.Max(0, safe.Count - 4); i >= 0; i--)
                 if (IsSafe(safe[i])) { pose = safe[i]; break; }
-            body.position = pose.position;
-            body.rotation = pose.rotation;
-            transform.SetPositionAndRotation(pose.position, pose.rotation);
-            Physics.SyncTransforms();
-            body.linearVelocity = Vector3.zero;
-            body.angularVelocity = Vector3.zero;
-            steering = 0;
-            groundUp = Vector3.RotateTowards(Vector3.up, game.World.Terrain.NormalAt(pose.position), 30 * Mathf.Deg2Rad, 0);
-            Visual.localRotation = Quaternion.identity;
+            Warp(pose);
             Visual.gameObject.SetActive(true);
             respawnAt = 0;
             protectedUntil = Time.time + 1.5f;
@@ -159,6 +197,12 @@ namespace TankTown
             if (!game.IsPlaying || Respawning) return;
             var block = hit.collider.GetComponentInParent<DestructibleBlock>();
             if (block == null) return;
+            if (game.Items.Invincible && !block.Detached)
+            {
+                game.Items.Ram(hit.GetContact(0).point);
+                if (block.Detached) PushAside(block);
+                return;
+            }
             if (block.Detached)
             {
                 PushAside(block);
@@ -193,7 +237,8 @@ namespace TankTown
 
         public void Explode()
         {
-            if (!game.IsPlaying || Respawning) return;
+            if (!game.IsPlaying || Respawning || game.Items.Invincible) return;
+            game.Items.OnTankCrash();
             game.Effects.Crash(transform.position + Vector3.up);
             game.CameraRig.Kick(.2f);
             game.PlayTone(60, 0.3f, 0.25f);

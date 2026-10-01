@@ -18,9 +18,10 @@ MonoBehaviour:
   driveSpeed: 16
   turnSpeed: 85
   acceleration: 10
-  wheelbase: 3.8
-  steeringAngle: 32
   steeringResponse: 5
+  hullTurnDelay: 0.2
+  turretMaxYaw: 38
+  turretTurnSpeed: 210
   tireGrip: 7
   rideHeight: 1
   cannonElevation: 4
@@ -50,3 +51,16 @@ MonoBehaviour:
   radiusUpgrade: 0.07
   rapidUpgrade: 0.16
   handlingUpgrade: 0.06
+  megaBeamSeconds: 3.5
+  megaBeamLength: 70
+  megaBeamRadius: 5
+  missileSeconds: 6
+  magnetSeconds: 8
+  magnetRadius: 22
+  magnetPullSpeed: 24
+  bulldozerSeconds: 8
+  bulldozerScale: 2.3
+  gigantBombFuse: 3
+  gigantBombRadius: 30
+  highSpeedSeconds: 6
+  highSpeedMultiplier: 2.2

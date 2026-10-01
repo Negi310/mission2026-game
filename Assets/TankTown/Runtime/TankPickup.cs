@@ -119,5 +119,12 @@ namespace TankTown
             gameObject.SetActive(false);
             return true;
         }
+
+        public void Attract(Vector3 target, float speed)
+        {
+            if (Collected || !game.IsPlaying || game.Stats.Level(Kind) >= game.Settings.maxUpgradeLevel) return;
+            transform.position = Vector3.MoveTowards(transform.position, target, speed * Time.deltaTime);
+            if ((transform.position - target).sqrMagnitude < 2.9f) Collect();
+        }
     }
 }

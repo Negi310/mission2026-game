@@ -94,6 +94,22 @@ namespace TankTown
             Particles(position, new Color(1, .67f, .15f), 35, 13, .4f, .65f, Vector3.up, false, true);
             Shockwave(position, new Color(1, .75f, .3f), width, .7f);
         }
+        public void EnergyImpact(Vector3 position, Color color)
+        {
+            Particles(position, color, 36, 14, .8f, .5f, Vector3.up, false, true);
+            Shockwave(position, color, 7, .4f);
+            Flash(position, color, 4, .18f);
+        }
+        public void SuperImpact(Vector3 position, float radius)
+        {
+            Fireball(position, radius * 1.25f);
+            Particles(position, new Color(1, .35f, .015f), 320, 45, 4, 1.4f, Vector3.up);
+            Particles(position + Vector3.up * 3, new Color(.42f, .3f, .26f), 90, 18, 12, 3.2f, Vector3.up, true);
+            Particles(position, new Color(1, .9f, .15f), 160, 55, .9f, 1.1f, Vector3.up, false, true);
+            Shockwave(position, new Color(1, .75f, .1f), radius * 3.2f, 1.2f);
+            Shockwave(position + Vector3.up * 2, new Color(1, .92f, .4f), radius * 2.8f, .8f, Quaternion.Euler(90, 0, 0));
+            Flash(position, Color.white, radius * 2.3f, .2f);
+        }
         private void Fireball(Vector3 position, float radius)
         {
             var root = new GameObject("Large explosion fireball");

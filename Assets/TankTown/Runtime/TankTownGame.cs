@@ -13,6 +13,7 @@ namespace TankTown
         public TankStats Stats { get; private set; }
         public TankTownEffects Effects { get; private set; }
         public TankMotor Tank { get; private set; }
+        public TankItems Items { get; private set; }
         public TankTownWorld World { get; private set; }
         public TankCamera CameraRig { get; private set; }
         public RoundState State { get; private set; }
@@ -45,6 +46,8 @@ namespace TankTown
             World = worldRoot.AddComponent<TankTownWorld>();
             World.Build(this);
             Tank = World.CreateTank();
+            Items = Tank.gameObject.AddComponent<TankItems>();
+            Items.Initialize(this);
             Input.PadPressed += Tank.Fire;
             Input.StartPressed += StartOrRestart;
             Input.PausePressed += TogglePause;
@@ -71,6 +74,7 @@ namespace TankTown
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Offset = Settings.cameraOffset;
             CameraRig.Target = Tank.transform;
+            CameraRig.AimTarget = Tank.Turret;
             CameraRig.Snap();
             RenderSettings.ambientLight = new Color(.75f, .82f, .9f);
             RenderSettings.fog = true;
@@ -108,7 +112,7 @@ namespace TankTown
         {
             if (!IsPlaying) return;
             Remaining = Mathf.Max(0, Remaining - Mathf.Max(0, seconds));
-            if (Remaining <= 0) { State = RoundState.Results; Time.timeScale = 0; }
+            if (Remaining <= 0) { State = RoundState.Results; Items.FinishRound(); Time.timeScale = 0; }
         }
         public void RegisterBlock() => TotalBlocks++;
         public void ScoreBlock() { if (IsPlaying) BrokenBlocks = Mathf.Min(TotalBlocks, BrokenBlocks + 1); }
@@ -128,18 +132,50 @@ namespace TankTown
         public void Blast(Vector3 point, float radius, float impulse)
         {
             if (!IsPlaying) return;
-            var buildings = new HashSet<BlockBuilding>();
-            foreach (var collider in Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
-            {
-                var block = collider.GetComponentInParent<DestructibleBlock>();
-                if (block == null || block.Detached) continue;
-                block.Break(point, impulse);
-                if (block.Building != null) buildings.Add(block.Building);
-            }
-            foreach (var building in buildings) building.ReleaseUnsupported(point, impulse);
+            DamageSphere(point, radius, impulse);
             Effects.Impact(point, radius);
             CameraRig?.Kick(.12f);
             PlayTone(85, .16f, .2f);
+        }
+
+        public int DamageSphere(Vector3 point, float radius, float impulse)
+            => Damage(Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore), point, impulse, radius * 2);
+
+        public int DamageBox(Vector3 point, Vector3 halfSize, Quaternion rotation, float impulse)
+            => Damage(Physics.OverlapBox(point, halfSize, rotation, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore), point, impulse, halfSize.magnitude * 2);
+
+        public int DamageBeam(Vector3 start, Vector3 end, float radius, float impulse)
+        {
+            if (!IsPlaying) return 0;
+            var buildings = new HashSet<BlockBuilding>();
+            int count = 0;
+            var segment = end - start;
+            foreach (var collider in Physics.OverlapCapsule(start, end, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
+            {
+                var block = collider.GetComponentInParent<DestructibleBlock>();
+                if (block == null || block.Detached) continue;
+                var origin = start + segment * Mathf.Clamp01(Vector3.Dot(block.transform.position - start, segment) / segment.sqrMagnitude);
+                block.Break(origin, impulse, radius * 3); count++;
+                if (block.Building != null) buildings.Add(block.Building);
+            }
+            foreach (var building in buildings) building.ReleaseUnsupported(start, impulse);
+            return count;
+        }
+
+        private int Damage(Collider[] colliders, Vector3 point, float impulse, float forceRadius)
+        {
+            if (!IsPlaying) return 0;
+            var buildings = new HashSet<BlockBuilding>();
+            int count = 0;
+            foreach (var collider in colliders)
+            {
+                var block = collider.GetComponentInParent<DestructibleBlock>();
+                if (block == null || block.Detached) continue;
+                block.Break(point, impulse, forceRadius); count++;
+                if (block.Building != null) buildings.Add(block.Building);
+            }
+            foreach (var building in buildings) building.ReleaseUnsupported(point, impulse);
+            return count;
         }
 
         public void PlayTone(float frequency, float duration, float volume)

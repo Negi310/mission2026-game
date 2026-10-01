@@ -7,6 +7,7 @@ namespace TankTown
     {
         public Material ShotMaterial { get; private set; }
         public UpgradeIcons Icons { get; private set; }
+        public ItemIcons SpecialIcons { get; private set; }
         public float HalfExtent { get; private set; }
         public float RoadWidth => Mathf.Clamp(game.Settings.roadWidth, 8, game.Settings.blockSpacing - 14);
         public float BuildingWidth => Mathf.Clamp(game.Settings.buildingWidth, 10, game.Settings.blockSpacing - RoadWidth - 4);
@@ -16,6 +17,7 @@ namespace TankTown
         public Vector3 GroundPoint(Vector3 p, float lift = 0) { p.y = Terrain.HeightAt(p) + lift; return p; }
         public readonly List<BlockBuilding> Buildings = new List<BlockBuilding>();
         public readonly List<TankPickup> Pickups = new List<TankPickup>();
+        public readonly List<ItemPickup> ItemPickups = new List<ItemPickup>();
         private readonly List<Material> materials = new List<Material>();
         private TankTownGame game;
         private Material road, cream, dark, glass, lime, grass, frame;
@@ -56,6 +58,7 @@ namespace TankTown
             frame = MakeMaterial(new Color(.85f, .91f, 1));
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
             Icons = new UpgradeIcons();
+            SpecialIcons = new ItemIcons();
             Terrain = new TownTerrain(game.Settings, transform, RoadWidth);
             Box("Island", new Vector3(0, -.9f, 0), new Vector3(HalfExtent * 2, 1.8f, HalfExtent * 2), grass, solid: false);
             float paving = HalfExtent * 2 - 8;
@@ -99,6 +102,13 @@ namespace TankTown
                 }
             // The first straight has all four upgrades, so their effect is easy to try.
             for (int i = 0; i < 4; i++) CreatePickup(SpawnPosition + new Vector3(0, .2f, 8 + i * 7), (UpgradeKind)i);
+            for (int i = 0; i < 6; i++) CreateItem(SpawnPosition + new Vector3(i % 2 == 0 ? 4.8f : -4.8f, 0, 38 + i * 18), (ItemKind)i);
+            int itemIndex = 0;
+            for (int x = -half; x < half; x++) for (int z = -half; z < half; z++)
+            {
+                if ((x + z) % 2 != 0) continue;
+                CreateItem(new Vector3(x * spacing + 4, 0, z * spacing + 12), (ItemKind)(itemIndex++ % 6));
+            }
             float edge = HalfExtent - 4;
             for (float i = -edge; i <= edge; i += 4)
             {
@@ -157,6 +167,16 @@ namespace TankTown
             var pickup = item.AddComponent<TankPickup>();
             pickup.Initialize(game, kind, Icons.Material(kind));
             Pickups.Add(pickup);
+        }
+
+        private void CreateItem(Vector3 position, ItemKind kind)
+        {
+            var item = new GameObject(ItemIcons.Label(kind));
+            item.transform.SetParent(transform, false);
+            item.transform.position = GroundPoint(position, 1.2f);
+            var pickup = item.AddComponent<ItemPickup>();
+            pickup.Initialize(game, kind, SpecialIcons.Material(kind));
+            ItemPickups.Add(pickup);
         }
 
         private DestructibleBlock AddBlock(GameObject item, bool crushable)
@@ -283,10 +303,13 @@ namespace TankTown
             var visual = new GameObject("Tank visual").transform;
             visual.SetParent(tank.transform, false);
             Box("Hull", Vector3.zero, new Vector3(2.4f, .85f, 3.1f), lime, visual, false);
-            Box("Turret", new Vector3(0, .68f, -.15f), new Vector3(1.5f, .75f, 1.6f), lime, visual, false);
+            var turret = new GameObject("Turret pivot").transform;
+            turret.SetParent(visual, false);
+            turret.localPosition = new Vector3(0, .68f, -.15f);
+            Box("Turret", Vector3.zero, new Vector3(1.5f, .75f, 1.6f), lime, turret, false);
             var cannon = new GameObject("Fixed cannon pivot").transform;
-            cannon.SetParent(visual, false);
-            cannon.localPosition = new Vector3(0, .72f, .4f);
+            cannon.SetParent(turret, false);
+            cannon.localPosition = new Vector3(0, .04f, .55f);
             cannon.localRotation = Quaternion.Euler(-game.Settings.cannonElevation, 0, 0);
             Box("Fixed cannon", new Vector3(0, 0, 1.25f), new Vector3(.4f, .4f, 2.5f), cream, cannon, false);
             Box("Muzzle", new Vector3(0, 0, 2.48f), new Vector3(.6f, .6f, .3f), dark, cannon, false);
@@ -300,6 +323,7 @@ namespace TankTown
             muzzle.localPosition = new Vector3(0, 0, 2.8f);
             var motor = tank.AddComponent<TankMotor>();
             motor.Visual = visual;
+            motor.Turret = turret;
             motor.Muzzle = muzzle;
             motor.Initialize(game);
             return motor;
@@ -310,6 +334,7 @@ namespace TankTown
             Terrain?.Dispose();
             foreach (var material in materials) if (material != null) Destroy(material);
             Icons?.Dispose();
+            SpecialIcons?.Dispose();
         }
     }
 }

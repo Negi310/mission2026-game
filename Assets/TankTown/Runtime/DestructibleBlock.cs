@@ -22,7 +22,7 @@ namespace TankTown
             game.RegisterBlock();
         }
 
-        public void Break(Vector3 origin, float impulse)
+        public void Break(Vector3 origin, float impulse, float forceRadius = 0)
         {
             if (Detached || game == null || !game.IsPlaying) return;
             Detached = true;
@@ -32,7 +32,7 @@ namespace TankTown
             body.mass = Kind == BuildingPart.Slab ? 1.4f : .55f;
             body.maxAngularVelocity = 12;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-            body.AddExplosionForce(impulse, origin, game.Stats.BlastRadius * 2, 1.5f, ForceMode.Impulse);
+            body.AddExplosionForce(impulse, origin, forceRadius > 0 ? forceRadius : game.Stats.BlastRadius * 2, 1.5f, ForceMode.Impulse);
             body.AddTorque(Random.insideUnitSphere * impulse * 0.3f, ForceMode.Impulse);
             game.TrackDebris(gameObject);
             Destroy(gameObject, game.Settings.debrisLifetime);

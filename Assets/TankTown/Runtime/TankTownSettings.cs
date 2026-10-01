@@ -12,9 +12,11 @@ namespace TankTown
         [Min(1)] public float turnSpeed = 85;
         [Header("Driving")]
         [Min(.1f)] public float acceleration = 10;
-        [Min(2)] public float wheelbase = 3.8f;
-        [Range(10, 45)] public float steeringAngle = 32;
         [Min(.1f)] public float steeringResponse = 5;
+        [Header("Tank steering")]
+        [Range(0, .5f)] public float hullTurnDelay = .2f;
+        [Range(15, 60)] public float turretMaxYaw = 38;
+        [Min(30)] public float turretTurnSpeed = 210;
         [Min(.1f)] public float tireGrip = 7;
         [Min(.8f)] public float rideHeight = 1;
         [Header("Cannon")]
@@ -49,5 +51,19 @@ namespace TankTown
         [Min(0)] public float radiusUpgrade = .07f;
         [Min(0)] public float rapidUpgrade = .16f;
         [Min(0)] public float handlingUpgrade = .06f;
+        [Header("Special items")]
+        [Min(.5f)] public float megaBeamSeconds = 3.5f;
+        [Min(10)] public float megaBeamLength = 70;
+        [Min(1)] public float megaBeamRadius = 5;
+        [Min(1)] public float missileSeconds = 6;
+        [Min(1)] public float magnetSeconds = 8;
+        [Min(3)] public float magnetRadius = 22;
+        [Min(1)] public float magnetPullSpeed = 24;
+        [Min(1)] public float bulldozerSeconds = 8;
+        [Range(1.5f, 3)] public float bulldozerScale = 2.3f;
+        [Min(.5f)] public float gigantBombFuse = 3;
+        [Min(10)] public float gigantBombRadius = 30;
+        [Min(1)] public float highSpeedSeconds = 6;
+        [Range(1.2f, 4)] public float highSpeedMultiplier = 2.2f;
     }
 }

@@ -438,7 +438,7 @@ namespace TankTown.Tests
             game.Tank.transform.SetPositionAndRotation(body.position, body.rotation);
             game.Tank.Visual.localRotation = Quaternion.identity;
             Physics.SyncTransforms();
-            var barrel = game.Tank.Visual.Find("Fixed cannon pivot/Fixed cannon");
+            var barrel = game.Tank.Turret.Find("Fixed cannon pivot/Fixed cannon");
             var direction = game.Tank.Muzzle.forward;
             var origin = game.Tank.Muzzle.position;
             float elevation = Mathf.Asin(Vector3.Dot(direction, game.Tank.transform.up)) * Mathf.Rad2Deg;

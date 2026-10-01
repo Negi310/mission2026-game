@@ -13,7 +13,8 @@ namespace TankTown
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-smoke") >= 0)
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-smoke") >= 0 ||
+                Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-items-smoke") >= 0)
                 new GameObject("Visual smoke capture").AddComponent<TankTownSmokeCapture>();
         }
 
@@ -25,6 +26,11 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(2);
             var game = FindFirstObjectByType<TankTownGame>();
             if (game == null) { Debug.LogError("SMOKE: missing game"); Application.Quit(1); yield break; }
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-items-smoke") >= 0)
+            {
+                yield return ItemsTour(game, output);
+                yield break;
+            }
             Capture(Path.Combine(output, "01-ready.png"));
             var camera = Camera.main;
             game.CameraRig.enabled = false;
@@ -93,6 +99,147 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(.4f);
             Debug.Log($"SMOKE COMPLETE: blocks={game.BrokenBlocks}/{game.TotalBlocks}, crashes={game.Crashes}, state={game.State}, debrisPeak={peakBodies}, speedLevel={game.Stats.Level(UpgradeKind.Speed)}, powerLevel={game.Stats.Level(UpgradeKind.Power)}, rapidLevel={game.Stats.Level(UpgradeKind.Rapid)}, handlingLevel={game.Stats.Level(UpgradeKind.Handling)}, collapsedBuildings={game.World.Buildings.FindAll(x => x.Collapsed).Count}, parks={game.World.ParkCount}, hillHeight={hillHeight:0.00}, hillSpeed={hillSpeed:0.00}, cannonElevation={cannonElevation:0.00}");
             Application.Quit(0);
+        }
+
+        private IEnumerator ItemsTour(TankTownGame game, string output)
+        {
+            game.StartOrRestart();
+            game.Input.useHardware = true; game.Input.SetWheel(0);
+            var body = game.Tank.GetComponent<Rigidbody>();
+            var camera = Camera.main;
+            // Keep the real icons visible, but prevent unrelated pickups during this tour.
+            foreach (var pickup in game.World.ItemPickups) pickup.GetComponent<Collider>().enabled = false;
+            var spawn = body.position;
+            for (int i = 0; i < 6; i++)
+                game.World.ItemPickups[i].transform.position = game.World.GroundPoint(spawn + new Vector3((i - 2.5f) * 5, 0, 34), 1.2f);
+            DiagnosticView(game, spawn + new Vector3(0, 9, -10), spawn + new Vector3(0, 3, 34));
+            yield return null;
+            Capture(Path.Combine(output, "items-00-field.png"));
+
+            game.Input.SetWheel(1);
+            yield return null; // TankInput samples the hardware value in Update.
+            for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
+            float turretLead = Mathf.DeltaAngle(0, game.Tank.Turret.localEulerAngles.y);
+            float earlyHull = Mathf.DeltaAngle(0, body.rotation.eulerAngles.y);
+            DiagnosticView(game, body.position + new Vector3(-7, 6, -9), body.position + Vector3.up);
+            Capture(Path.Combine(output, "items-01-turret-lead.png"), false);
+            for (int i = 0; i < 23; i++) yield return new WaitForFixedUpdate();
+            float hullFollow = Mathf.DeltaAngle(0, body.rotation.eulerAngles.y);
+            DiagnosticView(game, body.position + new Vector3(-7, 6, -9), body.position + Vector3.up);
+            yield return null;
+            Capture(Path.Combine(output, "items-02-hull-follow.png"), false);
+            game.Input.SetWheel(0);
+
+            ItemFixture(game, 0, 16);
+            game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
+            var beamStart = body.position;
+            yield return new WaitForSeconds(.4f);
+            float beamDistance = Vector3.ProjectOnPlane(body.position - beamStart, Vector3.up).magnitude;
+            Capture(Path.Combine(output, "items-03-mega-beam.png"));
+            int beamHits = game.Items.BeamHits;
+
+            ItemFixture(game, 3, 16);
+            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(1);
+            DiagnosticView(game, body.position + new Vector3(-23, 27, -25), game.World.Buildings[3].transform.position + Vector3.up * 8);
+            yield return new WaitForSeconds(.35f);
+            int missileCount = FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Length;
+            Capture(Path.Combine(output, "items-04-missiles-up.png"));
+            yield return new WaitForSeconds(3);
+            Capture(Path.Combine(output, "items-05-missile-rain.png"));
+            int missileStrikes = game.Items.MissileStrikes;
+
+            yield return WaitForTankRecovery(game);
+            game.Items.FinishRound();
+            game.Tank.Warp(new Pose(game.World.GroundPoint(spawn, game.Settings.rideHeight), Quaternion.identity));
+            int beforeMagnet = game.World.Pickups.FindAll(x => x.Collected).Count;
+            int arranged = 0;
+            foreach (var pickup in game.World.Pickups)
+            {
+                if (pickup.Collected) continue;
+                pickup.transform.position = game.World.GroundPoint(body.position + new Vector3((arranged - 1.5f) * 4, 0, 8), 1.2f);
+                if (++arranged == 4) break;
+            }
+            game.Items.Receive(ItemKind.Magnet);
+            DiagnosticView(game, body.position + new Vector3(-10, 9, -10), body.position + new Vector3(0, 0, 6));
+            yield return new WaitForSeconds(.14f);
+            Capture(Path.Combine(output, "items-06-magnet.png"));
+            yield return new WaitForSeconds(.6f);
+            int magnetCollected = game.World.Pickups.FindAll(x => x.Collected).Count - beforeMagnet;
+
+            yield return WaitForTankRecovery(game);
+            ItemFixture(game, 2, 12);
+            int beforeDozerCrashes = game.Crashes;
+            game.Items.Receive(ItemKind.Bulldozer);
+            yield return new WaitForSeconds(.3f);
+            float dozerScale = game.Tank.VehicleScale;
+            DiagnosticView(game, body.position + new Vector3(-16, 12, -20), body.position + new Vector3(0, 1, 8));
+            yield return null;
+            Capture(Path.Combine(output, "items-07-bulldozer.png"));
+            yield return new WaitForSeconds(1.1f);
+            DiagnosticView(game, body.position + new Vector3(-19, 14, -22), body.position + new Vector3(0, 2, 8));
+            yield return null;
+            Capture(Path.Combine(output, "items-08-bulldozer-ram.png"));
+            int dozerCrashes = game.Crashes - beforeDozerCrashes;
+
+            yield return WaitForTankRecovery(game);
+            ItemFixture(game, 12, 12);
+            game.Items.Receive(ItemKind.GigantBomb); game.Input.PulsePad(0);
+            var bomb = FindFirstObjectByType<GigantBomb>();
+            DiagnosticView(game, body.position + new Vector3(-28, 28, -32), game.World.Buildings[12].transform.position + Vector3.up * 8);
+            yield return new WaitForSeconds(.35f);
+            Capture(Path.Combine(output, "items-09-bomb-throw.png"));
+            yield return new WaitForSeconds(.8f);
+            int bombContacts = bomb.Contacts;
+            Capture(Path.Combine(output, "items-10-bomb-impact.png"));
+            int beforeBomb = game.BrokenBlocks;
+            var bombPosition = bomb.transform.position;
+            DiagnosticView(game, bombPosition + new Vector3(-46, 34, -50), bombPosition);
+            yield return new WaitForSeconds(game.Items.Remaining(ItemKind.GigantBomb) + .12f);
+            Capture(Path.Combine(output, "items-11-gigant-explosion.png"));
+            int blastBlocks = game.BrokenBlocks - beforeBomb;
+
+            yield return WaitForTankRecovery(game);
+            ItemFixture(game, 18, 12);
+            int beforeDashCrashes = game.Crashes;
+            game.Items.Receive(ItemKind.HighSpeed);
+            yield return new WaitForSeconds(.2f);
+            DiagnosticView(game, body.position + new Vector3(-9, 6, -10), body.position + new Vector3(0, 1, 3));
+            yield return null;
+            Capture(Path.Combine(output, "items-12-high-speed.png"));
+            yield return new WaitForSeconds(1.4f);
+            float dashSpeed = game.Tank.ActualSpeed;
+            int dashCrashes = game.Crashes - beforeDashCrashes;
+            game.CameraRig.enabled = true; game.CameraRig.Snap();
+            game.AdvanceTime(1000);
+            yield return new WaitForSecondsRealtime(.2f);
+            Capture(Path.Combine(output, "items-13-results.png"));
+            Debug.Log($"ITEMS SMOKE COMPLETE: blocks={game.BrokenBlocks}/{game.TotalBlocks}, crashes={game.Crashes}, turretLead={turretLead:0.00}, earlyHull={earlyHull:0.00}, hullFollow={hullFollow:0.00}, beamTravel={beamDistance:0.000}, beamHits={beamHits}, missiles={missileCount}, missileStrikes={missileStrikes}, magnetCollected={magnetCollected}, dozerScale={dozerScale:0.00}, dozerCrashes={dozerCrashes}, bombContacts={bombContacts}, bombBlastBlocks={blastBlocks}, dashSpeed={dashSpeed:0.00}, dashCrashes={dashCrashes}, state={game.State}");
+            yield return new WaitForSecondsRealtime(.2f);
+            Application.Quit(0);
+        }
+
+        private static IEnumerator WaitForTankRecovery(TankTownGame game)
+        {
+            // Normal missile/bomb use does not grant invincibility. Let any real crash finish
+            // before assigning the next diagnostic item; otherwise Receive correctly rejects it.
+            while (game.Tank.Respawning) yield return null;
+        }
+
+        private static void ItemFixture(TankTownGame game, int buildingIndex, float distance)
+        {
+            game.Items.FinishRound();
+            var building = game.World.Buildings[buildingIndex];
+            var point = building.transform.position + new Vector3(-4.6f, 0, -building.Width / 2 - distance);
+            game.Tank.Warp(new Pose(game.World.GroundPoint(point, game.Settings.rideHeight), Quaternion.identity));
+            Physics.SyncTransforms();
+            game.CameraRig.enabled = true; game.CameraRig.Snap();
+        }
+
+        private static void DiagnosticView(TankTownGame game, Vector3 position, Vector3 target)
+        {
+            game.CameraRig.enabled = false;
+            Camera.main.transform.position = position;
+            Camera.main.transform.LookAt(target);
         }
 
         private static void Capture(string path, bool showHud = true)
