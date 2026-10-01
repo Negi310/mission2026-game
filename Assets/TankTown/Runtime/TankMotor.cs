@@ -22,7 +22,7 @@ namespace TankTown
             game = owner;
             body = gameObject.AddComponent<Rigidbody>();
             body.mass = 100;
-            body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ | RigidbodyConstraints.FreezePositionY;
+            body.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
             body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             initial = new Pose(transform.position, transform.rotation);
@@ -56,8 +56,11 @@ namespace TankTown
                 body.angularVelocity = Vector3.zero;
                 return;
             }
-            body.MoveRotation(body.rotation * Quaternion.Euler(0, game.Input.Steering * game.Stats.TurnSpeed * Time.fixedDeltaTime, 0));
-            commandedVelocity = transform.forward * game.Stats.Speed;
+            // Collision impulses cannot rotate the tank; only wheel input changes heading.
+            body.angularVelocity = Vector3.zero;
+            var heading = body.rotation * Quaternion.Euler(0, game.Input.Steering * game.Stats.TurnSpeed * Time.fixedDeltaTime, 0);
+            body.MoveRotation(heading);
+            commandedVelocity = heading * Vector3.forward * game.Stats.Speed;
             body.linearVelocity = commandedVelocity;
             if (Time.time >= nextSafeSample)
             {
@@ -77,7 +80,7 @@ namespace TankTown
             int count = Physics.OverlapBoxNonAlloc(pose.position + pose.rotation * Vector3.forward * 2, new Vector3(2, 1.4f, 4), nearby, pose.rotation, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore);
             if (count == nearby.Length) return false;
             for (int i = 0; i < count; i++)
-                if (nearby[i].GetComponent<DestructibleBlock>() is DestructibleBlock block && !block.Detached && !block.CanCrush) return false;
+                if (nearby[i].GetComponentInParent<DestructibleBlock>() is DestructibleBlock block && !block.Detached && !block.CanCrush) return false;
             return Mathf.Abs(pose.position.x) < game.World.HalfExtent - 7 && Mathf.Abs(pose.position.z) < game.World.HalfExtent - 7;
         }
 
@@ -106,32 +109,38 @@ namespace TankTown
         private void HandleCollision(Collision hit)
         {
             if (!game.IsPlaying || Respawning) return;
-            var block = hit.collider.GetComponent<DestructibleBlock>();
+            var block = hit.collider.GetComponentInParent<DestructibleBlock>();
             if (block == null) return;
             if (block.Detached)
             {
-                var fragment = block.GetComponent<Rigidbody>();
-                if (fragment != null)
-                {
-                    var away = fragment.worldCenterOfMass - body.position;
-                    away.y = 0;
-                    if (away.sqrMagnitude < .01f) away = transform.right;
-                    var push = away.normalized * 9 + transform.forward * game.Stats.Speed * .7f + Vector3.up * 3;
-                    fragment.linearVelocity = Vector3.Lerp(fragment.linearVelocity, push, .85f);
-                    body.linearVelocity = commandedVelocity;
-                }
+                PushAside(block);
                 return;
             }
             if (block.CanCrush)
             {
                 block.Break(transform.position, game.Stats.BlastImpulse * 0.7f);
                 block.Building?.ReleaseUnsupported(transform.position, game.Stats.BlastImpulse);
+                PushAside(block);
                 return;
             }
             float impact = 0;
             for (int i = 0; i < hit.contactCount; i++)
                 impact = Mathf.Max(impact, Vector3.Dot(commandedVelocity, -hit.GetContact(i).normal));
             if (Time.time >= protectedUntil && impact >= game.Settings.fatalImpactSpeed) Explode();
+        }
+
+        private void PushAside(DestructibleBlock block)
+        {
+            var fragment = block.GetComponent<Rigidbody>();
+            if (fragment == null) return;
+            var forward = body.rotation * Vector3.forward;
+            var away = fragment.worldCenterOfMass - body.position;
+            away.y = 0;
+            if (away.sqrMagnitude < .01f) away = forward;
+            var push = away.normalized * 9 + forward * game.Stats.Speed * .7f + Vector3.up * 3;
+            fragment.linearVelocity = Vector3.Lerp(fragment.linearVelocity, push, .85f);
+            body.linearVelocity = commandedVelocity;
+            body.angularVelocity = Vector3.zero;
         }
 
         public void Explode()

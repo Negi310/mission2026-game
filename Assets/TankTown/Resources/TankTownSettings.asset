@@ -18,8 +18,8 @@ MonoBehaviour:
   driveSpeed: 9
   turnSpeed: 85
   shotCooldown: 0.35
-  blastRadius: 3.8
-  blastImpulse: 12
+  blastRadius: 6.5
+  blastImpulse: 20
   fatalImpactSpeed: 5
   maxDebris: 280
   debrisLifetime: 9
@@ -27,8 +27,13 @@ MonoBehaviour:
   pressureRelease: 0.25
   citySeed: 2026
   cityHalfBlocks: 3
-  blockSpacing: 32
+  blockSpacing: 40
   buildingWidth: 20
+  roadWidth: 16
+  pillarWidth: 1.8
+  stabilityMargin: 0.25
+  cameraOffset: {x: 0, y: 1.6, z: 0.25}
+  cameraFieldOfView: 72
   floorHeight: 3.6
   maxUpgradeLevel: 8
   speedUpgrade: 0.08

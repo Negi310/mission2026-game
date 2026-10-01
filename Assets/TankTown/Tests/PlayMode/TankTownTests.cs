@@ -118,7 +118,7 @@ namespace TankTown.Tests
         {
             var body = game.Tank.GetComponent<Rigidbody>();
             var building = game.World.Buildings[0];
-            body.position = building.transform.position + new Vector3(-4.6f, 1, -game.Settings.buildingWidth / 2 - 6);
+            body.position = building.transform.position + new Vector3(-4.6f, 1, -game.World.BuildingWidth / 2 - 6);
             body.rotation = Quaternion.identity;
             yield return new WaitForFixedUpdate();
             game.Tank.Fire(0);
@@ -136,7 +136,7 @@ namespace TankTown.Tests
         public IEnumerator SolidBuildingCollisionTriggersRespawn()
         {
             var body = game.Tank.GetComponent<Rigidbody>();
-            body.position = game.World.Buildings[0].transform.position + new Vector3(-4.6f, 1, -game.Settings.buildingWidth / 2 - 4);
+            body.position = game.World.Buildings[0].transform.position + new Vector3(-4.6f, 1, -game.World.BuildingWidth / 2 - 4);
             body.rotation = Quaternion.identity;
             yield return new WaitForSeconds(.6f);
             Assert.That(game.Crashes, Is.EqualTo(1));
@@ -145,7 +145,7 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator ExpandedBuildingsAreHollowAndFacadesDoNotCarryTheFrame()
         {
-            Assert.That(game.World.HalfExtent, Is.EqualTo(110));
+            Assert.That(game.World.HalfExtent, Is.EqualTo(134));
             Assert.That(game.World.Buildings.Count, Is.EqualTo(36));
             var building = game.World.Buildings[0];
             Physics.SyncTransforms();
@@ -166,12 +166,13 @@ namespace TankTown.Tests
             var tankBody = game.Tank.GetComponent<Rigidbody>();
             var start = tankBody.position;
             debrisBody.useGravity = false;
-            debrisBody.position = start + Vector3.forward * 4;
+            debrisBody.position = start + new Vector3(1.65f, 0, 4);
             debrisBody.linearVelocity = Vector3.back * 20;
             Assert.That(Physics.GetIgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer), Is.False);
             for (int i = 0; i < 10; i++) yield return new WaitForFixedUpdate();
             Assert.That(debrisBody.linearVelocity.z, Is.GreaterThan(0), "Incoming debris must be deflected by an actual contact");
             Assert.That(tankBody.position.z - start.z, Is.GreaterThan(1.2f));
+            Assert.That(Quaternion.Angle(tankBody.rotation, Quaternion.identity), Is.LessThan(.2f), "Off-centre debris must not steer the tank");
             Assert.That(game.Crashes, Is.Zero);
             Assert.That(game.Tank.Respawning, Is.False);
         }
@@ -234,5 +235,105 @@ namespace TankTown.Tests
             game.Blast(point);
             Assert.That(crate.Detached, Is.True, "The power upgrade must expand the real destruction query");
             yield return null;
-        }    }
+        }
+        [UnityTest]
+        public IEnumerator ThreeSupportsStayBalancedButAdjacentPairCollapses()
+        {
+            var building = game.World.Buildings[0];
+            var posts = building.Blocks.FindAll(x => x.Foundation);
+            posts[0].Break(posts[0].transform.position, 0);
+            building.ReleaseUnsupported(posts[0].transform.position, 0);
+            Assert.That(building.Collapsed, Is.False, "Three widely separated posts can still balance a symmetric building");
+            posts[1].Break(posts[1].transform.position, 0);
+            building.ReleaseUnsupported(posts[1].transform.position, 0);
+            Assert.That(building.CollapsedFromLevel, Is.Zero);
+            Assert.That(building.Blocks.TrueForAll(x => x == null || x.Detached), Is.True, "Two posts on one side must not hold the entire building");
+            yield return new WaitForFixedUpdate();
+        }
+
+        [UnityTest]
+        public IEnumerator OneRemainingPillarCannotHoldTheBuilding()
+        {
+            var building = game.World.Buildings[0];
+            var posts = building.Blocks.FindAll(x => x.Foundation);
+            for (int i = 0; i < 3; i++) posts[i].Break(posts[i].transform.position, 0);
+            building.ReleaseUnsupported(posts[0].transform.position, 0);
+            Assert.That(building.Collapsed, Is.True);
+            Assert.That(posts[3].Detached, Is.True);
+            Assert.That(building.Blocks.Find(x => x.Kind == BuildingPart.Slab && x.Level == 3).GetComponent<Rigidbody>(), Is.Not.Null);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator UpperStoreyCanCollapseWhileFoundationStaysIntact()
+        {
+            var building = game.World.Buildings[0];
+            var posts = building.Blocks.FindAll(x => x.Kind == BuildingPart.Pillar && x.Level == 2);
+            posts[0].Break(posts[0].transform.position, 0);
+            posts[1].Break(posts[1].transform.position, 0);
+            building.ReleaseUnsupported(posts[0].transform.position, 0);
+            Assert.That(building.CollapsedFromLevel, Is.EqualTo(2));
+            Assert.That(building.Blocks.FindAll(x => x.Foundation).TrueForAll(x => !x.Detached), Is.True);
+            Assert.That(building.Blocks.FindAll(x => x.Level >= 2).TrueForAll(x => x.Detached), Is.True);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator OppositeSupportsFallWhenLoadShiftsOutsideTheirFootprint()
+        {
+            var building = game.World.Buildings[0];
+            var posts = building.Blocks.FindAll(x => x.Foundation);
+            posts[1].Break(posts[1].transform.position, 0);
+            posts[3].Break(posts[3].transform.position, 0);
+            building.ReleaseUnsupported(posts[0].transform.position, 0);
+            Assert.That(building.Collapsed, Is.False, "Opposite posts may support a centred load");
+            foreach (var block in building.Blocks)
+                if ((block.Kind == BuildingPart.Slab && block.Column == 1) || (block.Kind == BuildingPart.Wall && block.Column <= 1)) block.Break(block.transform.position, 0);
+            building.ReleaseUnsupported(building.transform.position, 0);
+            Assert.That(building.Collapsed, Is.True, "The same two posts must fail when the remaining load becomes unbalanced");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ThickerPillarsAndLargerBlastHelpHitFacadeSupports()
+        {
+            Assert.That(game.World.RoadWidth, Is.EqualTo(16));
+            var building = game.World.Buildings[0];
+            var pillar = building.Blocks.Find(x => x.Foundation && x.Column == 0);
+            Assert.That(pillar.transform.localScale.x, Is.EqualTo(1.8f).Within(.01f));
+            game.Blast(building.transform.position + new Vector3(-4.6f, 1.72f, -game.World.BuildingWidth / 2));
+            Assert.That(pillar.Detached, Is.True, "Hitting a facade panel must reach its nearby supporting post");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator TreeCrownContactImmediatelyPushesTheWholeTree()
+        {
+            var tree = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Tree");
+            var tankBody = game.Tank.GetComponent<Rigidbody>();
+            tankBody.position = tree.transform.position + new Vector3(2.2f, 1, -3.8f);
+            tankBody.rotation = Quaternion.identity;
+            game.Tank.transform.SetPositionAndRotation(tankBody.position, tankBody.rotation);
+            Physics.SyncTransforms();
+            // This lateral offset misses the narrow trunk and contacts only the crown.
+            for (int i = 0; i < 20; i++) yield return new WaitForFixedUpdate();
+            Assert.That(tree.Detached, Is.True);
+            Assert.That(tree.GetComponent<Rigidbody>().linearVelocity.z, Is.GreaterThan(0));
+            Assert.That(tree.transform.Find("Tree crown").gameObject.layer, Is.EqualTo(TownPhysics.DebrisLayer));
+            Assert.That(game.Crashes, Is.Zero);
+            Assert.That(Quaternion.Angle(tankBody.rotation, Quaternion.identity), Is.LessThan(.2f));
+        }
+
+        [UnityTest]
+        public IEnumerator CameraIsMountedNearTheTurretAndAimsForward()
+        {
+            game.CameraRig.Snap();
+            var body = game.Tank.GetComponent<Rigidbody>();
+            Assert.That(Vector3.Distance(game.CameraRig.transform.position, body.position), Is.LessThan(3));
+            Assert.That(game.CameraRig.transform.position.y - body.position.y, Is.InRange(1.3f, 2));
+            Assert.That(Vector3.Angle(game.CameraRig.transform.forward, body.rotation * Vector3.forward), Is.LessThan(5));
+            Assert.That(Camera.main.fieldOfView, Is.EqualTo(72));
+            yield return null;
+        }
+    }
 }

@@ -27,7 +27,7 @@ namespace TankTown
             if (Detached || game == null || !game.IsPlaying) return;
             Detached = true;
             game.ScoreBlock();
-            gameObject.layer = TownPhysics.DebrisLayer;
+            foreach (var part in GetComponentsInChildren<Transform>()) part.gameObject.layer = TownPhysics.DebrisLayer;
             var body = gameObject.AddComponent<Rigidbody>();
             body.mass = Kind == BuildingPart.Slab ? 1.4f : .55f;
             body.maxAngularVelocity = 12;

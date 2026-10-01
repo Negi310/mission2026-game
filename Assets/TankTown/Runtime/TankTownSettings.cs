@@ -11,8 +11,8 @@ namespace TankTown
         [Min(1)] public float driveSpeed = 9;
         [Min(1)] public float turnSpeed = 85;
         [Min(0)] public float shotCooldown = 0.35f;
-        [Min(1)] public float blastRadius = 3.8f;
-        [Min(0)] public float blastImpulse = 12;
+        [Min(1)] public float blastRadius = 6.5f;
+        [Min(0)] public float blastImpulse = 20;
         [Min(0)] public float fatalImpactSpeed = 5;
         [Min(1)] public int maxDebris = 280;
         [Min(1)] public float debrisLifetime = 9;
@@ -21,9 +21,15 @@ namespace TankTown
         public int citySeed = 2026;
         [Header("City")]
         [Range(2, 5)] public int cityHalfBlocks = 3;
-        [Min(24)] public float blockSpacing = 32;
+        [Min(24)] public float blockSpacing = 40;
         [Min(10)] public float buildingWidth = 20;
+        [Min(8)] public float roadWidth = 16;
+        [Range(.6f, 3)] public float pillarWidth = 1.8f;
+        [Range(0, 1)] public float stabilityMargin = .25f;
         [Min(2)] public float floorHeight = 3.6f;
+        [Header("Camera")]
+        public Vector3 cameraOffset = new Vector3(0, 1.6f, .25f);
+        [Range(50, 90)] public float cameraFieldOfView = 72;
         [Header("Power-ups (per level)")]
         [Range(1, 12)] public int maxUpgradeLevel = 8;
         [Min(0)] public float speedUpgrade = .08f;

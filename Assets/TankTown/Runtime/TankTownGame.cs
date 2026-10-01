@@ -63,11 +63,13 @@ namespace TankTown
                 item.tag = "MainCamera";
                 camera = item.GetComponent<Camera>();
             }
-            camera.fieldOfView = 58;
+            camera.fieldOfView = Settings.cameraFieldOfView;
+            camera.nearClipPlane = .12f;
             camera.farClipPlane = 360;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(.25f, .75f, 1);
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
+            CameraRig.Offset = Settings.cameraOffset;
             CameraRig.Target = Tank.transform;
             CameraRig.Snap();
             RenderSettings.ambientLight = new Color(.75f, .82f, .9f);
@@ -129,7 +131,7 @@ namespace TankTown
             var buildings = new HashSet<BlockBuilding>();
             foreach (var collider in Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
             {
-                var block = collider.GetComponent<DestructibleBlock>();
+                var block = collider.GetComponentInParent<DestructibleBlock>();
                 if (block == null || block.Detached) continue;
                 block.Break(point, impulse);
                 if (block.Building != null) buildings.Add(block.Building);

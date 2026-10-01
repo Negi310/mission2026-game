@@ -5,7 +5,8 @@ namespace TankTown
 {
     public sealed class TankTownEffects : MonoBehaviour
     {
-        private Material glow;
+        private Material glow, smoke;
+        private readonly Material[] fireColors = new Material[3];
         private Texture2D softDot;
         private Mesh ring;
         public Material Glow => glow;
@@ -20,6 +21,12 @@ namespace TankTown
             }
             softDot.SetPixels(pixels); softDot.Apply(false, true);
             glow = new Material(Shader.Find("TankTown/Arcade Glow")) { mainTexture = softDot };
+            smoke = new Material(Shader.Find("TankTown/Arcade Smoke")) { mainTexture = softDot };
+            for (int i = 0; i < fireColors.Length; i++)
+            {
+                fireColors[i] = new Material(Resources.Load<Material>("TankTownSurface"));
+                fireColors[i].SetColor("_BaseColor", i == 0 ? new Color(1, .21f, .015f) : i == 1 ? new Color(1, .56f, .025f) : new Color(1, .88f, .13f));
+            }
             ring = BuildRing();
         }
         private static Mesh BuildRing()
@@ -48,10 +55,41 @@ namespace TankTown
         }
         public void Impact(Vector3 position, float radius)
         {
-            Particles(position, new Color(1, .35f, .06f), 55, 13, 1.1f, .7f, Vector3.up);
-            Particles(position, new Color(1, .88f, .16f), 32, 18, .36f, .45f, Vector3.up);
-            Shockwave(position, new Color(1, .64f, .1f), radius * 2.1f, .45f);
-            Flash(position, new Color(1, .9f, .5f), radius * 1.8f, .20f);
+            float visualRadius = Mathf.Clamp(radius, 4, 10);
+            Fireball(position, visualRadius);
+            Particles(position, new Color(1, .36f, .025f), 90, 21, 1.4f, .8f, Vector3.up);
+            Particles(position, new Color(1, .82f, .08f), 65, 28, .38f, .7f, Vector3.up, false, true);
+            Particles(position + Vector3.up, new Color(.48f, .33f, .26f), 28, 6, 3.6f, 1.3f, Vector3.up, true);
+            Shockwave(position, new Color(1, .66f, .1f), visualRadius * 2.7f, .6f);
+            Shockwave(position + Vector3.up * 1.2f, new Color(1, .9f, .3f), visualRadius * 1.6f, .38f, Quaternion.Euler(90, 0, 0));
+            Flash(position, new Color(1, .91f, .45f), visualRadius * 2.2f, .13f);
+        }
+        public void Collapse(Vector3 position, float width)
+        {
+            Particles(position, new Color(.65f, .57f, .44f), 42, 8, 4, 1.6f, Vector3.up, true);
+            Particles(position, new Color(1, .67f, .15f), 35, 13, .4f, .65f, Vector3.up, false, true);
+            Shockwave(position, new Color(1, .75f, .3f), width, .7f);
+        }
+        private void Fireball(Vector3 position, float radius)
+        {
+            var root = new GameObject("Large explosion fireball");
+            root.transform.SetParent(transform);
+            root.transform.position = position;
+            for (int i = 0; i < 7; i++)
+            {
+                var lobe = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                lobe.GetComponent<Collider>().enabled = false;
+                Destroy(lobe.GetComponent<Collider>());
+                lobe.transform.SetParent(root.transform, false);
+                var offset = i == 0 ? Vector3.zero : Random.insideUnitSphere * .22f;
+                offset.y = Mathf.Abs(offset.y) + .18f;
+                lobe.transform.localPosition = offset * radius;
+                lobe.transform.localScale = Vector3.one * radius * (i == 0 ? .6f : .43f);
+                var renderer = lobe.GetComponent<Renderer>();
+                renderer.sharedMaterial = fireColors[i == 0 ? 2 : i % 3];
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+            }
+            root.AddComponent<FireballBurst>();
         }
         public void Pickup(Vector3 position, Color color)
         {
@@ -60,12 +98,13 @@ namespace TankTown
         }
         public void Crash(Vector3 position)
         {
-            Impact(position, 4);
+            Impact(position, 7);
             Particles(position, new Color(1, .15f, .55f), 28, 8, .9f, .6f, Vector3.up);
         }
-        private void Particles(Vector3 position, Color color, int count, float speed, float size, float lifetime, Vector3 forward)
+        private void Particles(Vector3 position, Color color, int count, float speed, float size, float lifetime, Vector3 forward, bool isSmoke = false, bool streaks = false)
         {
-            var item = new GameObject("Arcade particles");
+            var item = new GameObject(isSmoke ? "Explosion smoke" : "Arcade particles");
+            item.transform.SetParent(transform);
             item.transform.position = position;
             item.transform.rotation = Quaternion.LookRotation(forward);
             var particles = item.AddComponent<ParticleSystem>();
@@ -74,17 +113,22 @@ namespace TankTown
             main.loop = false; main.duration = .1f; main.startLifetime = new ParticleSystem.MinMaxCurve(lifetime * .5f, lifetime);
             main.startSpeed = new ParticleSystem.MinMaxCurve(speed * .45f, speed);
             main.startSize = new ParticleSystem.MinMaxCurve(size * .35f, size);
-            main.startColor = color; main.gravityModifier = .7f; main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.startColor = Color.white; main.gravityModifier = isSmoke ? -.08f : .7f; main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.maxParticles = count;
             var emission = particles.emission; emission.rateOverTime = 0; emission.SetBursts(new[] { new ParticleSystem.Burst(0, (short)count) });
-            var shape = particles.shape; shape.shapeType = ParticleSystemShapeType.Sphere; shape.radius = .35f;
+            var shape = particles.shape; shape.shapeType = ParticleSystemShapeType.Sphere; shape.radius = isSmoke ? 1.6f : .65f;
             var fading = particles.colorOverLifetime; fading.enabled = true;
             var gradient = new Gradient();
             gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(color, .25f), new GradientColorKey(color, 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.9f, .35f), new GradientAlphaKey(0, 1) });
+            if (isSmoke)
+                gradient.SetKeys(new[] { new GradientColorKey(new Color(1, .54f, .12f), 0), new GradientColorKey(color, .25f), new GradientColorKey(new Color(.3f, .34f, .4f), 1) }, new[] { new GradientAlphaKey(.7f, 0), new GradientAlphaKey(.45f, .35f), new GradientAlphaKey(0, 1) });
             fading.color = gradient;
-            var shrink = particles.sizeOverLifetime; shrink.enabled = true; shrink.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, 1, 1, .1f));
+            var shrink = particles.sizeOverLifetime; shrink.enabled = true;
+            shrink.size = new ParticleSystem.MinMaxCurve(1, isSmoke ? AnimationCurve.Linear(0, .5f, 1, 1.6f) : AnimationCurve.Linear(0, 1, 1, .1f));
             var renderer = particles.GetComponent<ParticleSystemRenderer>();
-            renderer.sharedMaterial = glow; renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
+            renderer.sharedMaterial = isSmoke ? smoke : glow;
+            if (streaks) { renderer.renderMode = ParticleSystemRenderMode.Stretch; renderer.lengthScale = 2.5f; renderer.velocityScale = .12f; }
+            renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
             particles.Play(); Destroy(item, lifetime + .4f);
         }
         private void Flash(Vector3 position, Color color, float size, float duration)
@@ -92,14 +136,17 @@ namespace TankTown
             var item = GameObject.CreatePrimitive(PrimitiveType.Quad);
             item.name = "Impact star flash";
             item.GetComponent<Collider>().enabled = false; Destroy(item.GetComponent<Collider>());
+            item.transform.SetParent(transform);
             item.transform.position = position;
             item.GetComponent<Renderer>().sharedMaterial = glow;
             item.AddComponent<ArcadePulse>().Initialize(color, size, duration, true);
         }
-        private void Shockwave(Vector3 position, Color color, float size, float duration)
+        private void Shockwave(Vector3 position, Color color, float size, float duration, Quaternion? rotation = null)
         {
             var item = new GameObject("Expanding shockwave", typeof(MeshFilter), typeof(MeshRenderer));
+            item.transform.SetParent(transform);
             item.transform.position = position + Vector3.up * .1f;
+            item.transform.rotation = rotation ?? Quaternion.identity;
             item.GetComponent<MeshFilter>().sharedMesh = ring;
             item.GetComponent<Renderer>().sharedMaterial = glow;
             item.AddComponent<ArcadePulse>().Initialize(color, size, duration, false);
@@ -111,7 +158,24 @@ namespace TankTown
             trail.minVertexDistance = .12f; trail.shadowCastingMode = ShadowCastingMode.Off;
             trail.startColor = new Color(1, .8f, .15f); trail.endColor = new Color(1, .16f, .55f, 0);
         }
-        private void OnDestroy() { Destroy(glow); Destroy(softDot); Destroy(ring); }
+        private void OnDestroy()
+        {
+            Destroy(glow); Destroy(smoke); Destroy(softDot); Destroy(ring);
+            foreach (var material in fireColors) Destroy(material);
+        }
+    }
+
+    public sealed class FireballBurst : MonoBehaviour
+    {
+        private float age;
+        private void Awake() { transform.localScale = Vector3.zero; }
+        private void Update()
+        {
+            age += Time.deltaTime;
+            float size = age < .07f ? Mathf.Lerp(.2f, 1, age / .07f) : Mathf.Pow(Mathf.Clamp01(1 - (age - .07f) / .33f), .65f);
+            transform.localScale = Vector3.one * size;
+            if (age >= .4f) Destroy(gameObject);
+        }
     }
 
     public sealed class ArcadePulse : MonoBehaviour

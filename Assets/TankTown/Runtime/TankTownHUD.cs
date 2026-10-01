@@ -12,6 +12,7 @@ namespace TankTown
         private Transform canvas;
         private Text timer, score, counter, notice, cardTitle, cardBody, buttonText;
         private Image fill;
+        private Text aim;
         private readonly Text[] statRows = new Text[4];
         private Text pickupText;
         private GameObject pickupPanel;
@@ -72,6 +73,11 @@ namespace TankTown
             br.anchorMin = br.anchorMax = new Vector2(.5f, 0);
             br.pivot = new Vector2(.5f, 0);
             Label(bottom.transform, "ハンドル  A / D ・ ← / →       たたいて発射  SPACE / J / K       ひとやすみ  ESC", new Vector2(20, -14), new Vector2(870, 30), 17, Color.white);
+            aim = Label(canvas, "＋", Vector2.zero, new Vector2(40, 40), 32, Color.white);
+            aim.rectTransform.anchorMin = aim.rectTransform.anchorMax = aim.rectTransform.pivot = Vector2.one * .5f;
+            aim.alignment = TextAnchor.MiddleCenter;
+            aim.fontStyle = FontStyle.Bold;
+            aim.gameObject.AddComponent<Outline>().effectColor = ink;
             card = Panel("Round card", canvas, Vector2.zero, new Vector2(630, 380), new Color(.98f, .97f, .91f, .98f));
             var cr = card.GetComponent<RectTransform>();
             cr.anchorMin = cr.anchorMax = cr.pivot = new Vector2(.5f, .5f);
@@ -132,6 +138,12 @@ namespace TankTown
                 statRows[i].text = $"{TankStats.Label(kind)} Lv.{game.Stats.Level(kind)}  {value}";
             }
             pickupPanel.SetActive(game.IsPlaying && !game.Tank.Respawning && Time.time < pickupUntil);
+            aim.gameObject.SetActive(game.IsPlaying && !game.Tank.Respawning);
+            if (game.IsPlaying && Camera.main != null)
+            {
+                Vector3 projected = Camera.main.WorldToScreenPoint(game.Tank.Muzzle.position + game.Tank.transform.forward * 70);
+                aim.rectTransform.anchoredPosition = ((Vector2)projected - new Vector2(Screen.width, Screen.height) * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
+            }
             card.SetActive(game.State != RoundState.Playing);
             if (game.State == RoundState.Ready)
             {

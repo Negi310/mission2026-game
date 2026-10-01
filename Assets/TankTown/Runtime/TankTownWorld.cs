@@ -8,6 +8,8 @@ namespace TankTown
         public Material ShotMaterial { get; private set; }
         public UpgradeIcons Icons { get; private set; }
         public float HalfExtent { get; private set; }
+        public float RoadWidth => Mathf.Clamp(game.Settings.roadWidth, 8, game.Settings.blockSpacing - 14);
+        public float BuildingWidth => Mathf.Clamp(game.Settings.buildingWidth, 10, game.Settings.blockSpacing - RoadWidth - 4);
         public Vector3 SpawnPosition => new Vector3(0, 1, -HalfExtent + 20);
         public readonly List<BlockBuilding> Buildings = new List<BlockBuilding>();
         public readonly List<TankPickup> Pickups = new List<TankPickup>();
@@ -59,11 +61,11 @@ namespace TankTown
             for (int i = -half; i <= half; i++)
             {
                 float lane = i * spacing;
-                Box("North south avenue", new Vector3(lane, .04f, 0), new Vector3(10, .04f, paving), road, solid: false);
-                Box("East west avenue", new Vector3(0, .045f, lane), new Vector3(paving, .04f, 10), road, solid: false);
+                Box("North south avenue", new Vector3(lane, .04f, 0), new Vector3(RoadWidth, .04f, paving), road, solid: false);
+                Box("East west avenue", new Vector3(0, .045f, lane), new Vector3(paving, .04f, RoadWidth), road, solid: false);
                 for (float d = -paving / 2 + 2; d < paving / 2; d += 4)
                 {
-                    if (Mathf.Abs(d - Mathf.Round(d / spacing) * spacing) < 6) continue;
+                    if (Mathf.Abs(d - Mathf.Round(d / spacing) * spacing) < RoadWidth / 2 + 1) continue;
                     Box("Lane dash", new Vector3(lane, .075f, d), new Vector3(.18f, .02f, 1.8f), cream, solid: false);
                     Box("Lane dash", new Vector3(d, .075f, lane), new Vector3(1.8f, .02f, .18f), cream, solid: false);
                 }
@@ -74,7 +76,7 @@ namespace TankTown
                 {
                     var center = new Vector3((x + .5f) * spacing, 0, (z + .5f) * spacing);
                     CreateBuilding(center, random.Next(4, 8), MakeMaterial(palette[random.Next(palette.Length)]));
-                    float sidewalk = game.Settings.buildingWidth / 2 + 1.3f;
+                    float sidewalk = BuildingWidth / 2 + 1.5f;
                     CreateProp(center + new Vector3(-sidewalk, 0, -sidewalk), "Street sign", ShotMaterial, true);
                     CreateProp(center + new Vector3(sidewalk, 0, sidewalk), "Tree", grass, false);
                     CreateProp(center + new Vector3(-sidewalk, 0, sidewalk), "Street lamp", cream, true);
@@ -121,9 +123,11 @@ namespace TankTown
             root.transform.SetParent(transform);
             root.transform.position = center;
             var building = root.AddComponent<BlockBuilding>();
+            building.Initialize(game);
             Buildings.Add(building);
-            float width = Mathf.Min(game.Settings.buildingWidth, game.Settings.blockSpacing - 12);
-            float height = game.Settings.floorHeight, h = width / 2 - .4f;
+            float width = BuildingWidth;
+            float pillar = Mathf.Clamp(game.Settings.pillarWidth, .6f, width / 5);
+            float height = game.Settings.floorHeight, h = (width - pillar) / 2;
             var corners = new[] { new Vector3(-h, 0, -h), new Vector3(h, 0, -h), new Vector3(h, 0, h), new Vector3(-h, 0, h) };
             var previous = new DestructibleBlock[4];
             for (int level = 0; level < floors; level++)
@@ -134,12 +138,12 @@ namespace TankTown
                 var slabs = new DestructibleBlock[4];
                 for (int i = 0; i < 4; i++)
                 {
-                    pillars[i] = Part("Pillar", corners[i] + Vector3.up * (y + height / 2), new Vector3(.8f, height - .12f, .8f), frame, BuildingPart.Pillar, level, i, building);
+                    pillars[i] = Part("Pillar", corners[i] + Vector3.up * (y + height / 2), new Vector3(pillar, height - .12f, pillar), frame, BuildingPart.Pillar, level, i, building);
                     pillars[i].Foundation = level == 0;
                     if (level > 0) BlockBuilding.Connect(pillars[i], previous[i]);
                     var middle = (corners[i] + corners[(i + 1) % 4]) / 2;
-                    beams[i] = Part("Beam", middle + Vector3.up * (y + height - .25f), i % 2 == 0 ? new Vector3(width - .8f, .5f, .65f) : new Vector3(.65f, .5f, width - .8f), frame, BuildingPart.Beam, level, i, building);
-                    float q = (width - 1.2f) / 4;
+                    beams[i] = Part("Beam", middle + Vector3.up * (y + height - .25f), i % 2 == 0 ? new Vector3(width - pillar, .5f, .65f) : new Vector3(.65f, .5f, width - pillar), frame, BuildingPart.Beam, level, i, building);
+                    float q = (width - pillar) / 4;
                     slabs[i] = Part("Floor slab", new Vector3(Mathf.Sign(corners[i].x) * q, y + height - .12f, Mathf.Sign(corners[i].z) * q), new Vector3(q * 2 - .05f, .24f, q * 2 - .05f), level == floors - 1 ? cream : frame, BuildingPart.Slab, level, i, building);
                 }
                 for (int i = 0; i < 4; i++)
@@ -178,9 +182,28 @@ namespace TankTown
 
         private void CreateProp(Vector3 position, string label, Material color, bool sign)
         {
-            var item = Box(label, position + Vector3.up * 1.25f, new Vector3(.22f, 2.5f, .22f), dark);
+            var item = new GameObject(label);
+            item.transform.SetParent(transform, false);
+            item.transform.position = position;
+            var trunk = item.AddComponent<BoxCollider>();
+            trunk.center = Vector3.up * 1.4f;
+            trunk.size = new Vector3(sign ? .3f : .45f, 2.8f, sign ? .3f : .45f);
             AddBlock(item, true);
-            Box("Top", new Vector3(0, .44f, 0), sign ? new Vector3(7, .35f, 2) : new Vector3(9, .65f, 9), color, item.transform, false);
+            Box("Post", trunk.center, trunk.size, dark, item.transform, false);
+            if (!sign)
+            {
+                var crown = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                crown.name = "Tree crown";
+                crown.transform.SetParent(item.transform, false);
+                crown.transform.localPosition = Vector3.up * 2.65f;
+                crown.transform.localScale = new Vector3(2.8f, 2.5f, 2.8f);
+                crown.GetComponent<Renderer>().sharedMaterial = color;
+                // The visible crown joins the trunk as a compound physics collider.
+            }
+            else
+            {
+                Box("Top", new Vector3(0, 2.7f, 0), label == "Street lamp" ? new Vector3(.9f, .5f, .9f) : new Vector3(1.8f, .9f, .25f), color, item.transform, true);
+            }
         }
 
         public TankMotor CreateTank()
