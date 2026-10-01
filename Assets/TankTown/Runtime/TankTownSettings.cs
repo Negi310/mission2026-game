@@ -8,10 +8,10 @@ namespace TankTown
         [Min(1)] public float roundSeconds = 180;
         [Min(0)] public float respawnPenalty = 3;
         [Min(0.1f)] public float respawnDelay = 1.2f;
-        [Min(1)] public float driveSpeed = 11;
+        [Min(1)] public float driveSpeed = 16;
         [Min(1)] public float turnSpeed = 85;
         [Header("Driving")]
-        [Min(.1f)] public float acceleration = 6;
+        [Min(.1f)] public float acceleration = 10;
         [Min(2)] public float wheelbase = 3.8f;
         [Range(10, 45)] public float steeringAngle = 32;
         [Min(.1f)] public float steeringResponse = 5;

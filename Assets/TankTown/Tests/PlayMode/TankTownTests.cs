@@ -347,17 +347,17 @@ namespace TankTown.Tests
             for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
             Assert.That(game.Tank.ActualSpeed, Is.LessThan(game.Stats.Speed * .2f), "Starting must accelerate instead of jumping to full speed");
             for (int i = 0; i < 47; i++) yield return new WaitForFixedUpdate();
-            Assert.That(game.Tank.ActualSpeed, Is.InRange(5, 7));
+            Assert.That(game.Tank.ActualSpeed, Is.InRange(9, 11));
             game.Input.SetWheel(1); yield return null;
             for (int i = 0; i < 15; i++) yield return new WaitForFixedUpdate();
             Assert.That(Mathf.Abs(Vector3.Dot(body.linearVelocity, body.rotation * Vector3.right)), Is.GreaterThan(.1f), "A turn must retain some lateral momentum");
-            var beforeRelease = body.rotation;
+            float beforeRelease = body.rotation.eulerAngles.y;
             game.Input.SetWheel(0); yield return null; yield return new WaitForFixedUpdate();
-            Assert.That(Quaternion.Angle(beforeRelease, body.rotation), Is.GreaterThan(.2f), "The steering wheel must return smoothly");
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(beforeRelease, body.rotation.eulerAngles.y)), Is.GreaterThan(.2f), "The steering wheel must return smoothly");
             for (int i = 0; i < 30; i++) yield return new WaitForFixedUpdate();
-            var straight = body.rotation;
+            float straight = body.rotation.eulerAngles.y;
             for (int i = 0; i < 10; i++) yield return new WaitForFixedUpdate();
-            Assert.That(Quaternion.Angle(straight, body.rotation), Is.LessThan(.4f), "The car must straighten after the steering returns");
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(straight, body.rotation.eulerAngles.y)), Is.LessThan(.4f), "The car must hold its heading after steering returns; ground-following pitch and roll are allowed");
         }
 
         [UnityTest]
@@ -417,7 +417,12 @@ namespace TankTown.Tests
             game.Tank.transform.SetPositionAndRotation(body.position, body.rotation); Physics.SyncTransforms();
             var origin = body.position;
             yield return null;
-            for (int i = 0; i < steps; i++) yield return new WaitForFixedUpdate();
+            // Finish after the terrain under test; faster settings must not send this route into the next building.
+            for (int i = 0; i < steps; i++)
+            {
+                yield return new WaitForFixedUpdate();
+                if (Vector3.Dot(body.position - origin, direction) > minimumDistance + 2 && game.Tank.ActualSpeed >= game.Stats.Speed * .85f) break;
+            }
             Assert.That(game.Crashes, Is.Zero, "Ground alone must not cause a crash");
             Assert.That(Vector3.Dot(body.position - origin, direction), Is.GreaterThan(minimumDistance), $"Terrain blocked the vehicle at {body.position}, speed={game.Tank.ActualSpeed:0.00}");
             Assert.That(game.Tank.ActualSpeed, Is.GreaterThan(game.Stats.Speed * .75f), "The vehicle must recover cruising speed after the slope");
