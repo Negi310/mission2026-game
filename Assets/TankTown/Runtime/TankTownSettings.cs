@@ -42,7 +42,7 @@ namespace TankTown
         [Header("Effects")]
         [Range(1, 2.5f)] public float explosionVisualScale = 1.55f;
         [Header("Camera")]
-        public Vector3 cameraOffset = new Vector3(0, 2.4f, -2.2f);
+        public Vector3 cameraOffset = new Vector3(0, 2.4f, -3.0f);
         [Range(50, 90)] public float cameraFieldOfView = 72;
         [Header("Power-ups (per level)")]
         [Range(1, 12)] public int maxUpgradeLevel = 8;

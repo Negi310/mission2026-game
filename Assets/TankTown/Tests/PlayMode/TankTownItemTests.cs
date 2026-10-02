@@ -36,14 +36,14 @@ namespace TankTown.Tests
         public IEnumerator TurretLeadsHullAndActualShotUsesItsHeading()
         {
             var body = game.Tank.GetComponent<Rigidbody>();
+            var alignment = game.CameraRig.gameObject.AddComponent<TankCameraAlignmentProbe>();
+            alignment.Turret = game.Tank.Turret;
             game.Input.SetWheel(1); yield return null;
             for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
             Assert.That(game.Tank.Turret.localEulerAngles.y, Is.GreaterThan(8));
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, body.rotation.eulerAngles.y)), Is.LessThan(.4f), "The hull must wait while the turret turns first");
             game.CameraRig.Snap();
-            // The camera looks at the turret's direction from 2.2 units behind the hull.
-            // That offset leaves less than one degree of parallax at the 70-unit focus.
-            Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(game.Tank.Turret.forward, Vector3.up)), Is.LessThan(1), "Camera snap must follow the leading turret");
+            Assert.That(Vector3.Distance(game.CameraRig.transform.forward, game.Tank.Turret.forward), Is.LessThan(.00001f), "Camera snap must exactly match the turret direction");
             Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(body.rotation * Vector3.forward, Vector3.up)), Is.GreaterThan(8));
             var origin = game.Tank.Muzzle.position; var direction = game.Tank.Muzzle.forward;
             game.Input.PulsePad(0);
@@ -56,7 +56,6 @@ namespace TankTown.Tests
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, body.rotation.eulerAngles.y)), Is.GreaterThan(10));
             Assert.That(game.Tank.Turret.localEulerAngles.y, Is.EqualTo(game.Settings.turretMaxYaw).Within(.1f));
             yield return new WaitForSeconds(.15f);
-            Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(game.Tank.Turret.forward, Vector3.up)), Is.LessThan(6), "The moving camera must follow turret rotation");
             Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(body.rotation * Vector3.forward, Vector3.up)), Is.GreaterThan(12));
             game.Input.SetWheel(0); yield return null;
             for (int i = 0; i < 13; i++) yield return new WaitForFixedUpdate();
@@ -64,6 +63,12 @@ namespace TankTown.Tests
             yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(settledHull, body.rotation.eulerAngles.y)), Is.LessThan(.4f), "The stronger response must also stop turning promptly after release");
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, game.Tank.Turret.localEulerAngles.y)), Is.LessThan(.1f));
+            game.CameraRig.Kick(.12f);
+            game.Input.SetWheel(-1); yield return new WaitForSeconds(.2f);
+            game.Input.SetWheel(1); yield return new WaitForSeconds(.2f);
+            Assert.That(alignment.Samples, Is.GreaterThan(10));
+            Assert.That(alignment.MaxDirectionError, Is.LessThan(.00001f), "Every rendered frame must face the turret, including direction reversals and recoil");
+            Assert.That(alignment.MaxUpError, Is.LessThan(.00001f), "Camera and turret must also share terrain pitch and roll");
         }
         [UnityTest]
         public IEnumerator FieldHasSixTypesAndWeaponPickupUsesTheNextPressurePulse()
@@ -197,6 +202,22 @@ namespace TankTown.Tests
             Assert.That(game.Items.Held, Is.EqualTo(ItemKind.None)); Assert.That(game.Items.Active, Is.EqualTo(ItemKind.None));
             Assert.That(game.Items.Invincible, Is.False); Assert.That(game.Tank.VehicleScale, Is.EqualTo(1));
             Assert.That(Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None), Is.Empty);
+        }
+    }
+
+    [DefaultExecutionOrder(10000)]
+    public sealed class TankCameraAlignmentProbe : MonoBehaviour
+    {
+        public Transform Turret;
+        public int Samples { get; private set; }
+        public float MaxDirectionError { get; private set; }
+        public float MaxUpError { get; private set; }
+        private void LateUpdate()
+        {
+            if (Turret == null) return;
+            Samples++;
+            MaxDirectionError = Mathf.Max(MaxDirectionError, Vector3.Distance(transform.forward, Turret.forward));
+            MaxUpError = Mathf.Max(MaxUpError, Vector3.Distance(transform.up, Turret.up));
         }
     }
 }

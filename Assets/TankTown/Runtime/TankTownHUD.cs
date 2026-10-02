@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 namespace TankTown
 {
+    [DefaultExecutionOrder(100)]
     public sealed class TankTownHUD : MonoBehaviour
     {
         private TankTownGame game;
@@ -148,11 +149,6 @@ namespace TankTown
             }
             pickupPanel.SetActive(game.IsPlaying && !game.Tank.Respawning && Time.time < pickupUntil);
             aim.gameObject.SetActive(game.IsPlaying && !game.Tank.Respawning);
-            if (game.IsPlaying && Camera.main != null)
-            {
-                Vector3 projected = Camera.main.WorldToScreenPoint(game.Tank.Muzzle.position + game.Tank.Muzzle.forward * 70);
-                aim.rectTransform.anchoredPosition = ((Vector2)projected - new Vector2(Screen.width, Screen.height) * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
-            }
             card.SetActive(game.State != RoundState.Playing);
             if (game.State == RoundState.Ready)
             {
@@ -190,6 +186,13 @@ namespace TankTown
         {
             if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
             if (font != null) Destroy(font);
+        }
+        private void LateUpdate()
+        {
+            // Project after TankCamera has adopted this frame's turret rotation.
+            if (!game.IsPlaying || Camera.main == null) return;
+            Vector3 projected = Camera.main.WorldToScreenPoint(game.Tank.Muzzle.position + game.Tank.Muzzle.forward * 70);
+            aim.rectTransform.anchoredPosition = ((Vector2)projected - new Vector2(Screen.width, Screen.height) * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
         }
     }
 }

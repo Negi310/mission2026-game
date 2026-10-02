@@ -6,38 +6,39 @@ namespace TankTown
     {
         public Transform Target { get; set; }
         public Transform AimTarget { get; set; }
-        public Vector3 Offset { get; set; } = new Vector3(0, 2.4f, -2.2f);
+        public Vector3 Offset { get; set; } = new Vector3(0, 2.4f, -3.0f);
         private Vector3 velocity, smoothPosition;
         private float kick;
         public void Kick(float amount) => kick = Mathf.Min(.12f, kick + amount);
-        private static Vector3 Aim(Vector3 position, Vector3 forward) => position + forward * 70 + Vector3.up * .72f;
+        private Quaternion ViewRotation => AimTarget != null ? AimTarget.rotation : Target.rotation;
         public void Snap()
         {
             if (Target == null) return;
             var body = Target.GetComponent<Rigidbody>();
             var position = body != null ? body.position : Target.position;
-            var rotation = body != null ? body.rotation : Target.rotation;
-            var forward = rotation * Vector3.forward;
-            if (AimTarget != null) forward = rotation * Quaternion.Inverse(Target.rotation) * AimTarget.forward;
+            var rotation = ViewRotation;
             float scale = Target.GetComponent<TankMotor>()?.VehicleScale ?? 1;
             transform.position = position + rotation * Offset * scale;
-            transform.LookAt(Aim(position, forward));
+            transform.rotation = rotation;
             velocity = Vector3.zero;
             smoothPosition = transform.position;
         }
         private void LateUpdate()
         {
-            if (Target == null || Time.deltaTime <= 0) return;
+            if (Target == null) return;
+            // Match the rendered turret every frame, including pitch and roll on slopes.
+            // Position smoothing, obstruction avoidance and recoil cannot delay the heading.
+            transform.rotation = ViewRotation;
+            if (Time.deltaTime <= 0) return;
             float scale = Target.GetComponent<TankMotor>()?.VehicleScale ?? 1;
             var focus = Target.position + Vector3.up * (1.5f * scale);
-            var desired = Target.position + Target.rotation * Offset * scale;
+            var desired = Target.position + transform.rotation * Offset * scale;
             var delta = desired - focus;
             if (delta.sqrMagnitude > .001f && Physics.SphereCast(focus, .2f, delta.normalized, out var hit, delta.magnitude, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
                 desired = hit.point + hit.normal * .25f;
             smoothPosition = Vector3.SmoothDamp(smoothPosition, desired, ref velocity, .045f);
             kick = Mathf.MoveTowards(kick, 0, Time.deltaTime * .9f);
             transform.position = smoothPosition + Random.insideUnitSphere * kick;
-            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(Aim(Target.position, AimTarget != null ? AimTarget.forward : Target.forward) - transform.position), 1 - Mathf.Exp(-24 * Time.deltaTime));
         }
     }
 }

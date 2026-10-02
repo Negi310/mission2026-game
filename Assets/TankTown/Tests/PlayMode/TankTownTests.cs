@@ -331,9 +331,10 @@ namespace TankTown.Tests
         {
             game.CameraRig.Snap();
             var body = game.Tank.GetComponent<Rigidbody>();
-            Assert.That(Vector3.Distance(game.CameraRig.transform.position, body.position), Is.InRange(3, 4));
+            Assert.That(Vector3.Distance(game.CameraRig.transform.position, body.position), Is.InRange(3.7f, 4.1f));
+            Assert.That(Vector3.Dot(game.CameraRig.transform.position - body.position, -game.Tank.Turret.forward), Is.InRange(2.8f, 3.2f));
             Assert.That(game.CameraRig.transform.position.y - body.position.y, Is.InRange(2.2f, 2.6f));
-            Assert.That(Vector3.Angle(game.CameraRig.transform.forward, body.rotation * Vector3.forward), Is.LessThan(5));
+            Assert.That(Vector3.Distance(game.CameraRig.transform.forward, game.Tank.Turret.forward), Is.LessThan(.00001f));
             Assert.That(Camera.main.fieldOfView, Is.EqualTo(72));
             yield return null;
         }
