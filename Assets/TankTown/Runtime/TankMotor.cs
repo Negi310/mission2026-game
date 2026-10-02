@@ -22,7 +22,9 @@ namespace TankTown
         private Vector3 groundUp = Vector3.up;
         private Vector3 hullHalfSize;
         private float steering;
-        private float turretYaw, delayedSteering;
+        private float turretYaw, previousTurretYaw, delayedSteering;
+        private Quaternion visualRotation = Quaternion.identity, previousVisualRotation = Quaternion.identity;
+        private Quaternion hullRotation = Quaternion.identity, previousHullRotation = Quaternion.identity;
         private struct SteeringSample { public float time, value; }
         private readonly Queue<SteeringSample> steeringHistory = new Queue<SteeringSample>();
         private readonly Collider[] nearby = new Collider[64];
@@ -37,6 +39,9 @@ namespace TankTown
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             HullCollider = GetComponent<BoxCollider>();
             hullHalfSize = HullCollider.size * .5f;
+            previousTurretYaw = turretYaw = Mathf.DeltaAngle(0, Turret.localEulerAngles.y);
+            previousVisualRotation = visualRotation = Visual.localRotation;
+            previousHullRotation = hullRotation = body.rotation;
             initial = new Pose(transform.position, transform.rotation);
             safe.Add(initial);
         }
@@ -68,8 +73,10 @@ namespace TankTown
             float dt = Time.fixedDeltaTime;
             bool driving = game.IsPlaying && !Respawning;
             float wheel = driving ? game.Input.Steering : 0;
+            previousTurretYaw = turretYaw;
+            previousVisualRotation = visualRotation;
+            previousHullRotation = hullRotation;
             turretYaw = Mathf.MoveTowards(turretYaw, wheel * game.Settings.turretMaxYaw, game.Settings.turretTurnSpeed * dt);
-            Turret.localRotation = Quaternion.Euler(0, turretYaw, 0);
             if (driving)
             {
                 steeringHistory.Enqueue(new SteeringSample { time = Time.fixedTime, value = wheel });
@@ -103,6 +110,7 @@ namespace TankTown
             }
             var slopeForward = new Vector3(forward.x, -(groundUp.x * forward.x + groundUp.z * forward.z) / Mathf.Max(.35f, groundUp.y), forward.z).normalized;
             var rotation = Quaternion.LookRotation(slopeForward, groundUp);
+            hullRotation = rotation;
             // Sweep the entire hull onto the real ground mesh, including banks and crests.
             // Only ground is sampled; buildings and flying debris retain physical collisions.
             var castOrigin = nextPosition + Vector3.up * 12;
@@ -117,7 +125,7 @@ namespace TankTown
             body.MoveRotation(rotation);
             body.linearVelocity = commandedVelocity;
             if (!driving) return;
-            Visual.localRotation = Quaternion.Slerp(Visual.localRotation, Quaternion.Euler(-(speed - currentSpeed) / dt * .12f, 0, -steering * Mathf.Clamp01(speed / game.Settings.driveSpeed) * 3), 1 - Mathf.Exp(-8 * dt));
+            visualRotation = Quaternion.Slerp(visualRotation, Quaternion.Euler(-(speed - currentSpeed) / dt * .12f, 0, -steering * Mathf.Clamp01(speed / game.Settings.driveSpeed) * 3), 1 - Mathf.Exp(-8 * dt));
             if (Time.time >= nextSafeSample)
             {
                 nextSafeSample = Time.time + 0.6f;
@@ -133,6 +141,16 @@ namespace TankTown
                 if (game.Items.Invincible) { Warp(initial); game.CameraRig.Snap(); }
                 else Explode();
             }
+        }
+
+        private void LateUpdate()
+        {
+            // Child transforms need the same between-step interpolation as the hull Rigidbody.
+            // Camera (order 50) and reticle (order 100) then use this exact rendered pose.
+            float blend = Mathf.Clamp01((float)((Time.timeAsDouble - Time.fixedTimeAsDouble) / Time.fixedDeltaTime));
+            // Set the visual world pose explicitly so parent physics rotation cannot add a step.
+            Visual.rotation = Quaternion.Slerp(previousHullRotation, hullRotation, blend) * Quaternion.Slerp(previousVisualRotation, visualRotation, blend);
+            Turret.localRotation = Quaternion.Euler(0, Mathf.LerpAngle(previousTurretYaw, turretYaw, blend), 0);
         }
 
         public void SetVehicleScale(float scale, bool bulldozer)
@@ -151,10 +169,12 @@ namespace TankTown
             transform.SetPositionAndRotation(pose.position, pose.rotation);
             Physics.SyncTransforms();
             body.linearVelocity = body.angularVelocity = Vector3.zero;
-            steering = delayedSteering = turretYaw = 0; steeringHistory.Clear();
+            steering = delayedSteering = previousTurretYaw = turretYaw = 0; steeringHistory.Clear();
             Turret.localRotation = Quaternion.identity;
             groundUp = Vector3.RotateTowards(Vector3.up, game.World.Terrain.NormalAt(pose.position), 30 * Mathf.Deg2Rad, 0);
             Visual.localRotation = Quaternion.identity;
+            previousVisualRotation = visualRotation = Quaternion.identity;
+            previousHullRotation = hullRotation = pose.rotation;
             protectedUntil = Time.time + 1.5f;
         }
 

@@ -15,7 +15,8 @@ namespace TankTown
         {
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-smoke") >= 0 ||
                 Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-items-smoke") >= 0 ||
-                Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-smoke") >= 0)
+                Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-smoke") >= 0 ||
+                Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-motion-smoke") >= 0)
                 new GameObject("Visual smoke capture").AddComponent<TankTownSmokeCapture>();
         }
 
@@ -27,6 +28,11 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(2);
             var game = FindFirstObjectByType<TankTownGame>();
             if (game == null) { Debug.LogError("SMOKE: missing game"); Application.Quit(1); yield break; }
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-motion-smoke") >= 0)
+            {
+                yield return CameraMotionTour(game, output);
+                yield break;
+            }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-smoke") >= 0)
             {
                 yield return CameraTour(game, output);
@@ -135,6 +141,51 @@ namespace TankTown
             float centeredDirectionError = Vector3.Distance(Camera.main.transform.forward, game.Tank.Turret.forward);
             Capture(Path.Combine(output, "aligned-camera-03-centered.png"));
             Debug.Log($"ALIGNED TURRET CAMERA SMOKE COMPLETE: turretLead={turretLead:0.00}, earlyHull={earlyHull:0.00}, earlyCameraHullAngle={earlyCamera:0.00}, earlyCameraTurretAngle={cameraTurret:0.00}, followCameraHullAngle={followCamera:0.00}, followCameraTurretAngle={followTurret:0.00}, hullTurn={hullTurn:0.00}, centeredCameraHullAngle={centeredCamera:0.00}, snapDirectionError={snapDirectionError:0.000000}, followDirectionError={followDirectionError:0.000000}, centeredDirectionError={centeredDirectionError:0.000000}, rearDistance={rearDistance:0.00}, hullDelay={game.Settings.hullTurnDelay:0.00}, steeringResponse={game.Settings.steeringResponse:0.0}, maxTurretYaw={game.Settings.turretMaxYaw:0.0}, crashes={game.Crashes}");
+            Application.Quit(0);
+        }
+
+        private IEnumerator CameraMotionTour(TankTownGame game, string output)
+        {
+            game.StartOrRestart(); game.Input.useHardware = true;
+            foreach (var item in game.World.ItemPickups) item.gameObject.SetActive(false);
+            QualitySettings.vSyncCount = 0;
+            foreach (int rate in new[] { 60, 144 })
+            {
+                Application.targetFrameRate = rate;
+                game.Input.SetWheel(0);
+                game.Tank.Warp(new Pose(game.World.SpawnPosition, Quaternion.identity));
+                game.CameraRig.Snap();
+                yield return new WaitForSeconds(.2f);
+                yield return new WaitForEndOfFrame();
+                var previous = Camera.main.transform.rotation;
+                float started = Time.time, totalTime = 0, maxSpeed = 0, maxStep = 0, maxError = 0;
+                int frames = 0;
+                while (Time.time - started < 1.2f)
+                {
+                    float elapsed = Time.time - started;
+                    game.Input.SetWheel(elapsed < .36f ? 1 : elapsed < .76f ? -1 : 0);
+                    yield return new WaitForEndOfFrame();
+                    float dt = Time.deltaTime;
+                    float step = Quaternion.Angle(previous, Camera.main.transform.rotation);
+                    if (dt > 0) { maxSpeed = Mathf.Max(maxSpeed, step / dt); totalTime += dt; frames++; }
+                    maxStep = Mathf.Max(maxStep, step);
+                    maxError = Mathf.Max(maxError, Vector3.Distance(Camera.main.transform.forward, game.Tank.Turret.forward));
+                    previous = Camera.main.transform.rotation;
+                }
+                Debug.Log($"SMOOTH CAMERA RUN: targetFps={rate}, frames={frames}, averageFps={frames / Mathf.Max(.001f, totalTime):0.0}, maxRotationSpeed={maxSpeed:0.00}, maxFrameStep={maxStep:0.00}, directionError={maxError:0.000000}, crashes={game.Crashes}");
+                if (frames < 10 || maxSpeed > 400 || maxError > .00001f) { Debug.LogError("SMOOTH CAMERA: frame alignment or motion check failed"); Application.Quit(1); yield break; }
+                // Save images during a separate replay; PNG readback cannot stall the measured frames.
+                game.Input.SetWheel(0);
+                game.Tank.Warp(new Pose(game.World.SpawnPosition, Quaternion.identity));
+                game.CameraRig.Snap(); yield return new WaitForSeconds(.2f);
+                game.Input.SetWheel(1); yield return new WaitForSeconds(.3f); yield return new WaitForEndOfFrame();
+                Capture(Path.Combine(output, $"smooth-camera-{rate}-01-turn.png"));
+                game.Input.SetWheel(-1); yield return new WaitForSeconds(.4f); yield return new WaitForEndOfFrame();
+                Capture(Path.Combine(output, $"smooth-camera-{rate}-02-reverse.png"));
+                game.Input.SetWheel(0); yield return new WaitForSeconds(.4f); yield return new WaitForEndOfFrame();
+                Capture(Path.Combine(output, $"smooth-camera-{rate}-03-centered.png"));
+            }
+            Debug.Log("SMOOTH CAMERA SMOKE COMPLETE");
             Application.Quit(0);
         }
 

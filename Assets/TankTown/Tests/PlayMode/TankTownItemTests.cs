@@ -40,8 +40,9 @@ namespace TankTown.Tests
             alignment.Turret = game.Tank.Turret;
             game.Input.SetWheel(1); yield return null;
             for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
-            Assert.That(game.Tank.Turret.localEulerAngles.y, Is.GreaterThan(8));
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, body.rotation.eulerAngles.y)), Is.LessThan(.4f), "The hull must wait while the turret turns first");
+            yield return null; // Observe the interpolated turret after its rendered-frame update.
+            Assert.That(game.Tank.Turret.localEulerAngles.y, Is.GreaterThan(8));
             game.CameraRig.Snap();
             Assert.That(Vector3.Distance(game.CameraRig.transform.forward, game.Tank.Turret.forward), Is.LessThan(.00001f), "Camera snap must exactly match the turret direction");
             Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(body.rotation * Vector3.forward, Vector3.up)), Is.GreaterThan(8));
@@ -70,6 +71,28 @@ namespace TankTown.Tests
             Assert.That(alignment.MaxDirectionError, Is.LessThan(.00001f), "Every rendered frame must face the turret, including direction reversals and recoil");
             Assert.That(alignment.MaxUpError, Is.LessThan(.00001f), "Camera and turret must also share terrain pitch and roll");
         }
+        [UnityTest]
+        public IEnumerator CameraTurnsSmoothlyBetweenPhysicsSteps()
+        {
+            float fixedStep = Time.fixedDeltaTime, captureStep = Time.captureDeltaTime;
+            try
+            {
+                // Exaggerate the real mismatch: 120 rendered frames, 12.5 physics steps.
+                Time.fixedDeltaTime = .08f; Time.captureDeltaTime = 1f / 120;
+                yield return new WaitForSeconds(.16f);
+                var alignment = game.CameraRig.gameObject.AddComponent<TankCameraAlignmentProbe>();
+                alignment.Turret = game.Tank.Turret;
+                game.Input.SetWheel(1); yield return new WaitForSeconds(.36f);
+                game.Input.SetWheel(-1); yield return new WaitForSeconds(.48f);
+                Debug.Log($"CAMERA MOTION TEST: samples={alignment.Samples}, maxFrameStep={alignment.MaxFrameStep:0.000}, maxRotationSpeed={alignment.MaxRotationSpeed:0.000}, directionError={alignment.MaxDirectionError:0.000000}");
+                Assert.That(alignment.Samples, Is.GreaterThan(50));
+                Assert.That(alignment.MaxFrameStep, Is.GreaterThan(.1f), "The camera must actually turn during the check");
+                Assert.That(alignment.MaxDirectionError, Is.LessThan(.00001f));
+                Assert.That(alignment.MaxRotationSpeed, Is.LessThan(400), "Camera rotation must not jump a whole physics step in one rendered frame");
+            }
+            finally { Time.fixedDeltaTime = fixedStep; Time.captureDeltaTime = captureStep; }
+        }
+
         [UnityTest]
         public IEnumerator FieldHasSixTypesAndWeaponPickupUsesTheNextPressurePulse()
         {
@@ -212,9 +235,19 @@ namespace TankTown.Tests
         public int Samples { get; private set; }
         public float MaxDirectionError { get; private set; }
         public float MaxUpError { get; private set; }
+        public float MaxFrameStep { get; private set; }
+        public float MaxRotationSpeed { get; private set; }
+        private Quaternion previousRotation;
         private void LateUpdate()
         {
             if (Turret == null) return;
+            if (Samples > 0 && Time.deltaTime > 0)
+            {
+                float step = Quaternion.Angle(previousRotation, transform.rotation);
+                MaxFrameStep = Mathf.Max(MaxFrameStep, step);
+                MaxRotationSpeed = Mathf.Max(MaxRotationSpeed, step / Time.deltaTime);
+            }
+            previousRotation = transform.rotation;
             Samples++;
             MaxDirectionError = Mathf.Max(MaxDirectionError, Vector3.Distance(transform.forward, Turret.forward));
             MaxUpError = Mathf.Max(MaxUpError, Vector3.Distance(transform.up, Turret.up));

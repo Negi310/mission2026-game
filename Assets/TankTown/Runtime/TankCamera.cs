@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace TankTown
 {
+    [DefaultExecutionOrder(50)]
     public sealed class TankCamera : MonoBehaviour
     {
         public Transform Target { get; set; }
