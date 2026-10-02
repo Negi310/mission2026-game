@@ -327,13 +327,13 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator CameraIsMountedNearTheTurretAndAimsForward()
+        public IEnumerator CameraFramesTheTankFromBehindAndAimsWithTheTurret()
         {
             game.CameraRig.Snap();
             var body = game.Tank.GetComponent<Rigidbody>();
-            Assert.That(Vector3.Distance(game.CameraRig.transform.position, body.position), Is.InRange(3.7f, 4.1f));
-            Assert.That(Vector3.Dot(game.CameraRig.transform.position - body.position, -game.Tank.Turret.forward), Is.InRange(2.8f, 3.2f));
-            Assert.That(game.CameraRig.transform.position.y - body.position.y, Is.InRange(2.2f, 2.6f));
+            Assert.That(Vector3.Distance(game.CameraRig.transform.position, body.position), Is.InRange(9.3f, 9.7f));
+            Assert.That(Vector3.Dot(game.CameraRig.transform.position - body.position, -game.Tank.Turret.forward), Is.InRange(8.8f, 9.2f));
+            Assert.That(game.CameraRig.transform.position.y - body.position.y, Is.InRange(2.8f, 3.2f));
             Assert.That(Vector3.Distance(game.CameraRig.transform.forward, game.Tank.Turret.forward), Is.LessThan(.00001f));
             Assert.That(Camera.main.fieldOfView, Is.EqualTo(72));
             yield return null;

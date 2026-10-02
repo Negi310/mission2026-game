@@ -126,21 +126,22 @@ namespace TankTown
             float cameraTurret = HorizontalAngle(Camera.main.transform.forward, game.Tank.Turret.forward);
             float snapDirectionError = Vector3.Distance(Camera.main.transform.forward, game.Tank.Turret.forward);
             float rearDistance = Vector3.Dot(Camera.main.transform.position - body.position, -game.Tank.Turret.forward);
-            Capture(Path.Combine(output, "aligned-camera-01-lead.png"));
+            float cameraHeight = Camera.main.transform.position.y - body.position.y;
+            Capture(Path.Combine(output, "wide-camera-01-lead.png"));
             yield return new WaitForSeconds(.45f);
             yield return new WaitForEndOfFrame();
             float followCamera = HorizontalAngle(Camera.main.transform.forward, body.rotation * Vector3.forward);
             float followTurret = HorizontalAngle(Camera.main.transform.forward, game.Tank.Turret.forward);
             float followDirectionError = Vector3.Distance(Camera.main.transform.forward, game.Tank.Turret.forward);
             float hullTurn = Mathf.DeltaAngle(earlyHull, body.rotation.eulerAngles.y);
-            Capture(Path.Combine(output, "aligned-camera-02-turn.png"));
+            Capture(Path.Combine(output, "wide-camera-02-turn.png"));
             game.Input.SetWheel(0);
             yield return new WaitForSeconds(.7f);
             yield return new WaitForEndOfFrame();
             float centeredCamera = HorizontalAngle(Camera.main.transform.forward, body.rotation * Vector3.forward);
             float centeredDirectionError = Vector3.Distance(Camera.main.transform.forward, game.Tank.Turret.forward);
-            Capture(Path.Combine(output, "aligned-camera-03-centered.png"));
-            Debug.Log($"ALIGNED TURRET CAMERA SMOKE COMPLETE: turretLead={turretLead:0.00}, earlyHull={earlyHull:0.00}, earlyCameraHullAngle={earlyCamera:0.00}, earlyCameraTurretAngle={cameraTurret:0.00}, followCameraHullAngle={followCamera:0.00}, followCameraTurretAngle={followTurret:0.00}, hullTurn={hullTurn:0.00}, centeredCameraHullAngle={centeredCamera:0.00}, snapDirectionError={snapDirectionError:0.000000}, followDirectionError={followDirectionError:0.000000}, centeredDirectionError={centeredDirectionError:0.000000}, rearDistance={rearDistance:0.00}, hullDelay={game.Settings.hullTurnDelay:0.00}, steeringResponse={game.Settings.steeringResponse:0.0}, maxTurretYaw={game.Settings.turretMaxYaw:0.0}, crashes={game.Crashes}");
+            Capture(Path.Combine(output, "wide-camera-03-centered.png"));
+            Debug.Log($"WIDE TURRET CAMERA SMOKE COMPLETE: turretLead={turretLead:0.00}, earlyHull={earlyHull:0.00}, earlyCameraHullAngle={earlyCamera:0.00}, earlyCameraTurretAngle={cameraTurret:0.00}, followCameraHullAngle={followCamera:0.00}, followCameraTurretAngle={followTurret:0.00}, hullTurn={hullTurn:0.00}, centeredCameraHullAngle={centeredCamera:0.00}, snapDirectionError={snapDirectionError:0.000000}, followDirectionError={followDirectionError:0.000000}, centeredDirectionError={centeredDirectionError:0.000000}, rearDistance={rearDistance:0.00}, cameraHeight={cameraHeight:0.00}, hullDelay={game.Settings.hullTurnDelay:0.00}, steeringResponse={game.Settings.steeringResponse:0.0}, maxTurretYaw={game.Settings.turretMaxYaw:0.0}, crashes={game.Crashes}");
             Application.Quit(0);
         }
 

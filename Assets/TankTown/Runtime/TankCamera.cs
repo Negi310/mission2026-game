@@ -7,7 +7,7 @@ namespace TankTown
     {
         public Transform Target { get; set; }
         public Transform AimTarget { get; set; }
-        public Vector3 Offset { get; set; } = new Vector3(0, 2.4f, -3.0f);
+        public Vector3 Offset { get; set; } = new Vector3(0, 3.0f, -9.0f);
         private Vector3 velocity, smoothPosition;
         private float kick;
         public void Kick(float amount) => kick = Mathf.Min(.12f, kick + amount);
