@@ -73,6 +73,10 @@ namespace TankTown
             camera.backgroundColor = new Color(.25f, .75f, 1);
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Offset = Settings.cameraOffset;
+            CameraRig.Terrain = World.Terrain;
+            CameraRig.TurnSmoothTime = Settings.cameraTurnSmoothTime;
+            CameraRig.MaxTurnSpeed = Settings.cameraMaxTurnSpeed;
+            CameraRig.MaxTurnAcceleration = Settings.cameraMaxTurnAcceleration;
             CameraRig.Target = Tank.transform;
             CameraRig.AimTarget = Tank.Turret;
             CameraRig.Snap();
@@ -102,8 +106,8 @@ namespace TankTown
 
         public void TogglePause()
         {
-            if (State == RoundState.Playing) { State = RoundState.Paused; Time.timeScale = 0; }
-            else if (State == RoundState.Paused) { State = RoundState.Playing; Time.timeScale = 1; }
+            if (State == RoundState.Playing) { State = RoundState.Paused; CameraRig.Paused = true; Time.timeScale = 0; }
+            else if (State == RoundState.Paused) { State = RoundState.Playing; CameraRig.Paused = false; Time.timeScale = 1; }
         }
 
         private void OnApplicationFocus(bool focus) { if (!focus && IsPlaying) TogglePause(); }
@@ -112,7 +116,7 @@ namespace TankTown
         {
             if (!IsPlaying) return;
             Remaining = Mathf.Max(0, Remaining - Mathf.Max(0, seconds));
-            if (Remaining <= 0) { State = RoundState.Results; Items.FinishRound(); Time.timeScale = 0; }
+            if (Remaining <= 0) { State = RoundState.Results; CameraRig.CancelTransition(); CameraRig.Paused = true; Items.FinishRound(); Time.timeScale = 0; }
         }
         public void RegisterBlock() => TotalBlocks++;
         public void ScoreBlock() { if (IsPlaying) BrokenBlocks = Mathf.Min(TotalBlocks, BrokenBlocks + 1); }
@@ -134,7 +138,6 @@ namespace TankTown
             if (!IsPlaying) return;
             DamageSphere(point, radius, impulse);
             Effects.Impact(point, radius);
-            CameraRig?.Kick(.12f);
             PlayTone(85, .16f, .2f);
         }
 

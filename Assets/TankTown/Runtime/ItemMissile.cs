@@ -129,7 +129,7 @@ namespace TankTown
             {
                 game.DamageSphere(body.position, game.Settings.gigantBombRadius, game.Stats.BlastImpulse * 4);
                 game.Effects.SuperImpact(body.position, game.Settings.gigantBombRadius);
-                game.CameraRig.Kick(.2f); game.PlayTone(55, .4f, .28f);
+                game.PlayTone(55, .4f, .28f);
             }
             Destroy(gameObject);
         }

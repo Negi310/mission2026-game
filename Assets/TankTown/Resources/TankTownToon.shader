@@ -1,6 +1,6 @@
 Shader "TankTown/Saturated Toon"
 {
-    Properties { _BaseColor("Color", Color) = (1,1,1,1) _Saturation("Saturation", Range(0,2)) = 1.15 }
+    Properties { _BaseColor("Color", Color) = (1,1,1,1) _Saturation("Saturation", Range(0,2)) = 1.15 _CameraVisibility("Camera visibility", Range(0,1)) = 1 }
     SubShader
     {
         Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry" }
@@ -10,6 +10,7 @@ Shader "TankTown/Saturated Toon"
         CBUFFER_START(UnityPerMaterial)
         half4 _BaseColor;
         half _Saturation;
+        half _CameraVisibility;
         CBUFFER_END
         struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
         struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
@@ -24,9 +25,18 @@ Shader "TankTown/Saturated Toon"
             output.normalWS = TransformObjectToWorldNormal(input.normalOS);
             return output;
         }
+        void CameraClip(float2 pixel)
+        {
+            // Stable ordered coverage; no temporal noise or transparent sorting changes.
+            float2 low = fmod(floor(pixel), 2);
+            float2 high = fmod(floor(pixel / 2), 2);
+            float index = low.x * 8 + low.y * 4 + high.x * 2 + high.y;
+            clip(_CameraVisibility - (index + .5) / 16.0);
+        }
         half4 Frag(Varyings input) : SV_Target
         {
             UNITY_SETUP_INSTANCE_ID(input);
+            CameraClip(input.positionCS.xy);
             Light light = GetMainLight(TransformWorldToShadowCoord(input.positionWS));
             half3 normal = normalize(input.normalWS);
             half ndl = saturate(dot(normal, light.direction));
@@ -52,6 +62,7 @@ Shader "TankTown/Saturated Toon"
             return clip;
         }
         half4 ShadowFrag() : SV_Target { return 0; }
+        half4 DepthFrag(Varyings input) : SV_Target { CameraClip(input.positionCS.xy); return 0; }
         ENDHLSL
         Pass
         {
@@ -80,7 +91,7 @@ Shader "TankTown/Saturated Toon"
             ZWrite On ColorMask 0
             HLSLPROGRAM
             #pragma vertex Vert
-            #pragma fragment ShadowFrag
+            #pragma fragment DepthFrag
             #pragma multi_compile_instancing
             ENDHLSL
         }

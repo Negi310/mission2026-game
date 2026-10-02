@@ -215,7 +215,6 @@ namespace TankTown
             if (hits <= 0 || Time.time < nextRamEffect) return;
             nextRamEffect = Time.time + .22f;
             game.Effects.EnergyImpact(point, bulldozer > 0 ? ItemIcons.Color(ItemKind.Bulldozer) : ItemIcons.Color(ItemKind.HighSpeed));
-            game.CameraRig.Kick(.04f);
         }
         public void CountMissileStrike() => MissileStrikes++;
         private void EndWeapon(bool detonate)

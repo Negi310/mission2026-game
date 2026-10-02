@@ -42,6 +42,9 @@ MonoBehaviour:
   stabilityMargin: 0.25
   cameraOffset: {x: 0, y: 3, z: -9}
   cameraFieldOfView: 72
+  cameraTurnSmoothTime: 0.3
+  cameraMaxTurnSpeed: 135
+  cameraMaxTurnAcceleration: 240
   floorHeight: 3.6
   terraceHeight: 3.5
   explosionVisualScale: 1.55

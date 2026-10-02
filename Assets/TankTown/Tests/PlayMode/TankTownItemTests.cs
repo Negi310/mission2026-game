@@ -36,16 +36,14 @@ namespace TankTown.Tests
         public IEnumerator TurretLeadsHullAndActualShotUsesItsHeading()
         {
             var body = game.Tank.GetComponent<Rigidbody>();
-            var alignment = game.CameraRig.gameObject.AddComponent<TankCameraAlignmentProbe>();
+            var alignment = game.CameraRig.gameObject.AddComponent<TankCameraMotionProbe>();
             alignment.Turret = game.Tank.Turret;
             game.Input.SetWheel(1); yield return null;
             for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, body.rotation.eulerAngles.y)), Is.LessThan(.4f), "The hull must wait while the turret turns first");
             yield return null; // Observe the interpolated turret after its rendered-frame update.
             Assert.That(game.Tank.Turret.localEulerAngles.y, Is.GreaterThan(8));
-            game.CameraRig.Snap();
-            Assert.That(Vector3.Distance(game.CameraRig.transform.forward, game.Tank.Turret.forward), Is.LessThan(.00001f), "Camera snap must exactly match the turret direction");
-            Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(body.rotation * Vector3.forward, Vector3.up)), Is.GreaterThan(8));
+            Assert.That(Vector3.Angle(game.CameraRig.transform.forward, Vector3.ProjectOnPlane(game.Tank.Turret.forward, Vector3.up)), Is.GreaterThan(1), "The camera must ease into the turret lead rather than copy its sudden turn");
             var origin = game.Tank.Muzzle.position; var direction = game.Tank.Muzzle.forward;
             game.Input.PulsePad(0);
             var shot = Object.FindFirstObjectByType<TankShell>(); Assert.That(shot, Is.Not.Null);
@@ -57,19 +55,19 @@ namespace TankTown.Tests
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, body.rotation.eulerAngles.y)), Is.GreaterThan(10));
             Assert.That(game.Tank.Turret.localEulerAngles.y, Is.EqualTo(game.Settings.turretMaxYaw).Within(.1f));
             yield return new WaitForSeconds(.15f);
-            Assert.That(Vector3.Angle(Vector3.ProjectOnPlane(game.CameraRig.transform.forward, Vector3.up), Vector3.ProjectOnPlane(body.rotation * Vector3.forward, Vector3.up)), Is.GreaterThan(12));
+            Assert.That(Vector3.Angle(game.CameraRig.transform.forward, Vector3.ProjectOnPlane(game.Tank.Turret.forward, Vector3.up)), Is.LessThan(45));
             game.Input.SetWheel(0); yield return null;
             for (int i = 0; i < 13; i++) yield return new WaitForFixedUpdate();
             float settledHull = body.rotation.eulerAngles.y;
             yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(settledHull, body.rotation.eulerAngles.y)), Is.LessThan(.4f), "The stronger response must also stop turning promptly after release");
             Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, game.Tank.Turret.localEulerAngles.y)), Is.LessThan(.1f));
-            game.CameraRig.Kick(.12f);
             game.Input.SetWheel(-1); yield return new WaitForSeconds(.2f);
             game.Input.SetWheel(1); yield return new WaitForSeconds(.2f);
             Assert.That(alignment.Samples, Is.GreaterThan(10));
-            Assert.That(alignment.MaxDirectionError, Is.LessThan(.00001f), "Every rendered frame must face the turret, including direction reversals and recoil");
-            Assert.That(alignment.MaxUpError, Is.LessThan(.00001f), "Camera and turret must also share terrain pitch and roll");
+            Assert.That(alignment.MaxHorizonAngle, Is.LessThan(.01f), "Terrain pitch and body lean must not tilt the camera");
+            Assert.That(alignment.MaxRotationSpeed, Is.LessThanOrEqualTo(136));
+            Assert.That(alignment.MaxRotationAcceleration, Is.LessThan(250));
         }
         [UnityTest]
         public IEnumerator CameraTurnsSmoothlyBetweenPhysicsSteps()
@@ -80,15 +78,18 @@ namespace TankTown.Tests
                 // Exaggerate the real mismatch: 120 rendered frames, 12.5 physics steps.
                 Time.fixedDeltaTime = .08f; Time.captureDeltaTime = 1f / 120;
                 yield return new WaitForSeconds(.16f);
-                var alignment = game.CameraRig.gameObject.AddComponent<TankCameraAlignmentProbe>();
+                var alignment = game.CameraRig.gameObject.AddComponent<TankCameraMotionProbe>();
                 alignment.Turret = game.Tank.Turret;
                 game.Input.SetWheel(1); yield return new WaitForSeconds(.36f);
                 game.Input.SetWheel(-1); yield return new WaitForSeconds(.48f);
-                Debug.Log($"CAMERA MOTION TEST: samples={alignment.Samples}, maxFrameStep={alignment.MaxFrameStep:0.000}, maxRotationSpeed={alignment.MaxRotationSpeed:0.000}, directionError={alignment.MaxDirectionError:0.000000}");
+                Debug.Log($"CAMERA MOTION TEST: samples={alignment.Samples}, maxFrameStep={alignment.MaxFrameStep:0.000}, maxRotationSpeed={alignment.MaxRotationSpeed:0.000}, maxAcceleration={alignment.MaxRotationAcceleration:0.000}, horizonAngle={alignment.MaxHorizonAngle:0.000000}");
                 Assert.That(alignment.Samples, Is.GreaterThan(50));
                 Assert.That(alignment.MaxFrameStep, Is.GreaterThan(.1f), "The camera must actually turn during the check");
-                Assert.That(alignment.MaxDirectionError, Is.LessThan(.00001f));
-                Assert.That(alignment.MaxRotationSpeed, Is.LessThan(400), "Camera rotation must not jump a whole physics step in one rendered frame");
+                Assert.That(alignment.MaxHorizonAngle, Is.LessThan(.01f));
+                Assert.That(alignment.MaxRotationSpeed, Is.LessThanOrEqualTo(136));
+                Assert.That(alignment.MaxRotationAcceleration, Is.LessThan(250), "Direction reversals must also ease their change in angular speed");
+                game.Input.SetWheel(0); yield return new WaitForSeconds(2);
+                Assert.That(Vector3.Angle(game.CameraRig.transform.forward, Vector3.ProjectOnPlane(game.Tank.Turret.forward, Vector3.up)), Is.LessThan(1));
             }
             finally { Time.fixedDeltaTime = fixedStep; Time.captureDeltaTime = captureStep; }
         }
@@ -190,6 +191,8 @@ namespace TankTown.Tests
             Assert.That(game.Tank.ActualSpeed, Is.GreaterThan(game.Stats.Speed * 1.7f)); Assert.That(game.Crashes, Is.Zero);
             Place(new Vector3(game.World.HalfExtent - .7f, 0, 0), 90);
             yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
+            Assert.That(game.Tank.Relocating, Is.True, "The protected return must cover the view before changing its position");
+            yield return new WaitForSeconds(.25f);
             Assert.That(game.Crashes, Is.Zero);
             Assert.That(Mathf.Abs(game.Tank.GetComponent<Rigidbody>().position.x), Is.LessThan(game.World.HalfExtent - 6));
         }
@@ -229,28 +232,33 @@ namespace TankTown.Tests
     }
 
     [DefaultExecutionOrder(10000)]
-    public sealed class TankCameraAlignmentProbe : MonoBehaviour
+    public sealed class TankCameraMotionProbe : MonoBehaviour
     {
         public Transform Turret;
         public int Samples { get; private set; }
-        public float MaxDirectionError { get; private set; }
-        public float MaxUpError { get; private set; }
+        public float MaxHorizonAngle { get; private set; }
         public float MaxFrameStep { get; private set; }
         public float MaxRotationSpeed { get; private set; }
-        private Quaternion previousRotation;
+        public float MaxRotationAcceleration { get; private set; }
+        private float previousYaw, previousSpeed, previousDelta;
         private void LateUpdate()
         {
             if (Turret == null) return;
             if (Samples > 0 && Time.deltaTime > 0)
             {
-                float step = Quaternion.Angle(previousRotation, transform.rotation);
-                MaxFrameStep = Mathf.Max(MaxFrameStep, step);
-                MaxRotationSpeed = Mathf.Max(MaxRotationSpeed, step / Time.deltaTime);
+                float step = Mathf.DeltaAngle(previousYaw, transform.eulerAngles.y);
+                float speed = step / Time.deltaTime;
+                MaxFrameStep = Mathf.Max(MaxFrameStep, Mathf.Abs(step));
+                MaxRotationSpeed = Mathf.Max(MaxRotationSpeed, Mathf.Abs(speed));
+                // Sub-millisecond quantization and deliberate hitch limiting are not normal-rate acceleration samples.
+                if (Samples > 1 && previousDelta >= 1f / 240 && previousDelta <= 1f / 30 && Time.deltaTime >= 1f / 240 && Time.deltaTime <= 1f / 30)
+                    MaxRotationAcceleration = Mathf.Max(MaxRotationAcceleration, Mathf.Abs(speed - previousSpeed) / ((previousDelta + Time.deltaTime) * .5f));
+                previousSpeed = speed;
             }
-            previousRotation = transform.rotation;
+            previousYaw = transform.eulerAngles.y;
+            previousDelta = Time.deltaTime;
             Samples++;
-            MaxDirectionError = Mathf.Max(MaxDirectionError, Vector3.Distance(transform.forward, Turret.forward));
-            MaxUpError = Mathf.Max(MaxUpError, Vector3.Distance(transform.up, Turret.up));
+            MaxHorizonAngle = Mathf.Max(MaxHorizonAngle, Vector3.Angle(transform.up, Vector3.up));
         }
     }
 }

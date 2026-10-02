@@ -13,6 +13,7 @@ namespace TankTown
         private Transform canvas;
         private Text timer, score, counter, notice, cardTitle, cardBody, buttonText;
         private Image fill;
+        private Image viewFade;
         private Text aim;
         private readonly Text[] statRows = new Text[4];
         private Text pickupText;
@@ -34,6 +35,13 @@ namespace TankTown
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1440, 900);
             scaler.matchWidthOrHeight = .5f;
+            var fade = new GameObject("View transition", typeof(RectTransform), typeof(Image));
+            fade.transform.SetParent(canvas, false);
+            var fadeRect = fade.GetComponent<RectTransform>();
+            fadeRect.anchorMin = Vector2.zero; fadeRect.anchorMax = Vector2.one;
+            fadeRect.offsetMin = fadeRect.offsetMax = Vector2.zero;
+            viewFade = fade.GetComponent<Image>();
+            viewFade.color = Color.clear; viewFade.raycastTarget = false;
             if (FindFirstObjectByType<EventSystem>() == null)
                 new GameObject("UI Events", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
@@ -189,7 +197,9 @@ namespace TankTown
         }
         private void LateUpdate()
         {
-            // Project after TankCamera has adopted this frame's turret rotation.
+            viewFade.color = new Color(0, 0, 0, game.CameraRig.FadeOpacity);
+            aim.enabled = game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
+            // Project the actual muzzle direction after the comfort camera has moved.
             if (!game.IsPlaying || Camera.main == null) return;
             Vector3 projected = Camera.main.WorldToScreenPoint(game.Tank.Muzzle.position + game.Tank.Muzzle.forward * 70);
             aim.rectTransform.anchoredPosition = ((Vector2)projected - new Vector2(Screen.width, Screen.height) * .5f) / canvas.GetComponent<Canvas>().scaleFactor;

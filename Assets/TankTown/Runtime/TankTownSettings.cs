@@ -44,6 +44,9 @@ namespace TankTown
         [Header("Camera")]
         public Vector3 cameraOffset = new Vector3(0, 3.0f, -9.0f);
         [Range(50, 90)] public float cameraFieldOfView = 72;
+        [Range(.1f, .8f)] public float cameraTurnSmoothTime = .3f;
+        [Range(60, 180)] public float cameraMaxTurnSpeed = 135;
+        [Range(60, 360)] public float cameraMaxTurnAcceleration = 240;
         [Header("Power-ups (per level)")]
         [Range(1, 12)] public int maxUpgradeLevel = 8;
         [Min(0)] public float speedUpgrade = .08f;

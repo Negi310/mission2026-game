@@ -12,10 +12,12 @@ namespace TankTown
         public BoxCollider HullCollider { get; private set; }
         public float Cooldown01 => Mathf.Clamp01((nextShot - Time.time) / Mathf.Max(0.01f, game.Stats.ShotCooldown));
         public bool Respawning => respawnAt > 0;
+        public bool Relocating => Respawning || returningToSpawn;
         public float ActualSpeed => body == null ? 0 : new Vector2(body.linearVelocity.x, body.linearVelocity.z).magnitude;
         private TankTownGame game;
         private Rigidbody body;
         private float nextShot, respawnAt, nextSafeSample, protectedUntil;
+        private bool returningToSpawn;
         private readonly List<Pose> safe = new List<Pose>();
         private Pose initial;
         private Vector3 commandedVelocity;
@@ -49,7 +51,7 @@ namespace TankTown
         public void Fire(int pad)
         {
             // Provisional: both pads fire the same cannon; pad identity stays available at the input boundary.
-            if (!game.IsPlaying || Respawning || game.Items.StopsForward || Time.time < nextShot) return;
+            if (!game.IsPlaying || Relocating || game.Items.StopsForward || Time.time < nextShot) return;
             nextShot = Time.time + game.Stats.ShotCooldown;
             if (game.Items.UseHeld()) return;
             var shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -62,7 +64,6 @@ namespace TankTown
             shot.AddComponent<TankShell>().Initialize(game, Muzzle.forward);
             game.Effects.Trail(shot);
             game.Effects.Muzzle(Muzzle.position, Muzzle.forward);
-            game.CameraRig.Kick(.055f);
             game.PlayTone(130, 0.12f, 0.22f);
         }
 
@@ -71,7 +72,7 @@ namespace TankTown
             // The turret responds first; the hull receives the wheel input after a short delay.
             body.angularVelocity = Vector3.zero;
             float dt = Time.fixedDeltaTime;
-            bool driving = game.IsPlaying && !Respawning;
+            bool driving = game.IsPlaying && !Relocating;
             float wheel = driving ? game.Input.Steering : 0;
             previousTurretYaw = turretYaw;
             previousVisualRotation = visualRotation;
@@ -138,7 +139,7 @@ namespace TankTown
             }
             if (Mathf.Abs(body.position.x) > game.World.HalfExtent - 1 || Mathf.Abs(body.position.z) > game.World.HalfExtent - 1)
             {
-                if (game.Items.Invincible) { Warp(initial); game.CameraRig.Snap(); }
+                if (game.Items.Invincible) { returningToSpawn = true; game.CameraRig.FadeOut(); }
                 else Explode();
             }
         }
@@ -164,6 +165,7 @@ namespace TankTown
 
         internal void Warp(Pose pose)
         {
+            returningToSpawn = false;
             pose.position = game.World.GroundPoint(pose.position, game.Settings.rideHeight * VehicleScale);
             body.position = pose.position; body.rotation = pose.rotation;
             transform.SetPositionAndRotation(pose.position, pose.rotation);
@@ -197,7 +199,13 @@ namespace TankTown
 
         private void Update()
         {
-            if (!game.IsPlaying || !Respawning || Time.time < respawnAt) return;
+            if (!game.IsPlaying) return;
+            if (returningToSpawn && game.CameraRig.TransitionCovered)
+            {
+                Warp(initial); game.CameraRig.Snap(); game.CameraRig.FadeIn();
+                return;
+            }
+            if (!Respawning || Time.time < respawnAt || !game.CameraRig.TransitionCovered) return;
             var pose = initial;
             // Prefer positions a few seconds behind, then fall back to the guaranteed clear spawn road.
             for (int i = Mathf.Max(0, safe.Count - 4); i >= 0; i--)
@@ -207,6 +215,7 @@ namespace TankTown
             respawnAt = 0;
             protectedUntil = Time.time + 1.5f;
             game.CameraRig.Snap();
+            game.CameraRig.FadeIn();
         }
 
         private void OnCollisionEnter(Collision hit) => HandleCollision(hit);
@@ -214,7 +223,7 @@ namespace TankTown
 
         private void HandleCollision(Collision hit)
         {
-            if (!game.IsPlaying || Respawning) return;
+            if (!game.IsPlaying || Relocating) return;
             var block = hit.collider.GetComponentInParent<DestructibleBlock>();
             if (block == null) return;
             if (game.Items.Invincible && !block.Detached)
@@ -257,10 +266,10 @@ namespace TankTown
 
         public void Explode()
         {
-            if (!game.IsPlaying || Respawning || game.Items.Invincible) return;
+            if (!game.IsPlaying || Relocating || game.Items.Invincible) return;
             game.Items.OnTankCrash();
             game.Effects.Crash(transform.position + Vector3.up);
-            game.CameraRig.Kick(.2f);
+            game.CameraRig.FadeOut(Mathf.Max(0, game.Settings.respawnDelay - .35f));
             game.PlayTone(60, 0.3f, 0.25f);
             game.ApplyPenalty();
             Visual.gameObject.SetActive(false);

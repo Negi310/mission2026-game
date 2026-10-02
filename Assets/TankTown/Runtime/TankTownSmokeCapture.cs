@@ -16,6 +16,7 @@ namespace TankTown
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-smoke") >= 0 ||
                 Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-items-smoke") >= 0 ||
                 Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-smoke") >= 0 ||
+                Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-comfort-smoke") >= 0 ||
                 Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-motion-smoke") >= 0)
                 new GameObject("Visual smoke capture").AddComponent<TankTownSmokeCapture>();
         }
@@ -28,6 +29,12 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(2);
             var game = FindFirstObjectByType<TankTownGame>();
             if (game == null) { Debug.LogError("SMOKE: missing game"); Application.Quit(1); yield break; }
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-comfort-smoke") >= 0)
+            {
+                yield return CameraMotionTour(game, output, false);
+                yield return CameraComfortTour(game, output);
+                yield break;
+            }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-camera-motion-smoke") >= 0)
             {
                 yield return CameraMotionTour(game, output);
@@ -145,10 +152,11 @@ namespace TankTown
             Application.Quit(0);
         }
 
-        private IEnumerator CameraMotionTour(TankTownGame game, string output)
+        private IEnumerator CameraMotionTour(TankTownGame game, string output, bool quit = true)
         {
             game.StartOrRestart(); game.Input.useHardware = true;
             foreach (var item in game.World.ItemPickups) item.gameObject.SetActive(false);
+            foreach (var item in game.World.Pickups) item.gameObject.SetActive(false);
             QualitySettings.vSyncCount = 0;
             foreach (int rate in new[] { 60, 144 })
             {
@@ -158,8 +166,8 @@ namespace TankTown
                 game.CameraRig.Snap();
                 yield return new WaitForSeconds(.2f);
                 yield return new WaitForEndOfFrame();
-                var previous = Camera.main.transform.rotation;
-                float started = Time.time, totalTime = 0, maxSpeed = 0, maxStep = 0, maxError = 0;
+                float previous = Camera.main.transform.eulerAngles.y, previousSpeed = 0, previousDelta = 0;
+                float started = Time.time, totalTime = 0, maxSpeed = 0, maxStep = 0, maxAcceleration = 0, maxHorizon = 0;
                 int frames = 0;
                 while (Time.time - started < 1.2f)
                 {
@@ -167,26 +175,102 @@ namespace TankTown
                     game.Input.SetWheel(elapsed < .36f ? 1 : elapsed < .76f ? -1 : 0);
                     yield return new WaitForEndOfFrame();
                     float dt = Time.deltaTime;
-                    float step = Quaternion.Angle(previous, Camera.main.transform.rotation);
-                    if (dt > 0) { maxSpeed = Mathf.Max(maxSpeed, step / dt); totalTime += dt; frames++; }
-                    maxStep = Mathf.Max(maxStep, step);
-                    maxError = Mathf.Max(maxError, Vector3.Distance(Camera.main.transform.forward, game.Tank.Turret.forward));
-                    previous = Camera.main.transform.rotation;
+                    float step = Mathf.DeltaAngle(previous, Camera.main.transform.eulerAngles.y);
+                    if (dt > 0)
+                    {
+                        float speed = step / dt;
+                        maxSpeed = Mathf.Max(maxSpeed, Mathf.Abs(speed));
+                        if (previousDelta > 0 && previousDelta <= 1f / 30 && dt <= 1f / 30)
+                            maxAcceleration = Mathf.Max(maxAcceleration, Mathf.Abs(speed - previousSpeed) / ((dt + previousDelta) * .5f));
+                        previousSpeed = speed; totalTime += dt; frames++;
+                    }
+                    maxStep = Mathf.Max(maxStep, Mathf.Abs(step));
+                    maxHorizon = Mathf.Max(maxHorizon, Vector3.Angle(Camera.main.transform.up, Vector3.up));
+                    previous = Camera.main.transform.eulerAngles.y; previousDelta = dt;
                 }
-                Debug.Log($"SMOOTH CAMERA RUN: targetFps={rate}, frames={frames}, averageFps={frames / Mathf.Max(.001f, totalTime):0.0}, maxRotationSpeed={maxSpeed:0.00}, maxFrameStep={maxStep:0.00}, directionError={maxError:0.000000}, crashes={game.Crashes}");
-                if (frames < 10 || maxSpeed > 400 || maxError > .00001f) { Debug.LogError("SMOOTH CAMERA: frame alignment or motion check failed"); Application.Quit(1); yield break; }
+                Debug.Log($"COMFORT CAMERA RUN: targetFps={rate}, frames={frames}, averageFps={frames / Mathf.Max(.001f, totalTime):0.0}, maxRotationSpeed={maxSpeed:0.00}, maxFrameStep={maxStep:0.00}, maxAcceleration={maxAcceleration:0.00}, horizonAngle={maxHorizon:0.000000}, crashes={game.Crashes}");
+                if (frames < 10 || maxSpeed > game.Settings.cameraMaxTurnSpeed + 1 || maxAcceleration > game.Settings.cameraMaxTurnAcceleration + 20 || maxHorizon > .01f)
+                { Debug.LogError("COMFORT CAMERA: rotation, acceleration or horizon check failed"); Application.Quit(1); yield break; }
                 // Save images during a separate replay; PNG readback cannot stall the measured frames.
                 game.Input.SetWheel(0);
                 game.Tank.Warp(new Pose(game.World.SpawnPosition, Quaternion.identity));
                 game.CameraRig.Snap(); yield return new WaitForSeconds(.2f);
                 game.Input.SetWheel(1); yield return new WaitForSeconds(.3f); yield return new WaitForEndOfFrame();
-                Capture(Path.Combine(output, $"smooth-camera-{rate}-01-turn.png"));
+                Capture(Path.Combine(output, $"comfort-camera-{rate}-01-turn.png"));
                 game.Input.SetWheel(-1); yield return new WaitForSeconds(.4f); yield return new WaitForEndOfFrame();
-                Capture(Path.Combine(output, $"smooth-camera-{rate}-02-reverse.png"));
+                Capture(Path.Combine(output, $"comfort-camera-{rate}-02-reverse.png"));
                 game.Input.SetWheel(0); yield return new WaitForSeconds(.4f); yield return new WaitForEndOfFrame();
-                Capture(Path.Combine(output, $"smooth-camera-{rate}-03-centered.png"));
+                Capture(Path.Combine(output, $"comfort-camera-{rate}-03-centered.png"));
             }
-            Debug.Log("SMOOTH CAMERA SMOKE COMPLETE");
+            Debug.Log("COMFORT CAMERA MOTION COMPLETE");
+            if (quit) Application.Quit(0);
+        }
+
+        private IEnumerator CameraComfortTour(TankTownGame game, string output)
+        {
+            Application.targetFrameRate = 60;
+            var body = game.Tank.GetComponent<Rigidbody>();
+            game.Input.SetWheel(0); game.Items.Receive(ItemKind.HighSpeed);
+            float minimumClearance = float.MaxValue, maxHorizon = 0;
+            for (int route = 0; route < 2; route++)
+            {
+                game.Tank.Warp(new Pose(new Vector3(0, 0, route == 0 ? 8 : 62), Quaternion.Euler(0, route == 0 ? 0 : 180, 0)));
+                game.CameraRig.Snap();
+                float started = Time.time;
+                while (Time.time - started < 2)
+                {
+                    yield return new WaitForEndOfFrame();
+                    var view = game.CameraRig.transform;
+                    maxHorizon = Mathf.Max(maxHorizon, Vector3.Angle(view.up, Vector3.up));
+                    minimumClearance = Mathf.Min(minimumClearance, view.position.y - game.World.Terrain.HeightAt(view.position));
+                }
+                Capture(Path.Combine(output, route == 0 ? "comfort-camera-07-uphill.png" : "comfort-camera-08-downhill.png"));
+            }
+            game.Items.FinishRound();
+            game.Tank.Warp(new Pose(new Vector3(0, 0, -80), Quaternion.identity)); game.CameraRig.Snap();
+            game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
+            yield return new WaitForSeconds(.3f);
+            float previousDistance = Vector3.ProjectOnPlane(Camera.main.transform.position - body.position, Vector3.up).magnitude;
+            float maxZoomSpeed = 0;
+            game.Items.Receive(ItemKind.Bulldozer);
+            float scaleStarted = Time.time;
+            while (Time.time - scaleStarted < 1.7f)
+            {
+                yield return new WaitForEndOfFrame();
+                float distance = Vector3.ProjectOnPlane(Camera.main.transform.position - body.position, Vector3.up).magnitude;
+                if (Time.deltaTime > 0) maxZoomSpeed = Mathf.Max(maxZoomSpeed, Mathf.Abs(distance - previousDistance) / Time.deltaTime);
+                previousDistance = distance;
+            }
+            Capture(Path.Combine(output, "comfort-camera-09-giant.png"));
+            game.Items.FinishRound();
+            game.Tank.Warp(new Pose(new Vector3(0, 0, -80), Quaternion.identity)); game.CameraRig.Snap();
+            game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
+            var occluder = game.World.Box("Camera occlusion witness", (Camera.main.transform.position + body.position) * .5f, new Vector3(5, 5, 1), game.World.ShotMaterial);
+            occluder.AddComponent<DestructibleBlock>().Initialize(game); Physics.SyncTransforms();
+            var initialView = Camera.main.transform.position;
+            yield return new WaitForSeconds(.35f); yield return new WaitForEndOfFrame();
+            var properties = new MaterialPropertyBlock(); occluder.GetComponent<Renderer>().GetPropertyBlock(properties);
+            float occluderVisibility = properties.GetFloat("_CameraVisibility");
+            float obstacleDisplacement = Vector3.Distance(initialView, Camera.main.transform.position);
+            Capture(Path.Combine(output, "comfort-camera-10-occlusion.png"));
+            Destroy(occluder); game.Items.FinishRound();
+            game.Tank.Warp(new Pose(new Vector3(-80, 0, -80), Quaternion.Euler(0, 135, 0))); game.CameraRig.Snap();
+            var previousPosition = body.position; float cutOpacity = 0; bool cut = false, coveredSaved = false;
+            game.Tank.Explode(); float crashStarted = Time.time;
+            while (Time.time - crashStarted < game.Settings.respawnDelay + .7f)
+            {
+                yield return new WaitForEndOfFrame();
+                if (Vector3.Distance(previousPosition, body.position) > 20) { cut = true; cutOpacity = game.CameraRig.FadeOpacity; }
+                previousPosition = body.position;
+                if (!coveredSaved && game.Tank.Respawning && game.CameraRig.TransitionCovered)
+                {
+                    coveredSaved = true; Capture(Path.Combine(output, "comfort-camera-11-covered.png"));
+                }
+            }
+            Capture(Path.Combine(output, "comfort-camera-12-respawn.png"));
+            Debug.Log($"COMFORT CAMERA SMOKE COMPLETE: horizonAngle={maxHorizon:0.000000}, minimumGroundClearance={minimumClearance:0.00}, maxZoomSpeed={maxZoomSpeed:0.00}, occluderVisibility={occluderVisibility:0.00}, obstacleDisplacement={obstacleDisplacement:0.000000}, respawnCut={cut}, cutOpacity={cutOpacity:0.000000}, finalFadeOpacity={game.CameraRig.FadeOpacity:0.000000}, crashes={game.Crashes}");
+            if (maxHorizon > .01f || minimumClearance < 1.49f || maxZoomSpeed > 14 || occluderVisibility > .01f || obstacleDisplacement > .01f || !cut || cutOpacity < .999f || game.CameraRig.FadeOpacity > 0)
+            { Debug.LogError("COMFORT CAMERA: slope, zoom, occlusion or covered relocation check failed"); Application.Quit(1); yield break; }
             Application.Quit(0);
         }
 
