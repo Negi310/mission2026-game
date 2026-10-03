@@ -14,7 +14,7 @@ namespace TankTown
         private Transform canvas;
         private GameObject gameplay, titleScreen;
         private TankTownTitleScreen titleView;
-        private Text timer, score, notice, chainCaption, cardTitle, cardBody, buttonText;
+        private Text timer, score, notice, noticeCaption, cardTitle, cardBody, buttonText;
         private ToyHudStyle style;
         private Image fill;
         private Image viewFade;
@@ -126,9 +126,15 @@ namespace TankTown
             notice.fontStyle = FontStyle.Bold;
             notice.font = displayFont;
             notice.alignment = TextAnchor.MiddleCenter;
-            TextOutline(notice, ink, 3);
-            chainCaption = Label(noticePanel.transform, "連鎖爆破！", new Vector2(65, -58), new Vector2(300, 29), 19, yellow);
-            chainCaption.alignment = TextAnchor.MiddleCenter; chainCaption.fontStyle = FontStyle.Bold; TextOutline(chainCaption, ink, 2);
+            notice.gameObject.name = "Action heading";
+            notice.horizontalOverflow = HorizontalWrapMode.Overflow;
+            TextOutline(notice, ink, 2);
+            noticeCaption = Label(noticePanel.transform, "", new Vector2(15, -58), new Vector2(400, 32), 19, yellow);
+            noticeCaption.gameObject.name = "Action caption";
+            noticeCaption.alignment = TextAnchor.MiddleCenter;
+            noticeCaption.fontStyle = FontStyle.Bold;
+            noticeCaption.horizontalOverflow = HorizontalWrapMode.Overflow;
+            TextOutline(noticeCaption, ink, 1);
             var bottom = Panel("Controls", hud, new Vector2(0, 28), new Vector2(440, 34), new Color(ink.r, ink.g, ink.b, .86f));
             var br = bottom.GetComponent<RectTransform>();
             br.anchorMin = br.anchorMax = new Vector2(.5f, 0);
@@ -226,16 +232,19 @@ namespace TankTown
             fill.rectTransform.sizeDelta = new Vector2(278 * game.Destruction / 100, 14);
             bool edge = Mathf.Abs(game.Tank.transform.position.x) > game.World.HalfExtent - 13 && game.Tank.transform.position.x * game.Tank.transform.forward.x > 0
                 || Mathf.Abs(game.Tank.transform.position.z) > game.World.HalfExtent - 13 && game.Tank.transform.position.z * game.Tank.transform.forward.z > 0;
-            notice.text = game.Tank.Respawning ? $"ドカーン！ 安全な場所へもどるよ  −{game.Settings.respawnPenalty:0.#}秒"
+            bool respawning = game.Tank.Respawning;
+            notice.text = respawning ? "ドカーン！"
                 : edge ? "海が見えたら、街の内側へ曲がろう！"
                 : Time.time < chainUntil ? $"{chainDepth} CHAIN!"
                 : Time.time < goUntil ? "GO！" : "";
-            notice.color = Time.time < chainUntil && !game.Tank.Respawning && !edge ? new Color(1, .68f, .18f) : Color.white;
-            bool chainVisible = Time.time < chainUntil && !game.Tank.Respawning && !edge;
-            bool celebrate = chainVisible || Time.time < goUntil && !edge && !game.Tank.Respawning;
-            notice.fontSize = celebrate ? 35 : 22;
+            bool chainVisible = Time.time < chainUntil && !respawning && !edge;
+            notice.color = respawning || chainVisible ? new Color(1, .68f, .18f) : Color.white;
+            bool celebrate = chainVisible || Time.time < goUntil && !edge && !respawning;
+            notice.fontSize = respawning ? 34 : celebrate ? 35 : 22;
             notice.font = celebrate ? displayFont : font;
-            chainCaption.gameObject.SetActive(chainVisible);
+            noticeCaption.text = respawning ? $"安全な場所へもどるよ  −{game.Settings.respawnPenalty:0.#}秒" : "連鎖爆破！";
+            noticeCaption.color = respawning ? Color.white : yellow;
+            noticeCaption.gameObject.SetActive(respawning || chainVisible);
             noticePanel.SetActive(game.IsPlaying && notice.text.Length > 0);
             for (int i = 0; i < 4; i++)
             {

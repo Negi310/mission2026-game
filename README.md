@@ -95,6 +95,8 @@ input.SetPressure(1, rightPressure);
 
 光と影のコントラストを強め、爆炎を0.6秒、破片を2.4秒へ短縮した調整は [陰影と破壊後の視認性の検証記録](docs/visibility-validation.md) を参照してください。破片とその影は最後の0.45秒で滑らかに消えます。
 
+復帰時の「ドカーン！」は見出しと説明を別行に表示します。外壁・柱・道路、塗装、金属、ゴム、ガラス、木には控えめな粒子感と材質ごとの光沢を設定しています。詳細は [文字表示とマテリアルの検証記録](docs/material-ui-validation.md) を参照してください。
+
 Unity Test RunnerのPlayModeで `TankTown.Tests` を実行します。前進・旋回、砲弾命中、体当たり、支持喪失、空洞の室内、外壁と骨組みの関係、重複加点、圧入力、破片の衝突、アイテム取得、実際の強化射撃、復帰とラウンド初期化を検証します。
 
 [酔いを抑えるカメラの検証記録](docs/camera-comfort-validation.md)、[引きのカメラの以前の検証記録](docs/camera-framing-validation.md)、[旋回時のカメラのガクつきの検証記録](docs/camera-jitter-validation.md)、[砲塔との方向一致・カメラ距離の以前の検証記録](docs/camera-alignment-validation.md)、[砲塔カメラ・追従強化の以前の検証記録](docs/turret-follow-validation.md)、[車体カメラの以前の検証記録](docs/camera-validation.md)、[6種類のアイテム・戦車操舵の検証記録](docs/items-validation.md)、[速度16・加速度10の検証記録](docs/speed-validation.md)、[坂道の詰まり・上向き砲撃の検証記録](docs/slope-validation.md)、[高低差・車の挙動・大型エフェクトの検証記録](docs/terrain-validation.md)、[操作・倒壊・大爆発の検証記録](docs/feel-validation.md)、[街の拡張の記録](docs/expansion-validation.md)、[初回の記録](docs/validation.md) を参照してください。
@@ -117,4 +119,4 @@ Development Buildを `TankTown.exe -batchmode -force-d3d11 --tank-town-smoke` �
 
 `--tank-town-city-smoke` はタイトル・通常走行・島の全景・車・実砲撃による車の誘爆・屋上報酬・燃料の連鎖・報酬の物理落下と接触回収・2秒ビーム・結果の13画面を保存します。全景・破壊・報酬の画面は診断用カメラです。狙いを固定するため車と戦車を移動し、建物の支持を追加で外す操作も含みます。`--tank-town-title-wide-smoke` は1920×1080のタイトルと通常HUDを保存します。3分間の手動プレイの代わりにはなりません。
 
-`--tank-town-toy-smoke` は見た目を改善した13画面を保存します。通常HUDを1920×1080・1280×720・1440×900で確認し、実砲撃の着弾・連鎖・倒壊、ミサイル、4効果の同時発動、停止・結果を描画します。位置・強化・所持アイテムは診断用の設定です。
+`--tank-town-toy-smoke` は見た目を改善した16画面を保存します。通常HUDを1920×1080・1280×720・1440×900で確認し、実砲撃の着弾・連鎖・倒壊、ミサイル、4効果の同時発動、停止・結果を描画します。復帰の文字を2解像度で撮影し、材質の近接画面も保存します。位置・強化・所持アイテムは診断用の設定です。復帰表示の撮影中だけ時間を止め、解除後のリスポーンも確認します。

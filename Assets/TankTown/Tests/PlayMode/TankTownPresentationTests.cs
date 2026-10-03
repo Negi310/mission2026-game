@@ -46,6 +46,28 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
+        public IEnumerator CrashNoticeKeepsJapaneseHeadingAndPenaltyOnSeparateLines()
+        {
+            float remaining = game.Remaining;
+            game.Tank.Explode();
+            yield return null; Canvas.ForceUpdateCanvases();
+            Assert.That(game.Tank.Respawning, Is.True);
+            Assert.That(game.Remaining, Is.LessThanOrEqualTo(remaining - game.Settings.respawnPenalty));
+            var heading = GameObject.Find("Action heading").GetComponent<Text>();
+            var caption = GameObject.Find("Action caption").GetComponent<Text>();
+            Assert.That(heading.text, Is.EqualTo("ドカーン！"));
+            Assert.That(caption.text, Does.Contain("安全な場所へもどるよ"));
+            Assert.That(caption.text, Does.Contain($"−{game.Settings.respawnPenalty:0.#}秒"));
+            Assert.That(heading.font, Is.SameAs(caption.font), "Both lines must use the Japanese font");
+            foreach (var text in new[] { heading, caption })
+            {
+                Assert.That(text.preferredWidth, Is.LessThanOrEqualTo(text.rectTransform.rect.width));
+                Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height));
+            }
+            Assert.That(Bounds(heading.rectTransform).Overlaps(Bounds(caption.rectTransform)), Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator SpecialCardFollowsHeldWeaponAndActiveEffects()
         {
             Assert.That(game.Items.Receive(ItemKind.Missiles), Is.True); yield return null;

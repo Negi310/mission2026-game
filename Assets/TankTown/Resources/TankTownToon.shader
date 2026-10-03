@@ -5,6 +5,10 @@ Shader "TankTown/Saturated Toon"
         _BaseColor("Color", Color) = (1,1,1,1)
         _Saturation("Saturation", Range(0,2)) = 1.05
         _Gloss("Toy highlight", Range(0,1)) = .26
+        _HighlightPower("Highlight sharpness", Range(8,128)) = 48
+        _SurfaceDetail("Subtle surface grain", Range(0,.2)) = .035
+        _DetailScale("Grain per metre", Range(1,60)) = 24
+        _Brushed("Directional grain", Range(0,1)) = 0
         _GroundDetail("Road grain", Range(0,1)) = 0
         _CameraVisibility("Camera visibility", Range(0,1)) = 1
         _DebrisVisibility("Debris visibility", Range(0,1)) = 1
@@ -19,12 +23,16 @@ Shader "TankTown/Saturated Toon"
         half4 _BaseColor;
         half _Saturation;
         half _Gloss;
+        half _HighlightPower;
+        half _SurfaceDetail;
+        half _DetailScale;
+        half _Brushed;
         half _GroundDetail;
         half _CameraVisibility;
         half _DebrisVisibility;
         CBUFFER_END
         struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-        struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
+        struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; float3 surfacePosition : TEXCOORD2; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
         Varyings Vert(Attributes input)
         {
             Varyings output = (Varyings)0;
@@ -34,7 +42,24 @@ Shader "TankTown/Saturated Toon"
             output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
             output.positionCS = TransformWorldToHClip(output.positionWS);
             output.normalWS = TransformObjectToWorldNormal(input.normalOS);
+            // Grain follows a rotating fragment, with density measured in metres.
+            float3x3 objectToWorld = (float3x3)GetObjectToWorldMatrix();
+            float3 scale = float3(length(mul(objectToWorld, float3(1,0,0))), length(mul(objectToWorld, float3(0,1,0))), length(mul(objectToWorld, float3(0,0,1))));
+            output.surfacePosition = input.positionOS.xyz * scale;
             return output;
+        }
+        float GrainHash(float2 p)
+        {
+            float3 q = frac(float3(p.xyx) * .1031);
+            q += dot(q, q.yzx + 33.33);
+            return frac((q.x + q.y) * q.z);
+        }
+        float SurfaceGrain(float2 p)
+        {
+            float2 cell = floor(p), f = frac(p);
+            f = f * f * (3 - 2 * f);
+            return lerp(lerp(GrainHash(cell), GrainHash(cell + float2(1,0)), f.x),
+                lerp(GrainHash(cell + float2(0,1)), GrainHash(cell + 1), f.x), f.y);
         }
         void CoverageClip(float visibility, float2 pixel)
         {
@@ -61,12 +86,18 @@ Shader "TankTown/Saturated Toon"
             half3 ambient = color * half3(.24, .31, .41) * hemisphere * lerp(.55, 1, ao.indirectAmbientOcclusion);
             half3 direct = color * light.color * .51 * pow(ndl, .85) * light.shadowAttenuation * ao.directAmbientOcclusion;
             half3 lit = ambient + direct;
-            half highlight = pow(saturate(dot(normal, normalize(light.direction + view))), 42) * _Gloss * light.shadowAttenuation * ao.directAmbientOcclusion;
+            half highlight = pow(saturate(dot(normal, normalize(light.direction + view))), _HighlightPower) * _Gloss * light.shadowAttenuation * ao.directAmbientOcclusion;
             half rim = pow(1 - saturate(dot(normal, view)), 4) * .025;
             lit += half3(1, .95, .8) * highlight + color * rim;
-            float grain = frac(sin(dot(floor(input.positionWS.xz * 12), float2(12.9898, 78.233))) * 43758.5453) - .5;
-            half detailFade = 1 - smoothstep(12, 45, distance(input.positionWS, _WorldSpaceCameraPos));
-            lit *= 1 + grain * .06 * _GroundDetail * detailFade;
+            float3 p = input.surfacePosition;
+            float2 grainPoint = float2(p.x + p.z * .37, p.y + p.z * .73) * _DetailScale;
+            // Smooth noise fades before it becomes subpixel; distant surfaces stay calm.
+            float footprint = max(length(ddx(grainPoint)), length(ddy(grainPoint)));
+            half detailFade = (1 - smoothstep(.45, 1.4, footprint)) * (1 - smoothstep(12, 40, distance(input.positionWS, _WorldSpaceCameraPos)));
+            float grain = SurfaceGrain(grainPoint);
+            if (_Brushed > 0)
+                grain = lerp(grain, SurfaceGrain(grainPoint * float2(1.8, .055)), _Brushed);
+            lit *= 1 + (grain - .5) * (_SurfaceDetail + _GroundDetail * .025) * detailFade;
             // Compute fog per fragment: the ocean is one large quad, whose corner
             // fog values would otherwise wash out even water beside the player.
             half fog = ComputeFogFactor(TransformWorldToHClip(input.positionWS).z);

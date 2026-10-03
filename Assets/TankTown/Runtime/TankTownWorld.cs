@@ -3,6 +3,8 @@ using UnityEngine;
 
 namespace TankTown
 {
+    public enum ToySurface { Paint, Concrete, Metal, Rubber, Glass, Organic, Wood }
+
     public sealed class TankTownWorld : MonoBehaviour
     {
         public Material ShotMaterial { get; private set; }
@@ -25,15 +27,31 @@ namespace TankTown
         private readonly List<Material> materials = new List<Material>();
         private readonly ToyGeometry geometry = new ToyGeometry();
         private TankTownGame game;
-        private Material road, cream, dark, glass, lime, grass, frame;
+        private Material road, cream, dark, glass, lime, grass, frame, rubber, wood, cannonPaint;
         private readonly Color[] palette = { new Color(1, .26f, .18f), new Color(.04f, .78f, 1), new Color(1, .68f, .04f), new Color(.62f, .27f, 1), new Color(1, .27f, .62f) };
 
-        public Material MakeMaterial(Color color)
+        public Material MakeMaterial(Color color, ToySurface surface = ToySurface.Paint)
         {
             var template = Resources.Load<Material>("TankTownSurface");
             var material = template != null ? new Material(template) : new Material(Shader.Find("TankTown/Saturated Toon"));
+            material.shader = Shader.Find("TankTown/Saturated Toon");
             material.SetColor("_BaseColor", color);
             material.SetFloat("_Saturation", 1.05f);
+            float detail = .035f, scale = 24, gloss = .26f, sharpness = 48, brushed = 0;
+            switch (surface)
+            {
+                case ToySurface.Concrete: detail = .085f; scale = 12; gloss = .065f; sharpness = 18; break;
+                case ToySurface.Metal: detail = .045f; scale = 32; gloss = .3f; sharpness = 72; brushed = .3f; break;
+                case ToySurface.Rubber: detail = .09f; scale = 20; gloss = .07f; sharpness = 20; break;
+                case ToySurface.Glass: detail = .01f; scale = 28; gloss = .42f; sharpness = 90; break;
+                case ToySurface.Organic: detail = .06f; scale = 12; gloss = .12f; sharpness = 24; break;
+                case ToySurface.Wood: detail = .065f; scale = 18; gloss = .08f; sharpness = 20; brushed = .65f; break;
+            }
+            material.SetFloat("_SurfaceDetail", detail);
+            material.SetFloat("_DetailScale", scale);
+            material.SetFloat("_Gloss", gloss);
+            material.SetFloat("_HighlightPower", sharpness);
+            material.SetFloat("_Brushed", brushed);
             material.enableInstancing = true;
             materials.Add(material);
             return material;
@@ -57,16 +75,18 @@ namespace TankTown
         {
             game = owner;
             HalfExtent = game.Settings.cityHalfBlocks * game.Settings.blockSpacing + 14;
-            road = MakeMaterial(new Color(.13f, .2f, .32f));
+            road = MakeMaterial(new Color(.13f, .2f, .32f), ToySurface.Concrete);
             road.SetFloat("_GroundDetail", 1);
             road.SetFloat("_Gloss", .035f);
-            cream = MakeMaterial(new Color(1, .94f, .77f));
-            dark = MakeMaterial(new Color(.055f, .09f, .16f));
-            glass = MakeMaterial(new Color(.04f, .34f, .59f));
-            glass.SetFloat("_Gloss", .42f);
+            cream = MakeMaterial(new Color(1, .94f, .77f), ToySurface.Concrete);
+            dark = MakeMaterial(new Color(.055f, .09f, .16f), ToySurface.Metal);
+            glass = MakeMaterial(new Color(.04f, .34f, .59f), ToySurface.Glass);
             lime = MakeMaterial(new Color(.64f, 1, .04f));
-            grass = MakeMaterial(new Color(.12f, .84f, .42f));
-            frame = MakeMaterial(new Color(.85f, .91f, 1));
+            grass = MakeMaterial(new Color(.12f, .84f, .42f), ToySurface.Organic);
+            frame = MakeMaterial(new Color(.85f, .91f, 1), ToySurface.Concrete);
+            rubber = MakeMaterial(new Color(.12f, .16f, .19f), ToySurface.Rubber);
+            wood = MakeMaterial(new Color(.3f, .19f, .105f), ToySurface.Wood);
+            cannonPaint = MakeMaterial(new Color(1, .94f, .77f));
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
             Icons = new UpgradeIcons();
             SpecialIcons = new ItemIcons();
@@ -100,7 +120,7 @@ namespace TankTown
                     int floors = style == 0 ? random.Next(6, 9) : style == 1 ? random.Next(4, 7) : random.Next(2, 4);
                     float width = Mathf.Max(10, BuildingWidth * (style == 0 ? .72f : style == 2 ? .88f : 1));
                     if (park) CreatePark(center);
-                    else CreateBuilding(center, floors, MakeMaterial(palette[random.Next(palette.Length)]), width, style);
+                    else CreateBuilding(center, floors, MakeMaterial(palette[random.Next(palette.Length)], ToySurface.Concrete), width, style);
                     float sidewalk = BuildingWidth / 2 + 1.5f;
                     CreateProp(center + new Vector3(-sidewalk, 0, -sidewalk), "Street sign", ShotMaterial, true);
                     CreateProp(center + new Vector3(sidewalk, 0, sidewalk), "Tree", grass, false);
@@ -209,7 +229,7 @@ namespace TankTown
                 {
                     var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder); wheel.name = "Car wheel"; wheel.transform.SetParent(root.transform, false);
                     wheel.transform.localPosition = new Vector3(side * .86f, -.35f, end * 1); wheel.transform.localRotation = Quaternion.Euler(0, 0, 90);
-                    wheel.transform.localScale = new Vector3(.65f, .13f, .65f); wheel.GetComponent<Renderer>().sharedMaterial = dark;
+                    wheel.transform.localScale = new Vector3(.65f, .13f, .65f); wheel.GetComponent<Renderer>().sharedMaterial = rubber;
                     wheel.GetComponent<Collider>().enabled = false; Destroy(wheel.GetComponent<Collider>());
                 }
             }
@@ -406,7 +426,7 @@ namespace TankTown
             trunk.center = Vector3.up * 1.4f;
             trunk.size = new Vector3(sign ? .3f : .45f, 2.8f, sign ? .3f : .45f);
             AddBlock(item, true);
-            Box("Post", trunk.center, trunk.size, dark, item.transform, false);
+            Box("Post", trunk.center, trunk.size, sign ? dark : wood, item.transform, false);
             if (!sign)
             {
                 var crown = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -445,13 +465,11 @@ namespace TankTown
             cannon.SetParent(turret, false);
             cannon.localPosition = new Vector3(0, .04f, .55f);
             cannon.localRotation = Quaternion.Euler(-game.Settings.cannonElevation, 0, 0);
-            Box("Fixed cannon", new Vector3(0, 0, 1.25f), new Vector3(.4f, .4f, 2.5f), cream, cannon, false);
+            Box("Fixed cannon", new Vector3(0, 0, 1.25f), new Vector3(.4f, .4f, 2.5f), cannonPaint, cannon, false);
             Box("Muzzle", new Vector3(0, 0, 2.48f), new Vector3(.6f, .6f, .3f), dark, cannon, false);
             foreach (int side in new[] { -1, 1 })
             {
-                Box("Track", new Vector3(side * 1.2f, -.35f, 0), new Vector3(.65f, .9f, 3.5f), dark, visual, false);
-                var rubber = MakeMaterial(new Color(.12f, .16f, .19f));
-                rubber.SetFloat("_Gloss", .1f);
+                Box("Track", new Vector3(side * 1.2f, -.35f, 0), new Vector3(.65f, .9f, 3.5f), rubber, visual, false);
                 for (int w = -5; w <= 5; w++)
                 {
                     Box("Track top tread", new Vector3(side * 1.2f, .12f, w * .29f), new Vector3(.69f, .09f, .2f), rubber, visual, false);

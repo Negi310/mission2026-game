@@ -17,11 +17,12 @@ namespace TankTown
             sky.SetColor("_Horizon", new Color(.5f, .86f, 1));
             sky.SetColor("_Zenith", new Color(.12f, .56f, 1));
             RenderSettings.skybox = sky;
-            var sea = world.MakeMaterial(new Color(.035f, .62f, .82f));
-            var sand = world.MakeMaterial(new Color(1, .81f, .45f));
-            var rock = world.MakeMaterial(new Color(.76f, .57f, .35f));
+            var sea = world.MakeMaterial(new Color(.035f, .62f, .82f), ToySurface.Glass);
+            sea.SetFloat("_Gloss", .15f);
+            var sand = world.MakeMaterial(new Color(1, .81f, .45f), ToySurface.Concrete);
+            var rock = world.MakeMaterial(new Color(.76f, .57f, .35f), ToySurface.Concrete);
             var white = world.MakeMaterial(new Color(.97f, .99f, 1));
-            var green = world.MakeMaterial(new Color(.15f, .73f, .48f));
+            var green = world.MakeMaterial(new Color(.15f, .73f, .48f), ToySurface.Organic);
             world.Box("Ocean horizon", new Vector3(0, -3.8f, 0), new Vector3(4000, .12f, 4000), sea, solid: false);
             float edge = world.HalfExtent;
             foreach (bool vertical in new[] { false, true }) foreach (int side in new[] { -1, 1 })
