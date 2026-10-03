@@ -18,6 +18,7 @@ namespace TankTown.Tests
             SceneManager.LoadScene("TankTown"); yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>(); game.StartOrRestart();
             game.Input.useHardware = true; game.Input.SetWheel(0);
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
             foreach (var item in game.World.ItemPickups) item.gameObject.SetActive(false);
             foreach (var item in game.World.Pickups) item.gameObject.SetActive(false);
             Time.captureDeltaTime = 1f / 120;
@@ -87,6 +88,11 @@ namespace TankTown.Tests
             renderer.GetPropertyBlock(properties);
             Assert.That(properties.GetFloat("_CameraVisibility"), Is.Zero, "Fully covered parts must not leave a distracting dotted pattern");
             Assert.That(renderer.sharedMaterial.GetFloat("_CameraVisibility"), Is.EqualTo(1), "Other parts that share this material must remain opaque");
+            box.GetComponent<DestructibleBlock>().Break(center, 0);
+            box.GetComponent<Rigidbody>().constraints = RigidbodyConstraints.FreezeAll;
+            box.GetComponent<Rigidbody>().useGravity = false;
+            yield return new WaitForSeconds(.35f); renderer.GetPropertyBlock(properties);
+            Assert.That(properties.GetFloat("_CameraVisibility"), Is.Zero, "A detached slab must keep fading while it still blocks the view");
             box.transform.position += Vector3.right * 20; Physics.SyncTransforms();
             yield return new WaitForSeconds(.35f);
             renderer.GetPropertyBlock(properties);

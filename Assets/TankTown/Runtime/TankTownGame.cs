@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -22,11 +23,17 @@ namespace TankTown
         public int TotalBlocks { get; private set; }
         public int BrokenBlocks { get; private set; }
         public int Crashes { get; private set; }
+        public int ChainExplosions { get; private set; }
+        public int LongestChain { get; private set; }
+        public int ExplosionGeneration { get; private set; }
+        public event Action<ItemKind> SpecialCollected;
+        public event Action<int> ChainBurst;
         public float Destruction => TotalBlocks == 0 ? 0 : 100f * BrokenBlocks / TotalBlocks;
         private readonly Queue<GameObject> debris = new Queue<GameObject>();
         private readonly List<AudioClip> clips = new List<AudioClip>();
         private AudioSource speaker;
-        private bool ownedSettings, oldDebrisIgnore, oldTankIgnore;
+        private bool ownedSettings, oldDebrisIgnore, oldTankIgnore, oldRewardIgnore;
+        private static bool playAfterReload;
 
         private void Awake()
         {
@@ -38,8 +45,10 @@ namespace TankTown
             Effects = gameObject.AddComponent<TankTownEffects>();
             oldDebrisIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer);
             oldTankIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer);
+            oldRewardIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.RewardLayer, TownPhysics.DebrisLayer);
             Physics.IgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer, true);
             Physics.IgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer, false);
+            Physics.IgnoreLayerCollision(TownPhysics.RewardLayer, TownPhysics.DebrisLayer, true);
             Input = gameObject.AddComponent<TankInput>();
             Input.settings = Settings;
             var worldRoot = new GameObject("Procedural Town");
@@ -48,13 +57,22 @@ namespace TankTown
             Tank = World.CreateTank();
             Items = Tank.gameObject.AddComponent<TankItems>();
             Items.Initialize(this);
-            Input.PadPressed += Tank.Fire;
+            Input.PadPressed += HandlePad;
             Input.StartPressed += StartOrRestart;
             Input.PausePressed += TogglePause;
             SetupView();
             speaker = gameObject.AddComponent<AudioSource>();
             speaker.spatialBlend = 0;
             gameObject.AddComponent<TankTownHUD>().Initialize(this);
+            CameraRig.Paused = true;
+            Time.timeScale = 0;
+            if (playAfterReload) { playAfterReload = false; StartOrRestart(); }
+        }
+
+        private void HandlePad(int pad)
+        {
+            if (State == RoundState.Ready) StartOrRestart();
+            else Tank.Fire(pad);
         }
 
         private void SetupView()
@@ -68,9 +86,9 @@ namespace TankTown
             }
             camera.fieldOfView = Settings.cameraFieldOfView;
             camera.nearClipPlane = .12f;
-            camera.farClipPlane = 360;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(.25f, .75f, 1);
+            camera.farClipPlane = 500;
+            camera.clearFlags = CameraClearFlags.Skybox;
+            camera.backgroundColor = new Color(.5f, .86f, 1);
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Offset = Settings.cameraOffset;
             CameraRig.Terrain = World.Terrain;
@@ -84,8 +102,8 @@ namespace TankTown
             RenderSettings.fog = true;
             RenderSettings.fogColor = camera.backgroundColor;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 130;
-            RenderSettings.fogEndDistance = 300;
+            RenderSettings.fogStartDistance = 160;
+            RenderSettings.fogEndDistance = 410;
             var sun = new GameObject("Sun").AddComponent<Light>();
             sun.type = LightType.Directional;
             sun.intensity = 1.6f;
@@ -95,13 +113,22 @@ namespace TankTown
 
         public void StartOrRestart()
         {
-            if (State == RoundState.Ready) State = RoundState.Playing;
+            if (State == RoundState.Ready) { State = RoundState.Playing; CameraRig.Paused = false; Time.timeScale = 1; }
             else if (State == RoundState.Paused) TogglePause();
             else if (State == RoundState.Results)
             {
+                playAfterReload = true;
                 Time.timeScale = 1;
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             }
+        }
+
+        public void ReturnToTitle()
+        {
+            if (State != RoundState.Paused && State != RoundState.Results) return;
+            playAfterReload = false;
+            Time.timeScale = 1;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         public void TogglePause()
@@ -119,6 +146,7 @@ namespace TankTown
             if (Remaining <= 0) { State = RoundState.Results; CameraRig.CancelTransition(); CameraRig.Paused = true; Items.FinishRound(); Time.timeScale = 0; }
         }
         public void RegisterBlock() => TotalBlocks++;
+        internal void ReportSpecial(ItemKind kind) => SpecialCollected?.Invoke(kind);
         public void ScoreBlock() { if (IsPlaying) BrokenBlocks = Mathf.Min(TotalBlocks, BrokenBlocks + 1); }
         public void ApplyPenalty() { if (IsPlaying) { Crashes++; AdvanceTime(Settings.respawnPenalty); } }
         public void TrackDebris(GameObject item)
@@ -132,6 +160,18 @@ namespace TankTown
         }
 
         public void Blast(Vector3 point) => Blast(point, Stats.BlastRadius, Stats.BlastImpulse);
+
+        internal void ChainBlast(Vector3 point, float radius, int generation)
+        {
+            if (!IsPlaying) return;
+            ChainExplosions++;
+            LongestChain = Mathf.Max(LongestChain, generation);
+            if (generation > 1) ChainBurst?.Invoke(generation);
+            int previous = ExplosionGeneration;
+            ExplosionGeneration = generation;
+            try { Blast(point, radius, Settings.blastImpulse * 1.35f); }
+            finally { ExplosionGeneration = previous; }
+        }
 
         public void Blast(Vector3 point, float radius, float impulse)
         {
@@ -206,6 +246,7 @@ namespace TankTown
             Time.timeScale = 1;
             Physics.IgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer, oldDebrisIgnore);
             Physics.IgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer, oldTankIgnore);
+            Physics.IgnoreLayerCollision(TownPhysics.RewardLayer, TownPhysics.DebrisLayer, oldRewardIgnore);
             foreach (var clip in clips) if (clip != null) Destroy(clip);
             if (ownedSettings) Destroy(Settings);
         }

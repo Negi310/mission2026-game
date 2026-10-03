@@ -110,7 +110,9 @@ namespace TankTown
                 foreach (var pillar in targetBuilding.Blocks.FindAll(x => x != null && x.Foundation && x.Column < 2)) pillar.Break(pillar.transform.position, game.Stats.BlastImpulse);
                 targetBuilding.ReleaseUnsupported(targetBuilding.transform.position, game.Stats.BlastImpulse);
                 yield return new WaitForSeconds(.08f);
-                peakBodies = Mathf.Max(peakBodies, FindObjectsByType<Rigidbody>(FindObjectsSortMode.None).Length - 1);
+                int debrisCount = 0;
+                foreach (var fragment in FindObjectsByType<Rigidbody>(FindObjectsSortMode.None)) if (fragment.gameObject.layer == TownPhysics.DebrisLayer) debrisCount++;
+                peakBodies = Mathf.Max(peakBodies, debrisCount);
             }
             game.AdvanceTime(1000);
             yield return new WaitForSecondsRealtime(.2f);
@@ -155,6 +157,7 @@ namespace TankTown
         private IEnumerator CameraMotionTour(TankTownGame game, string output, bool quit = true)
         {
             game.StartOrRestart(); game.Input.useHardware = true;
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
             foreach (var item in game.World.ItemPickups) item.gameObject.SetActive(false);
             foreach (var item in game.World.Pickups) item.gameObject.SetActive(false);
             QualitySettings.vSyncCount = 0;
@@ -418,11 +421,11 @@ namespace TankTown
             Camera.main.transform.LookAt(target);
         }
 
-        private static void Capture(string path, bool showHud = true)
+        internal static void Capture(string path, bool showHud = true, int width = 1440, int height = 900)
         {
             var camera = Camera.main;
             var canvas = FindFirstObjectByType<Canvas>();
-            var target = RenderTexture.GetTemporary(1440, 900, 24, RenderTextureFormat.ARGB32);
+            var target = RenderTexture.GetTemporary(width, height, 24, RenderTextureFormat.ARGB32);
             var previousTarget = RenderTexture.active;
             bool previousEnabled = canvas.enabled;
             canvas.enabled = showHud;
@@ -443,8 +446,8 @@ namespace TankTown
                     throw new InvalidOperationException("Render pipeline does not support visual smoke capture");
                 RenderPipeline.SubmitRenderRequest(camera, request);
                 RenderTexture.active = target;
-                pixels = new Texture2D(1440, 900, TextureFormat.RGB24, false);
-                pixels.ReadPixels(new Rect(0, 0, 1440, 900), 0, 0);
+                pixels = new Texture2D(width, height, TextureFormat.RGB24, false);
+                pixels.ReadPixels(new Rect(0, 0, width, height), 0, 0);
                 pixels.Apply();
                 File.WriteAllBytes(path, pixels.EncodeToPNG());
             }

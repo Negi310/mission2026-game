@@ -106,7 +106,7 @@ namespace TankTown
         {
             occluded.Clear();
             int count = Physics.OverlapCapsuleNonAlloc(transform.position, Target.position + Vector3.up * (.7f * scale), .8f * scale,
-                occlusionHits, TownPhysics.StructureMask & ~TownPhysics.GroundMask, QueryTriggerInteraction.Ignore);
+                occlusionHits, (TownPhysics.StructureMask | 1 << TownPhysics.DebrisLayer) & ~TownPhysics.GroundMask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < count; i++)
             {
                 var block = occlusionHits[i].GetComponentInParent<DestructibleBlock>();

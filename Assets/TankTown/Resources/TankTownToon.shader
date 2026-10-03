@@ -45,7 +45,10 @@ Shader "TankTown/Saturated Toon"
             half gray = dot(_BaseColor.rgb, half3(.2126,.7152,.0722));
             half3 color = saturate(lerp(gray.xxx, _BaseColor.rgb, _Saturation));
             half rim = pow(1 - saturate(dot(normal, GetWorldSpaceNormalizeViewDir(input.positionWS))), 3) * .12;
-            return half4(color * lighting + rim * color, 1);
+            // Compute fog per fragment: the ocean is one large quad, whose corner
+            // fog values would otherwise wash out even water beside the player.
+            half fog = ComputeFogFactor(TransformWorldToHClip(input.positionWS).z);
+            return half4(MixFog(color * lighting + rim * color, fog), 1);
         }
         float3 _LightDirection;
         float4 ShadowVert(Attributes input) : SV_POSITION
@@ -70,6 +73,7 @@ Shader "TankTown/Saturated Toon"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Fog.hlsl"
             #pragma multi_compile_instancing
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH

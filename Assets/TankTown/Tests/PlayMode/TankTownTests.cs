@@ -17,6 +17,7 @@ namespace TankTown.Tests
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game, Is.Not.Null);
             game.StartOrRestart();
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
         }
 
         [UnityTearDown]
@@ -108,8 +109,8 @@ namespace TankTown.Tests
             game.StartOrRestart();
             yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
-            Assert.That(game.State, Is.EqualTo(RoundState.Ready));
-            Assert.That(game.Remaining, Is.EqualTo(180));
+            Assert.That(game.State, Is.EqualTo(RoundState.Playing));
+            Assert.That(game.Remaining, Is.InRange(179.5f, 180f), "Retry starts immediately, so its first rendered frame already consumes time");
             Assert.That(game.BrokenBlocks, Is.Zero);
         }
 

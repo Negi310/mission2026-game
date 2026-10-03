@@ -15,6 +15,7 @@ namespace TankTown.Tests
             SceneManager.LoadScene("TankTown"); yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>(); game.StartOrRestart();
             game.Input.useHardware = true; game.Input.SetWheel(0);
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
             // Isolate each ability from unrelated automatic pickups along the test route.
             foreach (var item in game.World.ItemPickups) item.gameObject.SetActive(false);
         }
@@ -100,6 +101,8 @@ namespace TankTown.Tests
             for (int i = 0; i < 6; i++) Assert.That(game.World.ItemPickups.Exists(x => x.Kind == (ItemKind)i), Is.True);
             var item = game.World.ItemPickups.Find(x => x.Kind == ItemKind.MegaBeam);
             item.gameObject.SetActive(true);
+            foreach (var support in item.SourceBuilding.Blocks.FindAll(x => x.Foundation)) support.Break(support.transform.position, 0);
+            item.SourceBuilding.ReleaseUnsupported(item.SourceBuilding.transform.position, 0);
             item.transform.position = game.World.GroundPoint(game.Tank.transform.position + Vector3.forward * 3.2f, 1.2f); Physics.SyncTransforms();
             for (int i = 0; i < 15; i++) yield return new WaitForFixedUpdate();
             Assert.That(item.Collected, Is.True); Assert.That(game.Items.Held, Is.EqualTo(ItemKind.MegaBeam));
@@ -121,7 +124,7 @@ namespace TankTown.Tests
             Assert.That(game.Tank.ActualSpeed, Is.LessThan(.1f)); Assert.That(game.Items.BeamHits, Is.GreaterThan(0));
             Assert.That(game.BrokenBlocks, Is.GreaterThan(0));
             game.Input.PulsePad(0); Assert.That(Object.FindFirstObjectByType<TankShell>(), Is.Null);
-            for (int i = 0; i < 155; i++) yield return new WaitForFixedUpdate();
+            yield return new WaitForSeconds(game.Settings.megaBeamSeconds - .9f + .15f);
             Assert.That(game.Items.StopsForward, Is.False);
             Assert.That(game.Tank.ActualSpeed, Is.GreaterThan(1));
         }

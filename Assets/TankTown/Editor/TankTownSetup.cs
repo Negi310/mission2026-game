@@ -34,6 +34,13 @@ namespace TankTown.Editor
             {
                 var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 new GameObject("Tank Town Game", typeof(TankTownGame));
+                // Declare runtime fog in the scene too, so automatic build stripping
+                // keeps the linear-fog shader variant used by the generated town.
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.Linear;
+                RenderSettings.fogColor = new Color(.5f, .86f, 1);
+                RenderSettings.fogStartDistance = 160;
+                RenderSettings.fogEndDistance = 410;
                 EditorSceneManager.SaveScene(scene, ScenePath);
             }
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

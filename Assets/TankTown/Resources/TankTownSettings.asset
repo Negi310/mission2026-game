@@ -54,7 +54,8 @@ MonoBehaviour:
   radiusUpgrade: 0.07
   rapidUpgrade: 0.16
   handlingUpgrade: 0.06
-  megaBeamSeconds: 3.5
+  buildingRewardThreshold: 0.6
+  megaBeamSeconds: 2
   megaBeamLength: 70
   megaBeamRadius: 5
   missileSeconds: 6

@@ -18,6 +18,10 @@ namespace TankTown
         public readonly List<BlockBuilding> Buildings = new List<BlockBuilding>();
         public readonly List<TankPickup> Pickups = new List<TankPickup>();
         public readonly List<ItemPickup> ItemPickups = new List<ItemPickup>();
+        public readonly List<ChainExplosive> Explosives = new List<ChainExplosive>();
+        public readonly List<TownTrafficCar> TrafficCars = new List<TownTrafficCar>();
+        public readonly List<TownTrafficSignal> Signals = new List<TownTrafficSignal>();
+        public Material SkyMaterial { get; private set; }
         private readonly List<Material> materials = new List<Material>();
         private TankTownGame game;
         private Material road, cream, dark, glass, lime, grass, frame;
@@ -102,26 +106,104 @@ namespace TankTown
                 }
             // The first straight has all four upgrades, so their effect is easy to try.
             for (int i = 0; i < 4; i++) CreatePickup(SpawnPosition + new Vector3(0, .2f, 8 + i * 7), (UpgradeKind)i);
-            for (int i = 0; i < 6; i++) CreateItem(SpawnPosition + new Vector3(i % 2 == 0 ? 4.8f : -4.8f, 0, 38 + i * 18), (ItemKind)i);
-            int itemIndex = 0;
-            for (int x = -half; x < half; x++) for (int z = -half; z < half; z++)
+            CreateTraffic();
+            var scenery = gameObject.AddComponent<TownScenery>();
+            SkyMaterial = scenery.Build(this, game);
+            materials.Add(SkyMaterial);
+        }
+
+        private void CreateTraffic()
+        {
+            int half = game.Settings.cityHalfBlocks;
+            float spacing = game.Settings.blockSpacing, shoulder = RoadWidth / 2 + 1.2f;
+            for (int x = -half; x <= half; x++) for (int z = -half; z <= half; z++)
             {
-                if ((x + z) % 2 != 0) continue;
-                CreateItem(new Vector3(x * spacing + 4, 0, z * spacing + 12), (ItemKind)(itemIndex++ % 6));
-            }
-            float edge = HalfExtent - 4;
-            for (float i = -edge; i <= edge; i += 4)
-            {
-                SurfaceBox("Edge stripe", new Vector3(i, 0, edge), new Vector3(2, .1f, .6f), ShotMaterial);
-                SurfaceBox("Edge stripe", new Vector3(i, 0, -edge), new Vector3(2, .1f, .6f), ShotMaterial);
-                SurfaceBox("Edge stripe", new Vector3(edge, 0, i), new Vector3(.6f, .1f, 2), ShotMaterial);
-                SurfaceBox("Edge stripe", new Vector3(-edge, 0, i), new Vector3(.6f, .1f, 2), ShotMaterial);
-                foreach (var p in new[] { new Vector3(i, 0, HalfExtent), new Vector3(i, 0, -HalfExtent), new Vector3(HalfExtent, 0, i), new Vector3(-HalfExtent, 0, i) })
+                if ((x + z + half * 2) % 3 == 0)
                 {
-                    float height = Terrain.HeightAt(p) + 1.8f;
-                    Box("Island retaining edge", new Vector3(p.x, height / 2 - 1.8f, p.z), Mathf.Abs(p.x) == HalfExtent ? new Vector3(.3f, height, 4) : new Vector3(4, height, .3f), grass, solid: false);
+                    var junction = new Vector3(x * spacing, 0, z * spacing);
+                    var root = new GameObject("Crushable traffic signal"); root.transform.SetParent(transform);
+                    root.transform.position = GroundPoint(junction + new Vector3(shoulder, 0, shoulder));
+                    var collider = root.AddComponent<BoxCollider>(); collider.center = Vector3.up * 2; collider.size = new Vector3(.4f, 4, .4f);
+                    AddBlock(root, true);
+                    Box("Signal post", Vector3.up * 2, collider.size, dark, root.transform, false);
+                    Box("Signal arm", new Vector3(-.8f, 3.9f, 0), new Vector3(2, .18f, .2f), cream, root.transform, false);
+                    Box("Signal housing", new Vector3(-1.4f, 3.6f, 0), new Vector3(.75f, 1.8f, .6f), dark, root.transform, false);
+                    Box("Cross signal arm", new Vector3(0, 3.9f, -.8f), new Vector3(.2f, .18f, 2), cream, root.transform, false);
+                    Box("Cross signal housing", new Vector3(0, 3.6f, -1.4f), new Vector3(.6f, 1.8f, .75f), dark, root.transform, false);
+                    var head = root.AddComponent<BoxCollider>(); head.center = new Vector3(-1.4f, 3.6f, 0); head.size = new Vector3(.75f, 1.8f, .6f);
+                    var crossHead = root.AddComponent<BoxCollider>(); crossHead.center = new Vector3(0, 3.6f, -1.4f); crossHead.size = new Vector3(.6f, 1.8f, .75f);
+                    var lights = new Renderer[6];
+                    for (int i = 0; i < 6; i++)
+                    {
+                        var bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere); bulb.name = "Traffic light"; bulb.transform.SetParent(root.transform, false);
+                        bulb.transform.localPosition = i < 3 ? new Vector3(-1.4f, 4.12f - i * .52f, -.34f) : new Vector3(-.34f, 4.12f - (i - 3) * .52f, -1.4f); bulb.transform.localScale = Vector3.one * .38f;
+                        bulb.GetComponent<Collider>().enabled = false; Destroy(bulb.GetComponent<Collider>());
+                        lights[i] = bulb.GetComponent<Renderer>(); lights[i].sharedMaterial = cream;
+                    }
+                    var signal = root.AddComponent<TownTrafficSignal>(); signal.Initialize(game, junction, lights, (x - z + half * 2) * .75f); Signals.Add(signal);
+                }
+                if (x == half || z == half || (x + z) % 2 != 0) continue;
+                var point = GroundPoint(new Vector3(x * spacing + shoulder, 0, (z + .5f) * spacing));
+                var pole = CreatePowerPole(point);
+                var other = CreatePowerPole(GroundPoint(point + Vector3.forward * 12));
+                var span = new GameObject("Power line span"); span.transform.SetParent(transform);
+                var wire = span.AddComponent<LineRenderer>(); wire.sharedMaterial = dark; wire.startWidth = wire.endWidth = .055f;
+                wire.useWorldSpace = true; wire.positionCount = 13;
+                for (int i = 0; i < 13; i++) { float t = i / 12f; wire.SetPosition(i, Vector3.Lerp(pole.transform.position, other.transform.position, t) + Vector3.up * (6 - Mathf.Sin(t * Mathf.PI) * 1.1f)); }
+                span.AddComponent<TownPowerLine>().Initialize(pole, other);
+            }
+            for (int ring = 1; ring <= half; ring++)
+            {
+                float extent = ring * spacing + 3.6f, radius = 6;
+                var route = new Vector3[36];
+                for (int corner = 0; corner < 4; corner++)
+                {
+                    var center = new Vector3(corner == 0 || corner == 3 ? extent - radius : -extent + radius, 0, corner < 2 ? extent - radius : -extent + radius);
+                    for (int n = 0; n <= 8; n++)
+                    {
+                        float angle = (corner * 90 + n * 11.25f) * Mathf.Deg2Rad;
+                        route[corner * 9 + n] = center + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
+                    }
+                }
+                for (int i = 0; i < 6; i++) CreateCar(route, i / 6f, 8 + (i + ring) % 4, palette[(i + ring) % palette.Length]);
+            }
+        }
+
+        private DestructibleBlock CreatePowerPole(Vector3 point)
+        {
+            var pole = new GameObject("Crushable power pole"); pole.transform.SetParent(transform); pole.transform.position = point;
+            var post = pole.AddComponent<BoxCollider>(); post.center = Vector3.up * 3.2f; post.size = new Vector3(.45f, 6.4f, .45f);
+            AddBlock(pole, true); Box("Power pole post", post.center, post.size, cream, pole.transform, false);
+            Box("Power cross arm", new Vector3(0, 5.7f, 0), new Vector3(2.8f, .3f, .3f), dark, pole.transform, false);
+            for (int i = -1; i <= 1; i++) Box("Insulator", new Vector3(i * 1.1f, 6, 0), new Vector3(.35f, .5f, .35f), glass, pole.transform, false);
+            return pole.GetComponent<DestructibleBlock>();
+        }
+
+        private void CreateCar(Vector3[] route, float phase, float speed, Color color)
+        {
+            var root = new GameObject("Explosive city car"); root.transform.SetParent(transform);
+            var collider = root.AddComponent<BoxCollider>(); collider.center = Vector3.up * .25f; collider.size = new Vector3(1.8f, 2, 3.3f);
+            var bodyColor = MakeMaterial(color);
+            Box("Car body", Vector3.zero, new Vector3(1.7f, .55f, 3.2f), bodyColor, root.transform, false);
+            Box("Car cabin", new Vector3(0, .75f, -.15f), new Vector3(1.4f, 1.05f, 1.65f), bodyColor, root.transform, false);
+            Box("Front windshield", new Vector3(0, .75f, .685f), new Vector3(1.22f, .65f, .035f), glass, root.transform, false);
+            Box("Rear windshield", new Vector3(0, .75f, -.985f), new Vector3(1.22f, .65f, .035f), glass, root.transform, false);
+            foreach (int side in new[] { -1, 1 })
+            {
+                Box("Car side windows", new Vector3(side * .71f, .75f, -.15f), new Vector3(.035f, .65f, 1.38f), glass, root.transform, false);
+                Box("Headlight", new Vector3(side * .54f, -.01f, 1.62f), new Vector3(.35f, .19f, .05f), cream, root.transform, false);
+                Box("Tail light", new Vector3(side * .54f, -.01f, -1.62f), new Vector3(.35f, .19f, .05f), ShotMaterial, root.transform, false);
+                foreach (int end in new[] { -1, 1 })
+                {
+                    var wheel = GameObject.CreatePrimitive(PrimitiveType.Cylinder); wheel.name = "Car wheel"; wheel.transform.SetParent(root.transform, false);
+                    wheel.transform.localPosition = new Vector3(side * .86f, -.35f, end * 1); wheel.transform.localRotation = Quaternion.Euler(0, 0, 90);
+                    wheel.transform.localScale = new Vector3(.65f, .13f, .65f); wheel.GetComponent<Renderer>().sharedMaterial = dark;
+                    wheel.GetComponent<Collider>().enabled = false; Destroy(wheel.GetComponent<Collider>());
                 }
             }
+            AddBlock(root, true);
+            var explosive = root.AddComponent<ChainExplosive>(); explosive.Initialize(game, 9.5f); Explosives.Add(explosive);
+            var traffic = root.AddComponent<TownTrafficCar>(); traffic.Initialize(game, route, phase, speed); TrafficCars.Add(traffic);
         }
 
         private void SurfaceBox(string label, Vector3 p, Vector3 size, Material material)
@@ -169,14 +251,48 @@ namespace TankTown
             Pickups.Add(pickup);
         }
 
-        private void CreateItem(Vector3 position, ItemKind kind)
+        private void CreateBuildingReward(BlockBuilding building)
         {
+            var kind = (ItemKind)((Buildings.Count - 1) % 6);
             var item = new GameObject(ItemIcons.Label(kind));
             item.transform.SetParent(transform, false);
-            item.transform.position = GroundPoint(position, 1.2f);
+            // The upper slab really supports this reward; it is never spawned at ground level.
+            var floor = building.Blocks.Find(x => x.Kind == BuildingPart.Slab && x.Level == building.Floors - 1 && x.Column == 0);
+            item.transform.position = building.transform.position + new Vector3(-building.Width * .27f, building.Floors * game.Settings.floorHeight + .85f, -building.Width * .27f);
             var pickup = item.AddComponent<ItemPickup>();
-            pickup.Initialize(game, kind, SpecialIcons.Material(kind));
+            pickup.Initialize(game, kind, SpecialIcons.Material(kind), building, floor);
+            building.Reward = pickup;
             ItemPickups.Add(pickup);
+        }
+
+        private void CreateExplosiveCluster(BlockBuilding building)
+        {
+            float side = building.transform.position.x < 0 ? 1 : -1;
+            var start = building.transform.position + new Vector3(side * (building.Width / 2 + 1.5f), 0, -building.Width * .35f);
+            var red = MakeMaterial(new Color(1, .11f, .025f));
+            for (int i = 0; i < 4; i++)
+            {
+                bool tank = i == 3;
+                var point = GroundPoint(start + Vector3.forward * i * 3.5f, tank ? 1.1f : .95f);
+                var root = new GameObject(tank ? "Explosive fuel tank" : "Explosive red barrel");
+                root.transform.SetParent(transform); root.transform.position = point;
+                var collider = root.AddComponent<BoxCollider>();
+                collider.size = tank ? new Vector3(2.2f, 2.2f, 2.8f) : new Vector3(1.3f, 1.9f, 1.3f);
+                var shape = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                shape.transform.SetParent(root.transform, false);
+                shape.transform.localScale = tank ? new Vector3(2.1f, 1.4f, 2.1f) : new Vector3(1.3f, .95f, 1.3f);
+                if (tank) shape.transform.localRotation = Quaternion.Euler(90, 0, 0);
+                shape.GetComponent<Renderer>().sharedMaterial = red;
+                shape.GetComponent<Collider>().enabled = false; Destroy(shape.GetComponent<Collider>());
+                foreach (float y in new[] { -.48f, .48f })
+                    Box("Warning band", new Vector3(0, y, -.68f), new Vector3(tank ? 1.7f : 1.32f, .22f, .12f), ShotMaterial, root.transform, false);
+                Box("Warning mark", new Vector3(0, 0, -.72f), new Vector3(.2f, .5f, .12f), cream, root.transform, false);
+                Box("Warning dot", new Vector3(0, -.36f, -.72f), new Vector3(.2f, .14f, .12f), cream, root.transform, false);
+                AddBlock(root, true);
+                var explosive = root.AddComponent<ChainExplosive>();
+                explosive.Initialize(game, tank ? 12 : 8.5f);
+                Explosives.Add(explosive);
+            }
         }
 
         private DestructibleBlock AddBlock(GameObject item, bool crushable)
@@ -253,6 +369,8 @@ namespace TankTown
                 var roof = Part(style == 0 ? "Tower crown" : "Roof utility", new Vector3(0, floors * height + roofHeight / 2), new Vector3(width * .3f, roofHeight, width * .3f), style == 0 ? color : dark, BuildingPart.Prop, floors - 1, -1, building);
                 foreach (var post in previous) BlockBuilding.Connect(roof, post);
             }
+            CreateBuildingReward(building);
+            if ((Buildings.Count - 1) % 3 == 0) CreateExplosiveCluster(building);
         }
 
         private DestructibleBlock Part(string label, Vector3 position, Vector3 size, Material material, BuildingPart kind, int level, int column, BlockBuilding building)

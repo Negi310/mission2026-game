@@ -9,15 +9,34 @@ namespace TankTown
     {
         public ItemKind Kind { get; private set; }
         public bool Collected { get; private set; }
+        public BlockBuilding SourceBuilding { get; private set; }
+        public DestructibleBlock SupportingFloor { get; private set; }
+        public Rigidbody DropBody { get; private set; }
+        public bool Released { get; private set; }
+        public bool Available => SourceBuilding == null || (Released && SourceBuilding.DestroyedFraction >= game.Settings.buildingRewardThreshold);
         private TankTownGame game;
         private Transform icon;
-        public void Initialize(TankTownGame owner, ItemKind kind, Material material)
+        private SphereCollider solid;
+        private TrailRenderer dropTrail;
+        private bool unlockShown;
+        public void Initialize(TankTownGame owner, ItemKind kind, Material material, BlockBuilding building = null, DestructibleBlock floor = null)
         {
-            game = owner; Kind = kind;
+            game = owner; Kind = kind; SourceBuilding = building; SupportingFloor = floor;
+            gameObject.layer = TownPhysics.RewardLayer;
             var trigger = gameObject.AddComponent<SphereCollider>();
             trigger.isTrigger = true; trigger.radius = 2.2f;
+            if (building != null)
+            {
+                solid = gameObject.AddComponent<SphereCollider>(); solid.radius = .65f;
+                DropBody = gameObject.AddComponent<Rigidbody>();
+                DropBody.mass = .5f; DropBody.isKinematic = true;
+                DropBody.interpolation = RigidbodyInterpolation.Interpolate;
+                DropBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+                DropBody.constraints = RigidbodyConstraints.FreezeRotation;
+            }
             var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
             quad.name = "Special item billboard";
+            quad.layer = TownPhysics.RewardLayer;
             quad.GetComponent<Collider>().enabled = false; Destroy(quad.GetComponent<Collider>());
             quad.transform.SetParent(transform, false);
             quad.transform.localScale = Vector3.one * 3.6f;
@@ -26,11 +45,35 @@ namespace TankTown
             quad.GetComponent<Renderer>().receiveShadows = false;
             icon = quad.transform;
         }
+        private void Start()
+        {
+            // Keep the pickup trigger working, while its physical body passes through the tank.
+            if (solid != null && game.Tank != null) Physics.IgnoreCollision(solid, game.Tank.HullCollider, true);
+        }
+        private void FixedUpdate()
+        {
+            if (dropTrail != null) dropTrail.emitting = !Collected && game.IsPlaying && DropBody.linearVelocity.sqrMagnitude > 1;
+            if (SourceBuilding == null || Released || !game.IsPlaying) return;
+            if (SupportingFloor != null && !SupportingFloor.Detached && SourceBuilding.DestroyedFraction < game.Settings.buildingRewardThreshold) return;
+            Released = true;
+            DropBody.isKinematic = false;
+            DropBody.WakeUp();
+            dropTrail = gameObject.AddComponent<TrailRenderer>();
+            dropTrail.sharedMaterial = game.Effects.Glow; dropTrail.time = .4f;
+            dropTrail.startWidth = .35f; dropTrail.endWidth = 0;
+            dropTrail.startColor = ItemIcons.Color(Kind); dropTrail.endColor = new Color(1, 1, 1, 0);
+            dropTrail.shadowCastingMode = ShadowCastingMode.Off;
+        }
         private void LateUpdate()
         {
             if (Collected || Camera.main == null) return;
-            icon.localPosition = Vector3.up * (2 + Mathf.Sin(Time.time * 2.5f + transform.position.x) * .3f);
+            icon.localPosition = Vector3.up * ((SourceBuilding == null ? 2 : 1.2f) + Mathf.Sin(Time.time * 2.5f + transform.position.x) * .2f);
             icon.rotation = Camera.main.transform.rotation;
+            if (!unlockShown && SourceBuilding != null && Available)
+            {
+                unlockShown = true;
+                game.Effects.Pickup(transform.position, ItemIcons.Color(Kind));
+            }
         }
         private void OnTriggerEnter(Collider other) => Touch(other);
         private void OnTriggerStay(Collider other) => Touch(other);
@@ -40,10 +83,11 @@ namespace TankTown
         }
         public bool Collect()
         {
-            if (Collected || !game.IsPlaying || game.Tank.Respawning || !game.Items.Receive(Kind)) return false;
+            if (Collected || !Available || !game.IsPlaying || game.Tank.Relocating || !game.Items.Receive(Kind)) return false;
             Collected = true;
             game.Effects.Pickup(transform.position + Vector3.up, ItemIcons.Color(Kind));
             game.PlayTone(620, .2f, .2f);
+            game.ReportSpecial(Kind);
             gameObject.SetActive(false);
             return true;
         }

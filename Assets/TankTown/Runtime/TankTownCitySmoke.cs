@@ -1,0 +1,101 @@
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+using System;
+using System.Collections;
+using System.IO;
+using UnityEngine;
+
+namespace TankTown
+{
+    // Opt-in native-player diagnostics. Camera arrangements and shot setups are explicit fixtures.
+    public sealed class TankTownCitySmoke : MonoBehaviour
+    {
+        private string output;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void Install()
+        {
+            var args = Environment.GetCommandLineArgs();
+            if (Array.IndexOf(args, "--tank-town-city-smoke") >= 0 || Array.IndexOf(args, "--tank-town-title-wide-smoke") >= 0)
+                new GameObject("City presentation smoke").AddComponent<TankTownCitySmoke>();
+        }
+
+        private IEnumerator Start()
+        {
+            Application.runInBackground = true;
+            output = Path.Combine(Application.dataPath, "..", "Captures"); Directory.CreateDirectory(output);
+            yield return new WaitForSecondsRealtime(2);
+            var game = FindFirstObjectByType<TankTownGame>();
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-title-wide-smoke") >= 0)
+            {
+                TankTownSmokeCapture.Capture(Path.Combine(output, "city-title-wide.png"), true, 1920, 1080);
+                game.StartOrRestart(); yield return new WaitForSeconds(1);
+                TankTownSmokeCapture.Capture(Path.Combine(output, "city-play-wide.png"), true, 1920, 1080);
+                Debug.Log("CITY WIDE SMOKE COMPLETE: title and gameplay 1920x1080"); Application.Quit(); yield break;
+            }
+            Capture("city-01-title");
+            game.StartOrRestart(); game.Input.useHardware = true;
+            yield return new WaitForSeconds(1.2f); Capture("city-02-play");
+            var body = game.Tank.GetComponent<Rigidbody>(); game.Tank.enabled = false;
+            body.linearVelocity = Vector3.zero; body.isKinematic = true;
+            View(game, new Vector3(183, 132, -191), new Vector3(0, 2, 0)); Camera.main.farClipPlane = 650;
+            Capture("city-03-island", false);
+            var car = game.World.TrafficCars[0];
+            View(game, car.transform.position + new Vector3(8, 6, -10), car.transform.position + Vector3.up);
+            Capture("city-04-traffic", false);
+
+            foreach (var explosive in game.World.Explosives) if (explosive != null) explosive.gameObject.SetActive(false);
+            var next = game.World.TrafficCars[1];
+            var targetPoint = new Vector3(0, 0, -85);
+            for (int i = 0; i < 2; i++)
+            {
+                var target = i == 0 ? car : next; target.gameObject.SetActive(true); target.enabled = false;
+                var targetBody = target.GetComponent<Rigidbody>();
+                targetBody.position = game.World.GroundPoint(targetPoint + Vector3.forward * (i * 9), .72f); targetBody.rotation = Quaternion.identity;
+            }
+            body.isKinematic = false; game.Tank.Warp(new Pose(targetPoint - Vector3.forward * 6, Quaternion.identity)); body.isKinematic = true;
+            Physics.SyncTransforms();
+            // Let interpolated car render poses catch up to this diagnostic placement.
+            yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate(); yield return null;
+            View(game, targetPoint + new Vector3(6, 8, -12), targetPoint + Vector3.forward * 4);
+            Capture("city-05-car-targets", false); game.Input.PulsePad(0);
+            yield return new WaitForSeconds(.3f); Capture("city-06-car-explosion", false);
+            yield return new WaitForSeconds(.7f);
+            int carExplosions = game.ChainExplosions;
+            if (carExplosions != 2) { Debug.LogError($"CITY SMOKE: cannon chain failed, explosions={carExplosions}"); Application.Quit(1); yield break; }
+
+            var building = game.World.Buildings[0]; var reward = building.Reward;
+            foreach (var item in game.World.ItemPickups) item.gameObject.SetActive(item == reward);
+            for (int i = 0; i < 4; i++) game.World.Explosives[i].gameObject.SetActive(true);
+            var center = building.transform.position;
+            View(game, center + new Vector3(27, 23, -32), center + Vector3.up * 10);
+            Capture("city-07-rooftop", false);
+            var barrel = game.World.Explosives[0]; game.Blast(barrel.transform.position, .8f, 0);
+            yield return new WaitForSeconds(.32f); Capture("city-08-chain");
+            yield return new WaitForSeconds(.4f);
+            foreach (var support in building.Blocks.FindAll(x => x != null && x.Foundation && x.Column < 2)) support.Break(support.transform.position, 0);
+            building.ReleaseUnsupported(center, 0);
+            yield return new WaitForSeconds(.35f); Capture("city-09-falling-special", false);
+            yield return new WaitForSeconds(3.8f);
+            View(game, reward.transform.position + new Vector3(9, 5, -11), reward.transform.position + Vector3.up);
+            Capture("city-10-ground-special", false);
+            float groundGap = reward.transform.position.y - game.World.Terrain.HeightAt(reward.transform.position);
+            if (!reward.Available || groundGap > 1.2f) { Debug.LogError($"CITY SMOKE: reward did not land unlocked, groundGap={groundGap}"); Application.Quit(1); yield break; }
+            body.isKinematic = false; game.Tank.Warp(new Pose(reward.transform.position, Quaternion.identity)); game.Tank.enabled = true;
+            game.CameraRig.enabled = true; game.CameraRig.Snap();
+            yield return new WaitForSeconds(.4f); Capture("city-11-collected");
+            if (!reward.Collected) { Debug.LogError("CITY SMOKE: physical collection failed"); Application.Quit(1); yield break; }
+            game.Tank.Fire(0); float beamStart = Time.time;
+            yield return new WaitForSeconds(.35f); Capture("city-12-beam");
+            while (game.Items.StopsForward && Time.time - beamStart < 4) yield return null;
+            float beamDuration = Time.time - beamStart;
+            game.AdvanceTime(1000); yield return new WaitForSecondsRealtime(.15f); Capture("city-13-results");
+            Debug.Log($"CITY SMOKE COMPLETE: cars={game.World.TrafficCars.Count}, signals={game.World.Signals.Count}, carExplosions={carExplosions}, explosions={game.ChainExplosions}, longestChain={game.LongestChain}, rewardCollected={reward.Collected}, rewardGroundGap={groundGap:0.000}, beamSeconds={beamDuration:0.000}, blocks={game.BrokenBlocks}/{game.TotalBlocks}, state={game.State}");
+            Application.Quit(beamDuration >= 1.9f && beamDuration < 2.3f ? 0 : 1);
+        }
+        private void Capture(string name, bool hud = true) => TankTownSmokeCapture.Capture(Path.Combine(output, name + ".png"), hud);
+        private static void View(TankTownGame game, Vector3 position, Vector3 target)
+        {
+            game.CameraRig.enabled = false; Camera.main.transform.position = position; Camera.main.transform.LookAt(target);
+        }
+    }
+}
+#endif

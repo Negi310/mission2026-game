@@ -9,9 +9,13 @@ namespace TankTown
         public bool Collapsed { get; private set; }
         public float Width { get; set; }
         public int Floors { get; set; }
+        public int DetachedParts { get; private set; }
+        public float DestroyedFraction => Blocks.Count == 0 ? 0 : (float)DetachedParts / Blocks.Count;
+        public ItemPickup Reward { get; set; }
         public int CollapsedFromLevel { get; private set; } = int.MaxValue;
         private TankTownGame game;
         public void Initialize(TankTownGame owner) => game = owner;
+        internal void RegisterDetached() => DetachedParts++;
 
         public void ReleaseUnsupported(Vector3 origin, float impulse)
         {

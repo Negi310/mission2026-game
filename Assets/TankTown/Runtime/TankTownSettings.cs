@@ -55,7 +55,8 @@ namespace TankTown
         [Min(0)] public float rapidUpgrade = .16f;
         [Min(0)] public float handlingUpgrade = .06f;
         [Header("Special items")]
-        [Min(.5f)] public float megaBeamSeconds = 3.5f;
+        [Range(.3f, .9f)] public float buildingRewardThreshold = .6f;
+        [Min(.5f)] public float megaBeamSeconds = 2;
         [Min(10)] public float megaBeamLength = 70;
         [Min(1)] public float megaBeamRadius = 5;
         [Min(1)] public float missileSeconds = 6;
