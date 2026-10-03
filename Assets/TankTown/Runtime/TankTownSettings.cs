@@ -26,7 +26,7 @@ namespace TankTown
         [Min(0)] public float blastImpulse = 20;
         [Min(0)] public float fatalImpactSpeed = 5;
         [Min(1)] public int maxDebris = 280;
-        [Min(1)] public float debrisLifetime = 9;
+        [Min(1)] public float debrisLifetime = 2.4f;
         [Range(0.05f, 1)] public float pressureThreshold = 0.55f;
         [Range(0, 0.9f)] public float pressureRelease = 0.25f;
         public int citySeed = 2026;

@@ -121,10 +121,10 @@ namespace TankTown
             RenderSettings.fogEndDistance = 410;
             var sun = new GameObject("Sun").AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.intensity = 1.6f;
+            sun.intensity = 1.75f;
             sun.shadows = LightShadows.Soft;
             sun.color = new Color(1, .96f, .87f);
-            sun.shadowStrength = .85f;
+            sun.shadowStrength = 1;
             sun.shadowBias = .04f;
             sun.shadowNormalBias = .18f;
             sun.transform.rotation = Quaternion.Euler(48, -35, 0);

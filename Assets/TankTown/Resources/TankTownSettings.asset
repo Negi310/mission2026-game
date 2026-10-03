@@ -30,7 +30,7 @@ MonoBehaviour:
   blastImpulse: 20
   fatalImpactSpeed: 5
   maxDebris: 280
-  debrisLifetime: 9
+  debrisLifetime: 2.4
   pressureThreshold: 0.55
   pressureRelease: 0.25
   citySeed: 2026

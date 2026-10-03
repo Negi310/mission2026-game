@@ -41,8 +41,45 @@ namespace TankTown
             body.AddTorque(Random.insideUnitSphere * impulse * 0.3f, ForceMode.Impulse);
             // A primed car/tank must finish its short fuse even when a huge collapse
             // evicts ordinary debris. It destroys itself on detonation after 0.18s.
-            if (explosive == null) game.TrackDebris(gameObject);
+            if (explosive == null)
+            {
+                gameObject.AddComponent<DebrisFade>().Initialize(game.Settings.debrisLifetime);
+                game.TrackDebris(gameObject);
+            }
             Destroy(gameObject, game.Settings.debrisLifetime);
+        }
+    }
+
+    // Only detached pieces need a per-frame fade; intact city blocks have no Update.
+    internal sealed class DebrisFade : MonoBehaviour
+    {
+        private Renderer[] debrisRenderers;
+        private MaterialPropertyBlock debrisProperties;
+        private float debrisBornAt, debrisLifetime;
+        private static readonly int DebrisVisibilityId = Shader.PropertyToID("_DebrisVisibility");
+
+        public void Initialize(float lifetime)
+        {
+            debrisBornAt = Time.time;
+            debrisLifetime = lifetime;
+            debrisRenderers = GetComponentsInChildren<Renderer>();
+            debrisProperties = new MaterialPropertyBlock();
+        }
+
+        private void Update()
+        {
+            if (debrisRenderers == null) return;
+            float age = Time.time - debrisBornAt;
+            if (age < debrisLifetime - .45f) return;
+            float visibility = 1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(debrisLifetime - .45f, debrisLifetime, age));
+            foreach (var renderer in debrisRenderers)
+            {
+                if (renderer == null || renderer.sharedMaterial == null || !renderer.sharedMaterial.HasProperty(DebrisVisibilityId)) continue;
+                // Preserve the camera's separate occlusion fade and any material tint.
+                renderer.GetPropertyBlock(debrisProperties);
+                debrisProperties.SetFloat(DebrisVisibilityId, visibility);
+                renderer.SetPropertyBlock(debrisProperties);
+            }
         }
     }
 }

@@ -12,9 +12,11 @@ namespace TankTown.Tests
     public sealed class TankTownPresentationTests
     {
         private TankTownGame game;
+        private float captureStep;
         [UnitySetUp]
         public IEnumerator SetUp()
         {
+            captureStep = Time.captureDeltaTime; Time.captureDeltaTime = 1f / 60;
             SceneManager.LoadScene("TankTown"); yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             game.StartOrRestart(); game.Input.useHardware = true;
@@ -22,7 +24,7 @@ namespace TankTown.Tests
             yield return null;
         }
         [UnityTearDown]
-        public IEnumerator TearDown() { Time.timeScale = 1; yield return null; }
+        public IEnumerator TearDown() { Time.timeScale = 1; Time.captureDeltaTime = captureStep; yield return null; }
 
         [UnityTest]
         public IEnumerator CompactHudLeavesTheDrivingViewOpenAndTracksActualUpgrades()
@@ -77,6 +79,49 @@ namespace TankTown.Tests
             pillar.Break(pillar.transform.position, 0); yield return null;
             Assert.That(pillar.GetComponent<Rigidbody>(), Is.Not.Null);
             Assert.That(pillar.GetComponent<BoxCollider>(), Is.SameAs(collider));
+        }
+
+        [UnityTest]
+        public IEnumerator DebrisFadesWithoutOverwritingCameraVisibilityAndPausesWithTheRound()
+        {
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
+            game.CameraRig.enabled = false;
+            var pillar = game.World.Buildings[0].Blocks.First(x => x.Foundation);
+            var renderer = pillar.GetComponent<Renderer>();
+            var properties = new MaterialPropertyBlock();
+            properties.SetFloat("_CameraVisibility", .4f); renderer.SetPropertyBlock(properties);
+            pillar.Break(pillar.transform.position, 0);
+            int score = game.BrokenBlocks;
+            yield return new WaitForSeconds(game.Settings.debrisLifetime - .22f);
+            Assert.That(pillar != null, Is.True, "A piece must remain through its visible physical collapse");
+            renderer.GetPropertyBlock(properties);
+            float visibility = properties.GetFloat("_DebrisVisibility");
+            Assert.That(visibility, Is.InRange(.05f, .95f), "The piece must fade before it is removed");
+            Assert.That(properties.GetFloat("_CameraVisibility"), Is.EqualTo(.4f).Within(.001f));
+            game.TogglePause(); yield return new WaitForSecondsRealtime(.12f);
+            renderer.GetPropertyBlock(properties);
+            Assert.That(properties.GetFloat("_DebrisVisibility"), Is.EqualTo(visibility).Within(.001f));
+            Assert.That(pillar != null, Is.True);
+            game.TogglePause(); yield return new WaitForSeconds(.5f);
+            Assert.That(pillar == null, Is.True, "Expired debris must stop obstructing the road");
+            Assert.That(game.BrokenBlocks, Is.EqualTo(score), "Cleanup must preserve destruction score");
+        }
+
+        [UnityTest]
+        public IEnumerator NormalAndGiantExplosionVisualsClearQuickly()
+        {
+            foreach (bool giant in new[] { false, true })
+            {
+                Vector3 point = game.Tank.transform.position + Vector3.forward * 12;
+                if (giant) game.Effects.SuperImpact(point, game.Settings.gigantBombRadius);
+                else game.Effects.Impact(point, game.Stats.BlastRadius);
+                Assert.That(game.Effects.GetComponentInChildren<FireballBurst>(), Is.Not.Null);
+                Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Length, Is.GreaterThan(0));
+                yield return new WaitForSeconds(1.2f);
+                Assert.That(game.Effects.GetComponentInChildren<FireballBurst>() == null, Is.True);
+                Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.False, "Fire, sparks and smoke must clear for the next target");
+                Assert.That(game.Effects.GetComponentsInChildren<ArcadePulse>().Length, Is.Zero);
+            }
         }
 
         private static Rect Bounds(RectTransform rect)

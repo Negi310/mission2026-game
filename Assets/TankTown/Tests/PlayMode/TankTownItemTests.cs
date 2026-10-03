@@ -9,9 +9,12 @@ namespace TankTown.Tests
     public sealed class TankTownItemTests
     {
         private TankTownGame game;
+        private float captureStep;
         [UnitySetUp]
         public IEnumerator SetUp()
         {
+            // Steering checks compare render-camera motion with fixed physics steps.
+            captureStep = Time.captureDeltaTime; Time.captureDeltaTime = 1f / 60;
             SceneManager.LoadScene("TankTown"); yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>(); game.StartOrRestart();
             game.Input.useHardware = true; game.Input.SetWheel(0);
@@ -20,7 +23,7 @@ namespace TankTown.Tests
             foreach (var item in game.World.ItemPickups) item.gameObject.SetActive(false);
         }
         [UnityTearDown]
-        public IEnumerator TearDown() { Time.timeScale = 1; yield return null; }
+        public IEnumerator TearDown() { Time.timeScale = 1; Time.captureDeltaTime = captureStep; yield return null; }
         private void Place(Vector3 point, float yaw = 0)
         {
             var body = game.Tank.GetComponent<Rigidbody>();

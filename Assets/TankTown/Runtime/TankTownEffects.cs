@@ -77,22 +77,22 @@ namespace TankTown
         {
             float visualRadius = Mathf.Clamp(radius * (settings != null ? settings.explosionVisualScale : 1.55f), 4, 16);
             Fireball(position, visualRadius);
-            Particles(position, new Color(1, .52f, .045f), 95, 25, 1.1f, .85f, Vector3.up);
-            Particles(position, new Color(1, .82f, .08f), 120, 38, .48f, .9f, Vector3.up, false, true);
-            Particles(position + Vector3.up, new Color(.94f, .76f, .47f), 28, 6, 3.9f, 1.5f, Vector3.up, true);
-            Shockwave(position, new Color(1, .66f, .1f), visualRadius * 2.7f, .6f);
-            Shockwave(position + Vector3.up * 1.2f, new Color(1, .9f, .3f), visualRadius * 1.9f, .45f, Quaternion.Euler(90, 0, 0));
+            Particles(position, new Color(1, .52f, .045f), 95, 25, 1.1f, .45f, Vector3.up);
+            Particles(position, new Color(1, .82f, .08f), 120, 38, .48f, .45f, Vector3.up, false, true);
+            Particles(position + Vector3.up, new Color(.94f, .76f, .47f), 28, 6, 3.9f, .65f, Vector3.up, true);
+            Shockwave(position, new Color(1, .66f, .1f), visualRadius * 2.7f, .35f);
+            Shockwave(position + Vector3.up * 1.2f, new Color(1, .9f, .3f), visualRadius * 1.9f, .28f, Quaternion.Euler(90, 0, 0));
             var rays = new GameObject("Explosion radial rays", typeof(MeshFilter), typeof(MeshRenderer));
             rays.transform.SetParent(transform); rays.transform.position = position;
             rays.GetComponent<MeshFilter>().sharedMesh = burst; rays.GetComponent<Renderer>().sharedMaterial = glow;
-            rays.AddComponent<ArcadePulse>().Initialize(new Color(1, .94f, .48f), visualRadius * 2.1f, .3f, true);
+            rays.AddComponent<ArcadePulse>().Initialize(new Color(1, .94f, .48f), visualRadius * 2.1f, .2f, true);
             Flash(position, new Color(1, .96f, .68f), visualRadius * 1.25f, .12f);
         }
         public void Collapse(Vector3 position, float width)
         {
-            Particles(position, new Color(.91f, .83f, .65f), 34, 7, 3.2f, 1.3f, Vector3.up, true);
-            Particles(position, new Color(1, .67f, .15f), 35, 13, .4f, .65f, Vector3.up, false, true);
-            Shockwave(position, new Color(1, .75f, .3f), width, .7f);
+            Particles(position, new Color(.91f, .83f, .65f), 34, 7, 3.2f, .5f, Vector3.up, true);
+            Particles(position, new Color(1, .67f, .15f), 35, 13, .4f, .4f, Vector3.up, false, true);
+            Shockwave(position, new Color(1, .75f, .3f), width, .35f);
         }
         public void EnergyImpact(Vector3 position, Color color)
         {
@@ -103,12 +103,12 @@ namespace TankTown
         public void SuperImpact(Vector3 position, float radius)
         {
             Fireball(position, radius * 1.25f);
-            Particles(position, new Color(1, .35f, .015f), 320, 45, 4, 1.4f, Vector3.up);
-            Particles(position + Vector3.up * 3, new Color(.96f, .76f, .42f), 58, 15, 9, 2.4f, Vector3.up, true);
-            Particles(position, new Color(1, .9f, .15f), 160, 55, .9f, 1.1f, Vector3.up, false, true);
-            Shockwave(position, new Color(1, .75f, .1f), radius * 3.2f, 1.2f);
-            Shockwave(position + Vector3.up * 2, new Color(1, .92f, .4f), radius * 2.8f, .8f, Quaternion.Euler(90, 0, 0));
-            Flash(position, Color.white, radius * 2.3f, .2f);
+            Particles(position, new Color(1, .35f, .015f), 320, 45, 4, .65f, Vector3.up);
+            Particles(position + Vector3.up * 3, new Color(.96f, .76f, .42f), 58, 15, 9, .9f, Vector3.up, true);
+            Particles(position, new Color(1, .9f, .15f), 160, 55, .9f, .6f, Vector3.up, false, true);
+            Shockwave(position, new Color(1, .75f, .1f), radius * 3.2f, .5f);
+            Shockwave(position + Vector3.up * 2, new Color(1, .92f, .4f), radius * 2.8f, .38f, Quaternion.Euler(90, 0, 0));
+            Flash(position, Color.white, radius * 2.3f, .12f);
         }
         private void Fireball(Vector3 position, float radius)
         {
@@ -175,7 +175,7 @@ namespace TankTown
             renderer.sharedMaterial = isSmoke ? smoke : glow;
             if (streaks) { renderer.renderMode = ParticleSystemRenderMode.Stretch; renderer.lengthScale = 3.8f; renderer.velocityScale = .15f; }
             renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
-            particles.Play(); Destroy(item, lifetime + .4f);
+            particles.Play(); Destroy(item, lifetime + .15f);
         }
         private void Flash(Vector3 position, Color color, float size, float duration)
         {
@@ -227,15 +227,15 @@ namespace TankTown
         private void Update()
         {
             age += Time.deltaTime;
-            float size = age < .12f ? Mathf.SmoothStep(.12f, 1, age / .12f) : 1 + Mathf.Clamp01((age - .12f) / .93f) * .16f;
+            float size = age < .1f ? Mathf.SmoothStep(.12f, 1, age / .1f) : 1 + Mathf.Clamp01((age - .1f) / .5f) * .16f;
             transform.localScale = Vector3.one * size;
-            float opacity = 1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.5f, 1.05f, age));
+            float opacity = 1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.2f, .6f, age));
             if (lobes != null) for (int i = 0; i < lobes.Length; i++)
             {
                 properties.SetColor("_BaseColor", new Color(colors[i].r, colors[i].g, colors[i].b, opacity));
                 lobes[i].SetPropertyBlock(properties);
             }
-            if (age >= 1.05f) Destroy(gameObject);
+            if (age >= .6f) Destroy(gameObject);
         }
     }
 

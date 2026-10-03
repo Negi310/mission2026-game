@@ -4,9 +4,10 @@ Shader "TankTown/Saturated Toon"
     {
         _BaseColor("Color", Color) = (1,1,1,1)
         _Saturation("Saturation", Range(0,2)) = 1.05
-        _Gloss("Toy highlight", Range(0,1)) = .18
+        _Gloss("Toy highlight", Range(0,1)) = .26
         _GroundDetail("Road grain", Range(0,1)) = 0
         _CameraVisibility("Camera visibility", Range(0,1)) = 1
+        _DebrisVisibility("Debris visibility", Range(0,1)) = 1
     }
     SubShader
     {
@@ -20,6 +21,7 @@ Shader "TankTown/Saturated Toon"
         half _Gloss;
         half _GroundDetail;
         half _CameraVisibility;
+        half _DebrisVisibility;
         CBUFFER_END
         struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
         struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
@@ -34,14 +36,15 @@ Shader "TankTown/Saturated Toon"
             output.normalWS = TransformObjectToWorldNormal(input.normalOS);
             return output;
         }
-        void CameraClip(float2 pixel)
+        void CoverageClip(float visibility, float2 pixel)
         {
             // Stable ordered coverage; no temporal noise or transparent sorting changes.
             float2 low = fmod(floor(pixel), 2);
             float2 high = fmod(floor(pixel / 2), 2);
             float index = low.x * 8 + low.y * 4 + high.x * 2 + high.y;
-            clip(_CameraVisibility - (index + .5) / 16.0);
+            clip(visibility - (index + .5) / 16.0);
         }
+        void CameraClip(float2 pixel) { CoverageClip(_CameraVisibility * _DebrisVisibility, pixel); }
         half4 Frag(Varyings input) : SV_Target
         {
             UNITY_SETUP_INSTANCE_ID(input);
@@ -53,13 +56,13 @@ Shader "TankTown/Saturated Toon"
             half3 color = saturate(lerp(gray.xxx, _BaseColor.rgb, _Saturation));
             half3 view = GetWorldSpaceNormalizeViewDir(input.positionWS);
             AmbientOcclusionFactor ao = GetScreenSpaceAmbientOcclusion(GetNormalizedScreenSpaceUV(input.positionCS));
-            // Warm direct light, cool soft shadows, and continuous bevel shading.
-            half3 shade = lerp(half3(.55, .65, .79), half3(1.04, 1.025, .98), light.shadowAttenuation);
-            half hemisphere = lerp(.82, 1, saturate(normal.y * .5 + .5));
-            half3 lit = color * (.57 + .47 * ndl) * shade * hemisphere;
-            lit *= lerp(.64, 1, ao.indirectAmbientOcclusion) * ao.directAmbientOcclusion;
-            half highlight = pow(saturate(dot(normal, normalize(light.direction + view))), 42) * _Gloss * light.shadowAttenuation;
-            half rim = pow(1 - saturate(dot(normal, view)), 4) * .045;
+            // Cool fill keeps shadow detail legible; warm sunlight carries the contrast.
+            half hemisphere = lerp(.72, 1, saturate(normal.y * .5 + .5));
+            half3 ambient = color * half3(.24, .31, .41) * hemisphere * lerp(.55, 1, ao.indirectAmbientOcclusion);
+            half3 direct = color * light.color * .51 * pow(ndl, .85) * light.shadowAttenuation * ao.directAmbientOcclusion;
+            half3 lit = ambient + direct;
+            half highlight = pow(saturate(dot(normal, normalize(light.direction + view))), 42) * _Gloss * light.shadowAttenuation * ao.directAmbientOcclusion;
+            half rim = pow(1 - saturate(dot(normal, view)), 4) * .025;
             lit += half3(1, .95, .8) * highlight + color * rim;
             float grain = frac(sin(dot(floor(input.positionWS.xz * 12), float2(12.9898, 78.233))) * 43758.5453) - .5;
             half detailFade = 1 - smoothstep(12, 45, distance(input.positionWS, _WorldSpaceCameraPos));
@@ -83,7 +86,7 @@ Shader "TankTown/Saturated Toon"
             #endif
             return clip;
         }
-        half4 ShadowFrag() : SV_Target { return 0; }
+        half4 ShadowFrag(float4 positionCS : SV_POSITION) : SV_Target { CoverageClip(_DebrisVisibility, positionCS.xy); return 0; }
         half4 DepthFrag(Varyings input) : SV_Target { CameraClip(input.positionCS.xy); return 0; }
         half4 NormalsFrag(Varyings input) : SV_Target
         {

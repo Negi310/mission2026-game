@@ -93,6 +93,8 @@ input.SetPressure(1, rightPressure);
 
 編集イメージを反映した角丸HUD、斜面と履帯のある戦車、街の部材の丸み、接地影・ハイライト、明るい大爆発は [見た目の改善と実画面の検証記録](docs/toy-presentation-validation.md) を参照してください。通常の能力は丸、スペシャルは六角形です。
 
+光と影のコントラストを強め、爆炎を0.6秒、破片を2.4秒へ短縮した調整は [陰影と破壊後の視認性の検証記録](docs/visibility-validation.md) を参照してください。破片とその影は最後の0.45秒で滑らかに消えます。
+
 Unity Test RunnerのPlayModeで `TankTown.Tests` を実行します。前進・旋回、砲弾命中、体当たり、支持喪失、空洞の室内、外壁と骨組みの関係、重複加点、圧入力、破片の衝突、アイテム取得、実際の強化射撃、復帰とラウンド初期化を検証します。
 
 [酔いを抑えるカメラの検証記録](docs/camera-comfort-validation.md)、[引きのカメラの以前の検証記録](docs/camera-framing-validation.md)、[旋回時のカメラのガクつきの検証記録](docs/camera-jitter-validation.md)、[砲塔との方向一致・カメラ距離の以前の検証記録](docs/camera-alignment-validation.md)、[砲塔カメラ・追従強化の以前の検証記録](docs/turret-follow-validation.md)、[車体カメラの以前の検証記録](docs/camera-validation.md)、[6種類のアイテム・戦車操舵の検証記録](docs/items-validation.md)、[速度16・加速度10の検証記録](docs/speed-validation.md)、[坂道の詰まり・上向き砲撃の検証記録](docs/slope-validation.md)、[高低差・車の挙動・大型エフェクトの検証記録](docs/terrain-validation.md)、[操作・倒壊・大爆発の検証記録](docs/feel-validation.md)、[街の拡張の記録](docs/expansion-validation.md)、[初回の記録](docs/validation.md) を参照してください。
