@@ -10,10 +10,12 @@ namespace TankTown
     {
         private TankTownGame game;
         private Font font;
+        private Font displayFont;
         private Transform canvas;
         private GameObject gameplay, titleScreen;
         private TankTownTitleScreen titleView;
-        private Text timer, score, counter, notice, cardTitle, cardBody, buttonText;
+        private Text timer, score, notice, chainCaption, cardTitle, cardBody, buttonText;
+        private ToyHudStyle style;
         private Image fill;
         private Image viewFade;
         private Text aim;
@@ -21,6 +23,8 @@ namespace TankTown
         private Text pickupText;
         private GameObject pickupPanel;
         private Text heldName, heldHint, activeItems;
+        private Text emptyItem;
+        private GameObject activePanel;
         private Image heldIcon;
         private float pickupUntil;
         private float chainUntil, goUntil;
@@ -32,7 +36,9 @@ namespace TankTown
         public void Initialize(TankTownGame owner)
         {
             game = owner;
+            style = new ToyHudStyle();
             font = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 24);
+            displayFont = Font.CreateDynamicFontFromOSFont(new[] { "Arial Rounded MT Bold", "Arial Black", "Arial" }, 40);
             var root = new GameObject("Tank Town HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas = root.transform;
             root.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -56,81 +62,108 @@ namespace TankTown
             gameplayRect.offsetMin = gameplayRect.offsetMax = Vector2.zero;
             var hud = gameplay.transform;
 
-            Panel("Brand", hud, new Vector2(26, -24), new Vector2(310, 86), ink);
-            Label(hud, "TANK / TOWN", new Vector2(46, -34), new Vector2(270, 40), 29, yellow);
-            Label(hud, "こわして、街をあそぼう！", new Vector2(48, -77), new Vector2(270, 24), 15, Color.white);
-            var clock = Panel("Clock", hud, new Vector2(-26, -24), new Vector2(204, 86), ink, true);
-            timer = Label(clock.transform, "03:00", new Vector2(20, -9), new Vector2(170, 48), 38, Color.white);
+            var tankWord = Label(hud, "TANK", new Vector2(28, -17), new Vector2(143, 65), 43, new Color(1, .75f, .08f));
+            var townWord = Label(hud, "TOWN", new Vector2(172, -17), new Vector2(165, 65), 43, new Color(.08f, .83f, 1));
+            tankWord.fontStyle = townWord.fontStyle = FontStyle.Bold;
+            tankWord.font = townWord.font = displayFont;
+            tankWord.fontSize = townWord.fontSize = 37;
+            TextOutline(tankWord, ink, 3); TextOutline(townWord, ink, 3);
+            var clock = Panel("Clock", hud, new Vector2(-28, -26), new Vector2(190, 83), ink, true);
+            style.Card(clock, new Color(.83f, .93f, 1));
+            timer = Label(clock.transform, "03:00", new Vector2(18, -4), new Vector2(162, 48), 38, Color.white);
             timer.fontStyle = FontStyle.Bold;
-            Label(clock.transform, "のこり時間", new Vector2(24, -60), new Vector2(160, 22), 14, yellow);
-            var progress = Panel("Destruction", hud, new Vector2(26, -128), new Vector2(310, 113), new Color(.98f, .97f, .9f, .96f));
-            score = Label(progress.transform, "破壊度  0.0%", new Vector2(20, -12), new Vector2(270, 37), 26, ink);
+            Label(clock.transform, "のこり時間", new Vector2(26, -53), new Vector2(158, 24), 16, yellow);
+            var progress = Panel("Destruction", hud, new Vector2(28, -89), new Vector2(310, 89), new Color(.98f, .97f, .9f, .98f));
+            style.Card(progress, ink);
+            var scoreLabel = Label(progress.transform, "破壊度", new Vector2(16, -14), new Vector2(98, 35), 25, ink);
+            scoreLabel.fontStyle = FontStyle.Bold;
+            score = Label(progress.transform, "0.0%", new Vector2(116, -3), new Vector2(178, 49), 37, ink);
+            score.font = displayFont;
             score.fontStyle = FontStyle.Bold;
-            var track = Panel("Progress track", progress.transform, new Vector2(20, -59), new Vector2(270, 10), new Color(.8f, .84f, .79f));
-            fill = Panel("Progress fill", track.transform, Vector2.zero, new Vector2(0, 10), new Color(.22f, .66f, .51f)).GetComponent<Image>();
-            counter = Label(progress.transform, "", new Vector2(20, -79), new Vector2(280, 23), 14, ink);
-            var stats = Panel("Upgrades", hud, new Vector2(-26, -128), new Vector2(318, 238), ink, true);
-            Label(stats.transform, "パワーアップ", new Vector2(18, -12), new Vector2(280, 28), 18, Color.white);
+            var track = Panel("Progress track", progress.transform, new Vector2(16, -61), new Vector2(278, 14), new Color(.76f, .8f, .68f));
+            fill = Panel("Progress fill", track.transform, Vector2.zero, new Vector2(0, 14), new Color(.59f, .9f, .06f)).GetComponent<Image>();
+            var stats = new GameObject("Upgrades", typeof(RectTransform)); stats.transform.SetParent(hud, false);
+            var statsRect = stats.GetComponent<RectTransform>();
+            statsRect.anchorMin = statsRect.anchorMax = statsRect.pivot = new Vector2(0, 0);
+            statsRect.anchoredPosition = new Vector2(28, 28); statsRect.sizeDelta = new Vector2(404, 115);
             for (int i = 0; i < 4; i++)
             {
-                var icon = Panel("Stat icon", stats.transform, new Vector2(16, -48 - i * 44), new Vector2(32, 32), Color.white).GetComponent<Image>();
+                var chip = Panel("Upgrade chip " + i, stats.transform, new Vector2(i * 104, 0), new Vector2(92, 115), ink);
+                style.Card(chip, TankStats.Color((UpgradeKind)i));
+                var icon = Panel("Stat icon", chip.transform, new Vector2(22, -6), new Vector2(48, 48), Color.white).GetComponent<Image>();
                 icon.sprite = game.World.Icons.Sprite((UpgradeKind)i);
-                statRows[i] = Label(stats.transform, "", new Vector2(60, -49 - i * 44), new Vector2(250, 32), 17, TankStats.Color((UpgradeKind)i));
+                icon.type = Image.Type.Simple;
+                var kindLabel = Label(chip.transform, TankStats.Label((UpgradeKind)i), new Vector2(3, -57), new Vector2(86, 23), 16, TankStats.Color((UpgradeKind)i));
+                kindLabel.alignment = TextAnchor.MiddleCenter; kindLabel.fontStyle = FontStyle.Bold;
+                statRows[i] = Label(chip.transform, "", new Vector2(3, -79), new Vector2(86, 29), 22, Color.white);
+                statRows[i].alignment = TextAnchor.MiddleCenter;
                 statRows[i].fontStyle = FontStyle.Bold;
             }
-            pickupPanel = Panel("Pickup notice", hud, new Vector2(0, -215), new Vector2(350, 54), ink);
-            var pickupRect = pickupPanel.GetComponent<RectTransform>();
-            pickupRect.anchorMin = pickupRect.anchorMax = new Vector2(.5f, 1);
-            pickupRect.pivot = new Vector2(.5f, 1);
-            pickupText = Label(pickupPanel.transform, "", new Vector2(12, -5), new Vector2(326, 44), 23, Color.white);
+            pickupPanel = Panel("Pickup notice", hud, new Vector2(28, -195), new Vector2(310, 44), ink);
+            pickupText = Label(pickupPanel.transform, "", new Vector2(10, -3), new Vector2(290, 37), 20, Color.white);
             pickupText.alignment = TextAnchor.MiddleCenter;
             game.Stats.Changed += ShowUpgrade;
             game.SpecialCollected += ShowSpecial;
             game.ChainBurst += ShowChain;
-            var itemPanel = Panel("Special items", hud, new Vector2(-26, -385), new Vector2(318, 216), ink, true);
-            Label(itemPanel.transform, "スペシャルアイテム", new Vector2(18, -10), new Vector2(285, 26), 17, Color.white);
-            heldIcon = Panel("Held item icon", itemPanel.transform, new Vector2(16, -45), new Vector2(54, 54), Color.white).GetComponent<Image>();
-            heldName = Label(itemPanel.transform, "", new Vector2(82, -43), new Vector2(220, 29), 20, yellow);
+            var itemPanel = Panel("Special items", hud, new Vector2(-28, 28), new Vector2(288, 108), ink, true);
+            Bottom(itemPanel, true);
+            style.Card(itemPanel, new Color(.83f, .93f, 1));
+            heldIcon = Panel("Held item icon", itemPanel.transform, new Vector2(12, -16), new Vector2(73, 73), Color.white).GetComponent<Image>();
+            heldIcon.type = Image.Type.Simple;
+            emptyItem = Label(itemPanel.transform, "？", new Vector2(16, -14), new Vector2(65, 79), 44, new Color(.38f, .71f, .82f));
+            emptyItem.alignment = TextAnchor.MiddleCenter; emptyItem.fontStyle = FontStyle.Bold;
+            heldName = Label(itemPanel.transform, "", new Vector2(97, -16), new Vector2(184, 32), 24, yellow);
             heldName.fontStyle = FontStyle.Bold;
-            heldHint = Label(itemPanel.transform, "", new Vector2(82, -77), new Vector2(222, 26), 14, Color.white);
-            activeItems = Label(itemPanel.transform, "", new Vector2(18, -115), new Vector2(285, 92), 16, Color.white);
-            noticePanel = Panel("Respawn notice", hud, new Vector2(0, -132), new Vector2(720, 64), ink);
+            heldHint = Label(itemPanel.transform, "", new Vector2(97, -56), new Vector2(182, 41), 15, Color.white);
+            activePanel = Panel("Active item timers", hud, new Vector2(-28, 153), new Vector2(288, 132), new Color(ink.r, ink.g, ink.b, .92f), true);
+            Bottom(activePanel, true);
+            activeItems = Label(activePanel.transform, "", new Vector2(14, -8), new Vector2(260, 116), 17, Color.white);
+            noticePanel = Panel("Respawn notice", hud, new Vector2(0, -72), new Vector2(430, 92), Color.clear);
             var noticeRect = noticePanel.GetComponent<RectTransform>();
             noticeRect.anchorMin = noticeRect.anchorMax = new Vector2(.5f, 1);
             noticeRect.pivot = new Vector2(.5f, 1);
-            notice = Label(noticePanel.transform, "", new Vector2(16, -7), new Vector2(688, 50), 22, Color.white);
+            notice = Label(noticePanel.transform, "", new Vector2(6, 0), new Vector2(418, 58), 35, Color.white);
             notice.fontStyle = FontStyle.Bold;
+            notice.font = displayFont;
             notice.alignment = TextAnchor.MiddleCenter;
-            var bottom = Panel("Controls", hud, new Vector2(0, 24), new Vector2(900, 54), ink);
+            TextOutline(notice, ink, 3);
+            chainCaption = Label(noticePanel.transform, "連鎖爆破！", new Vector2(65, -58), new Vector2(300, 29), 19, yellow);
+            chainCaption.alignment = TextAnchor.MiddleCenter; chainCaption.fontStyle = FontStyle.Bold; TextOutline(chainCaption, ink, 2);
+            var bottom = Panel("Controls", hud, new Vector2(0, 28), new Vector2(440, 34), new Color(ink.r, ink.g, ink.b, .86f));
             var br = bottom.GetComponent<RectTransform>();
             br.anchorMin = br.anchorMax = new Vector2(.5f, 0);
             br.pivot = new Vector2(.5f, 0);
-            Label(bottom.transform, "ハンドル  A / D ・ ← / →       たたいて発射  SPACE / J / K       ひとやすみ  ESC", new Vector2(20, -14), new Vector2(870, 30), 17, Color.white);
+            var controls = Label(bottom.transform, "A / D ハンドル   SPACE 砲撃   ESC 休憩", new Vector2(10, -3), new Vector2(420, 27), 16, Color.white);
+            controls.alignment = TextAnchor.MiddleCenter;
             aim = Label(hud, "＋", Vector2.zero, new Vector2(40, 40), 32, Color.white);
             aim.rectTransform.anchorMin = aim.rectTransform.anchorMax = aim.rectTransform.pivot = Vector2.one * .5f;
             aim.alignment = TextAnchor.MiddleCenter;
             aim.fontStyle = FontStyle.Bold;
             aim.gameObject.AddComponent<Outline>().effectColor = ink;
             modalShade = Panel("Pause and results backdrop", hud, Vector2.zero, Vector2.zero, new Color(.025f, .07f, .12f, .62f));
+            modalShade.GetComponent<Image>().sprite = null;
             var shadeRect = modalShade.GetComponent<RectTransform>();
             shadeRect.anchorMin = Vector2.zero; shadeRect.anchorMax = Vector2.one;
             shadeRect.offsetMin = shadeRect.offsetMax = Vector2.zero;
             card = Panel("Round card", hud, Vector2.zero, new Vector2(630, 440), new Color(.98f, .97f, .91f, .98f));
+            style.Card(card, ink);
             var cr = card.GetComponent<RectTransform>();
             cr.anchorMin = cr.anchorMax = cr.pivot = new Vector2(.5f, .5f);
             Label(card.transform, "3 MINUTE DESTRUCTION PLAYGROUND", new Vector2(38, -30), new Vector2(570, 27), 16, new Color(.22f, .55f, .43f));
             cardTitle = Label(card.transform, "", new Vector2(38, -78), new Vector2(560, 62), 42, ink);
             cardTitle.fontStyle = FontStyle.Bold;
             cardBody = Label(card.transform, "", new Vector2(40, -156), new Vector2(550, 110), 21, ink);
+            cardBody.fontStyle = FontStyle.Bold;
             var button = Panel("Start button", card.transform, new Vector2(40, -285), new Vector2(550, 60), yellow);
             button.AddComponent<Button>().onClick.AddListener(game.StartOrRestart);
             buttonText = Label(button.transform, "", new Vector2(0, -10), new Vector2(550, 42), 23, ink);
             buttonText.alignment = TextAnchor.MiddleCenter;
+            buttonText.fontStyle = FontStyle.Bold;
             var back = Panel("Title button", card.transform, new Vector2(40, -365), new Vector2(550, 44), ink);
             back.AddComponent<Button>().onClick.AddListener(game.ReturnToTitle);
             var backLabel = Label(back.transform, "タイトルへ", new Vector2(0, -5), new Vector2(550, 34), 19, Color.white);
             backLabel.alignment = TextAnchor.MiddleCenter;
-            titleView = new TankTownTitleScreen(game, canvas, font);
+            titleView = new TankTownTitleScreen(game, canvas, font, style);
             titleScreen = titleView.Root;
             gameplay.SetActive(game.State != RoundState.Ready);
         }
@@ -144,7 +177,20 @@ namespace TankTown
             rect.anchoredPosition = position;
             rect.sizeDelta = size;
             item.GetComponent<Image>().color = color;
+            item.GetComponent<Image>().sprite = style.Rounded;
+            item.GetComponent<Image>().type = Image.Type.Sliced;
             return item;
+        }
+
+        private static void Bottom(GameObject item, bool right)
+        {
+            var rect = item.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(right ? 1 : 0, 0);
+        }
+        private static void TextOutline(Text target, Color color, float width)
+        {
+            var outline = target.gameObject.AddComponent<Outline>();
+            outline.effectColor = color; outline.effectDistance = new Vector2(width, -width);
         }
 
         private Text Label(Transform parent, string value, Vector2 position, Vector2 size, int fontSize, Color color)
@@ -176,22 +222,25 @@ namespace TankTown
             int seconds = Mathf.CeilToInt(game.Remaining);
             timer.text = $"{seconds / 60:00}:{seconds % 60:00}";
             timer.color = seconds <= 20 ? new Color(1, .55f, .35f) : Color.white;
-            score.text = $"破壊度  {game.Destruction:0.0}%";
-            counter.text = $"{game.BrokenBlocks}/{game.TotalBlocks} パーツ ・ 誘爆 {game.ChainExplosions}回";
-            fill.rectTransform.sizeDelta = new Vector2(270 * game.Destruction / 100, 10);
+            score.text = $"{game.Destruction:0.0}%";
+            fill.rectTransform.sizeDelta = new Vector2(278 * game.Destruction / 100, 14);
             bool edge = Mathf.Abs(game.Tank.transform.position.x) > game.World.HalfExtent - 13 && game.Tank.transform.position.x * game.Tank.transform.forward.x > 0
                 || Mathf.Abs(game.Tank.transform.position.z) > game.World.HalfExtent - 13 && game.Tank.transform.position.z * game.Tank.transform.forward.z > 0;
             notice.text = game.Tank.Respawning ? $"ドカーン！ 安全な場所へもどるよ  −{game.Settings.respawnPenalty:0.#}秒"
                 : edge ? "海が見えたら、街の内側へ曲がろう！"
-                : Time.time < chainUntil ? $"連鎖爆破！  {chainDepth}段！"
-                : Time.time < goUntil ? "GO！  街をこわそう！" : "";
+                : Time.time < chainUntil ? $"{chainDepth} CHAIN!"
+                : Time.time < goUntil ? "GO！" : "";
             notice.color = Time.time < chainUntil && !game.Tank.Respawning && !edge ? new Color(1, .68f, .18f) : Color.white;
+            bool chainVisible = Time.time < chainUntil && !game.Tank.Respawning && !edge;
+            bool celebrate = chainVisible || Time.time < goUntil && !edge && !game.Tank.Respawning;
+            notice.fontSize = celebrate ? 35 : 22;
+            notice.font = celebrate ? displayFont : font;
+            chainCaption.gameObject.SetActive(chainVisible);
             noticePanel.SetActive(game.IsPlaying && notice.text.Length > 0);
             for (int i = 0; i < 4; i++)
             {
                 var kind = (UpgradeKind)i;
-                string value = kind == UpgradeKind.Speed ? $"{game.Stats.Speed:0.0}" : kind == UpgradeKind.Power ? $"x{game.Stats.BlastImpulse / game.Settings.blastImpulse:0.00}" : kind == UpgradeKind.Rapid ? $"{1 / game.Stats.ShotCooldown:0.0}/秒" : $"{game.Stats.TurnSpeed:0}°/秒";
-                statRows[i].text = $"{TankStats.Label(kind)} Lv.{game.Stats.Level(kind)}  {value}";
+                statRows[i].text = $"Lv.{game.Stats.Level(kind)}";
             }
             pickupPanel.SetActive(game.IsPlaying && !game.Tank.Respawning && Time.time < pickupUntil);
             aim.gameObject.SetActive(game.IsPlaying && !game.Tank.Respawning);
@@ -218,10 +267,13 @@ namespace TankTown
             }
             var shown = game.Items.Held != ItemKind.None ? game.Items.Held : game.Items.Active;
             heldIcon.gameObject.SetActive(shown != ItemKind.None);
+            emptyItem.gameObject.SetActive(shown == ItemKind.None);
             if (shown != ItemKind.None) heldIcon.sprite = game.World.SpecialIcons.Sprite(shown);
-            heldName.text = game.Items.Held != ItemKind.None ? ItemIcons.Label(game.Items.Held) : shown != ItemKind.None ? "発動中！" : "ビルをくずそう！";
-            heldHint.text = game.Items.Held != ItemKind.None ? game.Items.Weapon == ItemKind.None ? "次の砲撃でつかう！" : "発動後、砲撃でつかう" : shown != ItemKind.None ? shown == ItemKind.MegaBeam ? "ハンドルでねらおう！" : "効果は下の秒数まで！" : "上のスペシャルが落ちるよ";
+            heldName.text = shown != ItemKind.None ? ItemIcons.Label(shown) : "ビルをくずそう！";
+            heldName.fontSize = shown == ItemKind.Bulldozer ? 19 : shown == ItemKind.None ? 18 : 22;
+            heldHint.text = game.Items.Held != ItemKind.None ? game.Items.Weapon == ItemKind.None ? "SPACE でつかう" : "次の砲撃でつかう" : shown != ItemKind.None ? "発動中！" : "上のスペシャルをGET";
             activeItems.text = game.Items.ActiveSummary;
+            activePanel.SetActive(activeItems.text.Length > 0);
         }
 
         private void ShowUpgrade(UpgradeKind kind)
@@ -241,6 +293,8 @@ namespace TankTown
             if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
             if (game != null) { game.SpecialCollected -= ShowSpecial; game.ChainBurst -= ShowChain; }
             if (font != null) Destroy(font);
+            if (displayFont != null) Destroy(displayFont);
+            style?.Dispose();
         }
         private void LateUpdate()
         {

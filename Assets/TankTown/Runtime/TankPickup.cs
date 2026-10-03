@@ -87,8 +87,8 @@ namespace TankTown
             quad.GetComponent<Collider>().enabled = false;
             Destroy(quad.GetComponent<Collider>());
             quad.transform.SetParent(transform, false);
-            quad.transform.localPosition = Vector3.up * 1.8f;
-            quad.transform.localScale = Vector3.one * 3.1f;
+            quad.transform.localPosition = Vector3.up * 1.35f;
+            quad.transform.localScale = Vector3.one * 2.2f;
             var renderer = quad.GetComponent<Renderer>();
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = ShadowCastingMode.Off;

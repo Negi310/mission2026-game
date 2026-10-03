@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 namespace TankTown
 {
@@ -33,6 +35,8 @@ namespace TankTown
         private readonly List<AudioClip> clips = new List<AudioClip>();
         private AudioSource speaker;
         private bool ownedSettings, oldDebrisIgnore, oldTankIgnore, oldRewardIgnore;
+        private UniversalRenderPipelineAsset toyPipeline;
+        private RenderPipelineAsset previousPipeline;
         private static bool playAfterReload;
 
         private void Awake()
@@ -77,6 +81,17 @@ namespace TankTown
 
         private void SetupView()
         {
+            previousPipeline = QualitySettings.renderPipeline;
+            var source = previousPipeline != null ? previousPipeline : GraphicsSettings.defaultRenderPipeline;
+            if (source is UniversalRenderPipelineAsset universal)
+            {
+                // A game-owned copy keeps other scenes and the user's URP assets intact.
+                toyPipeline = Instantiate(universal);
+                toyPipeline.name = "Tank Town toy lighting";
+                toyPipeline.shadowDistance = 95;
+                toyPipeline.msaaSampleCount = 4;
+                QualitySettings.renderPipeline = toyPipeline;
+            }
             var camera = Camera.main;
             if (camera == null)
             {
@@ -108,6 +123,10 @@ namespace TankTown
             sun.type = LightType.Directional;
             sun.intensity = 1.6f;
             sun.shadows = LightShadows.Soft;
+            sun.color = new Color(1, .96f, .87f);
+            sun.shadowStrength = .85f;
+            sun.shadowBias = .04f;
+            sun.shadowNormalBias = .18f;
             sun.transform.rotation = Quaternion.Euler(48, -35, 0);
         }
 
@@ -249,6 +268,11 @@ namespace TankTown
             Physics.IgnoreLayerCollision(TownPhysics.RewardLayer, TownPhysics.DebrisLayer, oldRewardIgnore);
             foreach (var clip in clips) if (clip != null) Destroy(clip);
             if (ownedSettings) Destroy(Settings);
+            if (toyPipeline != null)
+            {
+                if (QualitySettings.renderPipeline == toyPipeline) QualitySettings.renderPipeline = previousPipeline;
+                Destroy(toyPipeline);
+            }
         }
     }
 

@@ -23,6 +23,7 @@ namespace TankTown
         public readonly List<TownTrafficSignal> Signals = new List<TownTrafficSignal>();
         public Material SkyMaterial { get; private set; }
         private readonly List<Material> materials = new List<Material>();
+        private readonly ToyGeometry geometry = new ToyGeometry();
         private TankTownGame game;
         private Material road, cream, dark, glass, lime, grass, frame;
         private readonly Color[] palette = { new Color(1, .26f, .18f), new Color(.04f, .78f, 1), new Color(1, .68f, .04f), new Color(.62f, .27f, 1), new Color(1, .27f, .62f) };
@@ -32,6 +33,7 @@ namespace TankTown
             var template = Resources.Load<Material>("TankTownSurface");
             var material = template != null ? new Material(template) : new Material(Shader.Find("TankTown/Saturated Toon"));
             material.SetColor("_BaseColor", color);
+            material.SetFloat("_Saturation", 1.05f);
             material.enableInstancing = true;
             materials.Add(material);
             return material;
@@ -44,6 +46,8 @@ namespace TankTown
             item.transform.SetParent(parent == null ? transform : parent, false);
             item.transform.localPosition = position;
             item.transform.localScale = size;
+            if (Mathf.Min(size.x, Mathf.Min(size.y, size.z)) >= .06f)
+                item.GetComponent<MeshFilter>().sharedMesh = geometry.RoundedBox(size, label == "Hull" || label == "Upper hull" || label == "Turret");
             item.GetComponent<Renderer>().sharedMaterial = material;
             if (!solid) { item.GetComponent<Collider>().enabled = false; Destroy(item.GetComponent<Collider>()); }
             return item;
@@ -54,9 +58,12 @@ namespace TankTown
             game = owner;
             HalfExtent = game.Settings.cityHalfBlocks * game.Settings.blockSpacing + 14;
             road = MakeMaterial(new Color(.13f, .2f, .32f));
+            road.SetFloat("_GroundDetail", 1);
+            road.SetFloat("_Gloss", .035f);
             cream = MakeMaterial(new Color(1, .94f, .77f));
             dark = MakeMaterial(new Color(.055f, .09f, .16f));
             glass = MakeMaterial(new Color(.04f, .34f, .59f));
+            glass.SetFloat("_Gloss", .42f);
             lime = MakeMaterial(new Color(.64f, 1, .04f));
             grass = MakeMaterial(new Color(.12f, .84f, .42f));
             frame = MakeMaterial(new Color(.85f, .91f, 1));
@@ -78,8 +85,8 @@ namespace TankTown
                 for (float d = -paving / 2 + 2; d < paving / 2; d += 4)
                 {
                     if (Mathf.Abs(d - Mathf.Round(d / spacing) * spacing) < RoadWidth / 2 + 1) continue;
-                    SurfaceBox("Lane dash", new Vector3(lane, 0, d), new Vector3(.18f, .02f, 1.8f), cream);
-                    SurfaceBox("Lane dash", new Vector3(d, 0, lane), new Vector3(1.8f, .02f, .18f), cream);
+                    SurfaceBox("Lane dash", new Vector3(lane, 0, d), new Vector3(.32f, .02f, 2.1f), cream);
+                    SurfaceBox("Lane dash", new Vector3(d, 0, lane), new Vector3(2.1f, .02f, .32f), cream);
                 }
             }
             var random = new System.Random(game.Settings.citySeed);
@@ -155,10 +162,15 @@ namespace TankTown
             for (int ring = 1; ring <= half; ring++)
             {
                 float extent = ring * spacing + 3.6f, radius = 6;
+                // One circuit passes through the starting avenue, so traffic is
+                // visible during ordinary play instead of only around the outskirts.
+                float right = ring == 1 ? 3.6f : extent;
+                float left = -extent;
+                float south = ring == 1 ? -half * spacing - 3.6f : -extent;
                 var route = new Vector3[36];
                 for (int corner = 0; corner < 4; corner++)
                 {
-                    var center = new Vector3(corner == 0 || corner == 3 ? extent - radius : -extent + radius, 0, corner < 2 ? extent - radius : -extent + radius);
+                    var center = new Vector3(corner == 0 || corner == 3 ? right - radius : left + radius, 0, corner < 2 ? extent - radius : south + radius);
                     for (int n = 0; n <= 8; n++)
                     {
                         float angle = (corner * 90 + n * 11.25f) * Mathf.Deg2Rad;
@@ -421,10 +433,14 @@ namespace TankTown
             var visual = new GameObject("Tank visual").transform;
             visual.SetParent(tank.transform, false);
             Box("Hull", Vector3.zero, new Vector3(2.4f, .85f, 3.1f), lime, visual, false);
+            Box("Upper hull", new Vector3(0, .48f, -.18f), new Vector3(1.95f, .35f, 2.35f), lime, visual, false);
+            Box("Rear engine deck", new Vector3(0, .48f, -1.15f), new Vector3(1.55f, .16f, .52f), lime, visual, false);
+            for (int i = -2; i <= 2; i++) Box("Engine vent", new Vector3(i * .2f, .575f, -1.15f), new Vector3(.1f, .018f, .34f), dark, visual, false);
             var turret = new GameObject("Turret pivot").transform;
             turret.SetParent(visual, false);
             turret.localPosition = new Vector3(0, .68f, -.15f);
             Box("Turret", Vector3.zero, new Vector3(1.5f, .75f, 1.6f), lime, turret, false);
+            Box("Turret hatch", new Vector3(0, .4f, -.25f), new Vector3(.65f, .12f, .7f), lime, turret, false);
             var cannon = new GameObject("Fixed cannon pivot").transform;
             cannon.SetParent(turret, false);
             cannon.localPosition = new Vector3(0, .04f, .55f);
@@ -434,7 +450,16 @@ namespace TankTown
             foreach (int side in new[] { -1, 1 })
             {
                 Box("Track", new Vector3(side * 1.2f, -.35f, 0), new Vector3(.65f, .9f, 3.5f), dark, visual, false);
-                for (int w = -2; w <= 2; w++) Box("Track pad", new Vector3(side * 1.54f, -.35f, w * .62f), new Vector3(.07f, .56f, .32f), cream, visual, false);
+                var rubber = MakeMaterial(new Color(.12f, .16f, .19f));
+                rubber.SetFloat("_Gloss", .1f);
+                for (int w = -5; w <= 5; w++)
+                {
+                    Box("Track top tread", new Vector3(side * 1.2f, .12f, w * .29f), new Vector3(.69f, .09f, .2f), rubber, visual, false);
+                    Box("Track side tread", new Vector3(side * 1.54f, -.35f, w * .29f), new Vector3(.07f, .7f, .2f), rubber, visual, false);
+                }
+                foreach (int end in new[] { -1, 1 }) for (int tread = -2; tread <= 2; tread++)
+                    Box("Track end tread", new Vector3(side * 1.2f, -.35f + tread * .17f, end * 1.77f), new Vector3(.66f, .11f, .085f), rubber, visual, false);
+                Box("Rear reflector", new Vector3(side * .83f, .1f, -1.57f), new Vector3(.26f, .12f, .07f), ShotMaterial, visual, false);
             }
             var muzzle = new GameObject("Shot origin").transform;
             muzzle.SetParent(cannon, false);
@@ -450,6 +475,7 @@ namespace TankTown
         private void OnDestroy()
         {
             Terrain?.Dispose();
+            geometry.Dispose();
             foreach (var material in materials) if (material != null) Destroy(material);
             Icons?.Dispose();
             SpecialIcons?.Dispose();

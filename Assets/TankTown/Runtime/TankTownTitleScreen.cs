@@ -8,14 +8,16 @@ namespace TankTown
     {
         public GameObject Root { get; }
         private readonly Font font;
+        private readonly ToyHudStyle style;
         private readonly Color ink = new Color(.035f, .10f, .17f);
         private readonly Color lime = new Color(.81f, 1, .14f);
         private readonly Color cyan = new Color(.08f, .83f, 1);
         private readonly RectTransform layoutRect;
 
-        public TankTownTitleScreen(TankTownGame game, Transform canvas, Font uiFont)
+        public TankTownTitleScreen(TankTownGame game, Transform canvas, Font uiFont, ToyHudStyle uiStyle)
         {
             font = uiFont;
+            style = uiStyle;
             Root = new GameObject("Title screen", typeof(RectTransform), typeof(Image));
             Root.transform.SetParent(canvas, false);
             var rect = Root.GetComponent<RectTransform>();
@@ -29,11 +31,12 @@ namespace TankTown
             var parent = layout.transform;
             Panel(parent, "Sky accent", new Vector2(720, -52), new Vector2(648, 548), new Color(.065f, .19f, .27f));
             Text(parent, "3 MINUTE DESTRUCTION PLAYGROUND", new Vector2(72, -62), new Vector2(625, 35), 20, cyan);
-            Text(parent, "TANK", new Vector2(66, -96), new Vector2(630, 140), 108, lime);
-            Text(parent, "TOWN", new Vector2(66, -208), new Vector2(630, 140), 108, lime);
+            Text(parent, "TANK", new Vector2(66, -96), new Vector2(630, 140), 108, new Color(1, .75f, .08f));
+            Text(parent, "TOWN", new Vector2(66, -208), new Vector2(630, 140), 108, cyan);
             Text(parent, "まちを、バラバラに！", new Vector2(74, -338), new Vector2(640, 54), 36, Color.white);
             Text(parent, "3分で、街をどこまでこわせる？", new Vector2(76, -399), new Vector2(610, 38), 24, new Color(.66f, .79f, .84f));
             var start = Panel(parent, "Title play button", new Vector2(72, -465), new Vector2(572, 82), lime);
+            style.Card(start, new Color(.9f, 1, .65f));
             var button = start.AddComponent<Button>(); button.onClick.AddListener(game.StartOrRestart);
             var colors = button.colors; colors.highlightedColor = new Color(.9f, 1, .65f); colors.pressedColor = new Color(.6f, .85f, .2f); button.colors = colors;
             var label = Text(start.transform, "あそぶ  →", new Vector2(0, -11), new Vector2(572, 61), 34, ink);
@@ -45,6 +48,7 @@ namespace TankTown
             {
                 var icon = Panel(parent, "Title special icon", new Vector2(779 + i * 91, -528), new Vector2(64, 64), Color.white).GetComponent<Image>();
                 icon.sprite = game.World.SpecialIcons.Sprite((ItemKind)i);
+                icon.type = Image.Type.Simple;
             }
             Instruction(parent, new Vector2(72, -658), "01", "ハンドルで走る", "A / D  または  ← / →", cyan);
             Instruction(parent, new Vector2(510, -658), "02", "たたいて、発射！", "SPACE / J / K", lime);
@@ -90,6 +94,7 @@ namespace TankTown
         private void Instruction(Transform parent, Vector2 point, string number, string heading, string detail, Color color)
         {
             var panel = Panel(parent, "Title instruction " + number, point, new Vector2(420, 148), new Color(.08f, .18f, .24f));
+            style.Card(panel, color);
             Panel(panel.transform, "Accent", Vector2.zero, new Vector2(5, 148), color);
             Text(panel.transform, number, new Vector2(22, -13), new Vector2(66, 44), 30, color);
             Text(panel.transform, heading, new Vector2(22, -60), new Vector2(381, 37), 25, Color.white);
@@ -102,6 +107,7 @@ namespace TankTown
             var rect = item.GetComponent<RectTransform>(); rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
             rect.anchoredPosition = point; rect.sizeDelta = size;
             item.GetComponent<Image>().color = color; item.GetComponent<Image>().raycastTarget = name == "Title play button";
+            item.GetComponent<Image>().sprite = style.Rounded; item.GetComponent<Image>().type = Image.Type.Sliced;
             return item;
         }
 

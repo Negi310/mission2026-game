@@ -23,9 +23,15 @@ Shader "TankTown/Explosion Fire"
             }
             half4 Frag(Varyings i) : SV_Target
             {
-                half band = dot(normalize(i.normalWS), normalize(float3(-.3, .8, -.5))) > .25 ? 1 : .78;
+                half3 normal = normalize(i.normalWS);
+                half3 key = normalize(float3(-.3, .8, -.5));
+                half3 view = GetWorldSpaceNormalizeViewDir(i.positionWS);
+                half band = .64 + .4 * saturate(dot(normal, key));
+                half edge = pow(1 - saturate(dot(normal, view)), 2);
+                half highlight = pow(saturate(dot(normal, normalize(key + view))), 22) * .12;
+                half3 fire = _BaseColor.rgb * band * (1 - edge * .14) + half3(1, .9, .58) * highlight;
                 half nearFade = smoothstep(.8, 4.2, distance(i.positionWS, _WorldSpaceCameraPos));
-                return half4(_BaseColor.rgb * band, .92 * nearFade);
+                return half4(fire, _BaseColor.a * nearFade);
             }
             ENDHLSL
         }

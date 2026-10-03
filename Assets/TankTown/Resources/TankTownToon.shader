@@ -1,6 +1,13 @@
 Shader "TankTown/Saturated Toon"
 {
-    Properties { _BaseColor("Color", Color) = (1,1,1,1) _Saturation("Saturation", Range(0,2)) = 1.15 _CameraVisibility("Camera visibility", Range(0,1)) = 1 }
+    Properties
+    {
+        _BaseColor("Color", Color) = (1,1,1,1)
+        _Saturation("Saturation", Range(0,2)) = 1.05
+        _Gloss("Toy highlight", Range(0,1)) = .18
+        _GroundDetail("Road grain", Range(0,1)) = 0
+        _CameraVisibility("Camera visibility", Range(0,1)) = 1
+    }
     SubShader
     {
         Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry" }
@@ -10,6 +17,8 @@ Shader "TankTown/Saturated Toon"
         CBUFFER_START(UnityPerMaterial)
         half4 _BaseColor;
         half _Saturation;
+        half _Gloss;
+        half _GroundDetail;
         half _CameraVisibility;
         CBUFFER_END
         struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -40,15 +49,25 @@ Shader "TankTown/Saturated Toon"
             Light light = GetMainLight(TransformWorldToShadowCoord(input.positionWS));
             half3 normal = normalize(input.normalWS);
             half ndl = saturate(dot(normal, light.direction));
-            half band = ndl > .65 ? 1.06 : ndl > .2 ? .91 : .74;
-            half lighting = lerp(.68, band, light.shadowAttenuation);
             half gray = dot(_BaseColor.rgb, half3(.2126,.7152,.0722));
             half3 color = saturate(lerp(gray.xxx, _BaseColor.rgb, _Saturation));
-            half rim = pow(1 - saturate(dot(normal, GetWorldSpaceNormalizeViewDir(input.positionWS))), 3) * .12;
+            half3 view = GetWorldSpaceNormalizeViewDir(input.positionWS);
+            AmbientOcclusionFactor ao = GetScreenSpaceAmbientOcclusion(GetNormalizedScreenSpaceUV(input.positionCS));
+            // Warm direct light, cool soft shadows, and continuous bevel shading.
+            half3 shade = lerp(half3(.55, .65, .79), half3(1.04, 1.025, .98), light.shadowAttenuation);
+            half hemisphere = lerp(.82, 1, saturate(normal.y * .5 + .5));
+            half3 lit = color * (.57 + .47 * ndl) * shade * hemisphere;
+            lit *= lerp(.64, 1, ao.indirectAmbientOcclusion) * ao.directAmbientOcclusion;
+            half highlight = pow(saturate(dot(normal, normalize(light.direction + view))), 42) * _Gloss * light.shadowAttenuation;
+            half rim = pow(1 - saturate(dot(normal, view)), 4) * .045;
+            lit += half3(1, .95, .8) * highlight + color * rim;
+            float grain = frac(sin(dot(floor(input.positionWS.xz * 12), float2(12.9898, 78.233))) * 43758.5453) - .5;
+            half detailFade = 1 - smoothstep(12, 45, distance(input.positionWS, _WorldSpaceCameraPos));
+            lit *= 1 + grain * .06 * _GroundDetail * detailFade;
             // Compute fog per fragment: the ocean is one large quad, whose corner
             // fog values would otherwise wash out even water beside the player.
             half fog = ComputeFogFactor(TransformWorldToHClip(input.positionWS).z);
-            return half4(MixFog(color * lighting + rim * color, fog), 1);
+            return half4(MixFog(lit, fog), 1);
         }
         float3 _LightDirection;
         float4 ShadowVert(Attributes input) : SV_POSITION
@@ -66,10 +85,22 @@ Shader "TankTown/Saturated Toon"
         }
         half4 ShadowFrag() : SV_Target { return 0; }
         half4 DepthFrag(Varyings input) : SV_Target { CameraClip(input.positionCS.xy); return 0; }
+        half4 NormalsFrag(Varyings input) : SV_Target
+        {
+            UNITY_SETUP_INSTANCE_ID(input);
+            CameraClip(input.positionCS.xy);
+            half3 normal = normalize(input.normalWS);
+            #if defined(_GBUFFER_NORMALS_OCT)
+                float2 oct = PackNormalOctQuadEncode(normal);
+                return half4(PackFloat2To888(saturate(oct * .5 + .5)), 0);
+            #else
+                return half4(normal, 0);
+            #endif
+        }
         ENDHLSL
         Pass
         {
-            Name "Forward" Tags { "LightMode"="UniversalForward" }
+            Name "Forward" Tags { "LightMode"="UniversalForwardOnly" }
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment Frag
@@ -77,6 +108,7 @@ Shader "TankTown/Saturated Toon"
             #pragma multi_compile_instancing
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
             ENDHLSL
         }
         Pass
@@ -87,6 +119,17 @@ Shader "TankTown/Saturated Toon"
             #pragma vertex ShadowVert
             #pragma fragment ShadowFrag
             #pragma multi_compile_instancing
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "DepthNormals" Tags { "LightMode"="DepthNormalsOnly" }
+            ZWrite On
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment NormalsFrag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             ENDHLSL
         }
         Pass

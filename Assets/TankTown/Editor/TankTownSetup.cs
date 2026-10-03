@@ -45,7 +45,7 @@ namespace TankTown.Editor
             }
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
             PlayerSettings.productName = "Tank Town";
-            PlayerSettings.defaultScreenWidth = 1440;
+            PlayerSettings.defaultScreenWidth = 1600;
             PlayerSettings.defaultScreenHeight = 900;
             PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
             AssetDatabase.SaveAssets();
