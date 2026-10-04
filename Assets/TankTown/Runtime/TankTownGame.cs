@@ -180,7 +180,7 @@ namespace TankTown
 
         public void Blast(Vector3 point) => Blast(point, Stats.BlastRadius, Stats.BlastImpulse);
 
-        internal void ChainBlast(Vector3 point, float radius, int generation)
+        internal void ChainBlast(Vector3 point, float radius, int generation, bool fuelTank = false)
         {
             if (!IsPlaying) return;
             ChainExplosions++;
@@ -188,7 +188,14 @@ namespace TankTown
             if (generation > 1) ChainBurst?.Invoke(generation);
             int previous = ExplosionGeneration;
             ExplosionGeneration = generation;
-            try { Blast(point, radius, Settings.blastImpulse * 1.35f); }
+            try
+            {
+                float impulse = Settings.blastImpulse * (fuelTank ? Settings.fuelImpulseMultiplier : 1.35f);
+                DamageSphere(point, radius, impulse);
+                if (fuelTank) Effects.FuelImpact(point, radius);
+                else Effects.Impact(point, radius);
+                PlayTone(fuelTank ? 60 : 85, fuelTank ? .3f : .16f, fuelTank ? .25f : .2f);
+            }
             finally { ExplosionGeneration = previous; }
         }
 
@@ -200,11 +207,11 @@ namespace TankTown
             PlayTone(85, .16f, .2f);
         }
 
-        public int DamageSphere(Vector3 point, float radius, float impulse)
-            => Damage(Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore), point, impulse, radius * 2);
+        public int DamageSphere(Vector3 point, float radius, float impulse, bool isExplosion = true)
+            => Damage(Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore), point, impulse, radius * 2, isExplosion);
 
         public int DamageBox(Vector3 point, Vector3 halfSize, Quaternion rotation, float impulse)
-            => Damage(Physics.OverlapBox(point, halfSize, rotation, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore), point, impulse, halfSize.magnitude * 2);
+            => Damage(Physics.OverlapBox(point, halfSize, rotation, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore), point, impulse, halfSize.magnitude * 2, false);
 
         public int DamageBeam(Vector3 start, Vector3 end, float radius, float impulse)
         {
@@ -224,7 +231,7 @@ namespace TankTown
             return count;
         }
 
-        private int Damage(Collider[] colliders, Vector3 point, float impulse, float forceRadius)
+        private int Damage(Collider[] colliders, Vector3 point, float impulse, float forceRadius, bool isExplosion)
         {
             if (!IsPlaying) return 0;
             var buildings = new HashSet<BlockBuilding>();
@@ -233,6 +240,9 @@ namespace TankTown
             {
                 var block = collider.GetComponentInParent<DestructibleBlock>();
                 if (block == null || block.Detached) continue;
+                var explosive = block.GetComponent<ChainExplosive>();
+                // A large damage radius must not bypass the tank's smaller ignition range.
+                if (isExplosion && explosive != null && !explosive.IgniteFromBlast(point)) continue;
                 block.Break(point, impulse, forceRadius); count++;
                 if (block.Building != null) buildings.Add(block.Building);
             }

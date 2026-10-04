@@ -69,6 +69,86 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
+        public IEnumerator FuelIgnitionUsesSurfaceDistanceEvenWithFullyUpgradedBlastRadius()
+        {
+            var fuel = CreateIsolatedFuel();
+            for (int i = 0; i < game.Settings.maxUpgradeLevel; i++) game.Stats.Upgrade(UpgradeKind.Power);
+            var collider = fuel.GetComponent<Collider>();
+            Vector3 edge = collider.ClosestPoint(fuel.transform.position + Vector3.right * 100);
+            Vector3 far = edge + Vector3.right * (game.Settings.fuelIgnitionDistance + .25f);
+            Assert.That(Vector3.Distance(far, edge), Is.LessThan(game.Stats.BlastRadius));
+            game.Blast(far);
+            Assert.That(fuel.Primed, Is.False, "The edge of an upgraded blast must not trigger a fuel tank");
+            Assert.That(fuel.GetComponent<DestructibleBlock>().Detached, Is.False, "The target must remain available for a closer shot");
+            yield return new WaitForSeconds(.3f);
+            Assert.That(game.ChainExplosions, Is.Zero);
+            game.Blast(edge + Vector3.right * (game.Settings.fuelIgnitionDistance - .25f));
+            Assert.That(fuel.Primed, Is.True, "A blast just inside the surface distance must ignite");
+            yield return new WaitForSeconds(.4f);
+            Assert.That(game.ChainExplosions, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator FuelExplosionBreaksAndThrowsStructuresBeyondTheFormerRadius()
+        {
+            var fuel = CreateIsolatedFuel();
+            var target = game.World.Box("Remote fuel blast target", fuel.transform.position + Vector3.right * 18, Vector3.one, game.World.ShotMaterial);
+            var block = target.AddComponent<DestructibleBlock>(); block.Initialize(game);
+            Physics.SyncTransforms();
+            game.Blast(fuel.transform.position);
+            Assert.That(block.Detached, Is.False, "The initial cannon blast cannot reach this target");
+            yield return new WaitForSeconds(.4f);
+            Assert.That(game.ChainExplosions, Is.EqualTo(1));
+            Assert.That(block.Detached, Is.True, "The fuel blast must reach structures outside the old 12m radius");
+            Assert.That(block.GetComponent<Rigidbody>().linearVelocity.magnitude, Is.GreaterThan(8), "Distant debris must be visibly thrown");
+        }
+
+        [UnityTest]
+        public IEnumerator ActualCannonDirectlyHitsAndIgnitesAFuelTank()
+        {
+            var fuel = CreateIsolatedFuel();
+            var body = game.Tank.GetComponent<Rigidbody>(); body.isKinematic = false;
+            Vector3 start = game.World.GroundPoint(fuel.transform.position + Vector3.right * 6, game.Settings.rideHeight);
+            game.Tank.Warp(new Pose(start, Quaternion.LookRotation(Vector3.left))); body.isKinematic = true;
+            Physics.SyncTransforms();
+            game.Input.PulsePad(0);
+            Assert.That(Object.FindFirstObjectByType<TankShell>(), Is.Not.Null);
+            yield return new WaitForSeconds(.12f);
+            Assert.That(fuel != null && fuel.Primed, Is.True, "The elevated shell must hit the actual tank collider");
+            yield return new WaitForSeconds(.5f);
+            Assert.That(game.ChainExplosions, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator FallingDebrisAndRammingDoNotCauseAFuelExplosion()
+        {
+            var fuel = CreateIsolatedFuel();
+            var fragment = game.World.Box("Falling fuel test debris", fuel.transform.position + Vector3.up * 6, Vector3.one * .8f, game.World.ShotMaterial);
+            var body = fragment.AddComponent<Rigidbody>();
+            float start = body.position.y;
+            yield return new WaitForSeconds(1.3f);
+            Assert.That(body.position.y, Is.LessThan(start - 3), "The debris must actually fall onto the tank");
+            Assert.That(fuel.Primed, Is.False);
+            Assert.That(fuel.GetComponent<DestructibleBlock>().Detached, Is.False);
+            game.Items.Ram(fuel.transform.position);
+            Assert.That(fuel.GetComponent<DestructibleBlock>().Detached, Is.True, "A ram still pushes the small object aside");
+            Assert.That(fuel.Primed, Is.False, "Physical crushing is not an explosion");
+            yield return new WaitForSeconds(.4f);
+            Assert.That(game.ChainExplosions, Is.Zero);
+        }
+
+        private ChainExplosive CreateIsolatedFuel()
+        {
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
+            Vector3 point = game.World.GroundPoint(new Vector3(180, 0, 0), 1.1f);
+            var root = game.World.Box("Isolated test fuel tank", point, new Vector3(2.2f, 2.2f, 2.8f), game.World.ShotMaterial);
+            var block = root.AddComponent<DestructibleBlock>(); block.CanCrush = true; block.Initialize(game);
+            var fuel = root.AddComponent<ChainExplosive>(); fuel.Initialize(game, game.Settings.fuelExplosionRadius, true);
+            Physics.SyncTransforms();
+            return fuel;
+        }
+
+        [UnityTest]
         public IEnumerator ARedSignalStopsTrafficAndGreenLetsItContinue()
         {
             foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);

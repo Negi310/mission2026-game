@@ -322,7 +322,7 @@ namespace TankTown
                 Box("Warning dot", new Vector3(0, -.36f, -.72f), new Vector3(.2f, .14f, .12f), cream, root.transform, false);
                 AddBlock(root, true);
                 var explosive = root.AddComponent<ChainExplosive>();
-                explosive.Initialize(game, tank ? 12 : 8.5f);
+                explosive.Initialize(game, tank ? game.Settings.fuelExplosionRadius : 8.5f, tank);
                 Explosives.Add(explosive);
             }
         }

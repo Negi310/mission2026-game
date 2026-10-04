@@ -24,6 +24,10 @@ namespace TankTown
         [Min(0)] public float shotCooldown = 0.35f;
         [Min(1)] public float blastRadius = 6.5f;
         [Min(0)] public float blastImpulse = 20;
+        [Header("Fuel tanks")]
+        [Min(.1f)] public float fuelIgnitionDistance = 3;
+        [Min(1)] public float fuelExplosionRadius = 24;
+        [Min(0)] public float fuelImpulseMultiplier = 3;
         [Min(0)] public float fatalImpactSpeed = 5;
         [Min(1)] public int maxDebris = 280;
         [Min(1)] public float debrisLifetime = 2.4f;

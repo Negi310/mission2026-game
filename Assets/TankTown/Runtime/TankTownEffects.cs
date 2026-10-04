@@ -75,7 +75,7 @@ namespace TankTown
         }
         public void Impact(Vector3 position, float radius)
         {
-            float visualRadius = Mathf.Clamp(radius * (settings != null ? settings.explosionVisualScale : 1.55f), 4, 16);
+            float visualRadius = Mathf.Clamp(radius * (settings != null ? settings.explosionVisualScale : 1.55f) * .55f, 2.5f, 8);
             Fireball(position, visualRadius);
             Particles(position, new Color(1, .52f, .045f), 95, 25, 1.1f, .45f, Vector3.up);
             Particles(position, new Color(1, .82f, .08f), 120, 38, .48f, .45f, Vector3.up, false, true);
@@ -109,6 +109,10 @@ namespace TankTown
             Shockwave(position, new Color(1, .75f, .1f), radius * 3.2f, .5f);
             Shockwave(position + Vector3.up * 2, new Color(1, .92f, .4f), radius * 2.8f, .38f, Quaternion.Euler(90, 0, 0));
             Flash(position, Color.white, radius * 2.3f, .12f);
+        }
+        public void FuelImpact(Vector3 position, float radius)
+        {
+            SuperImpact(position, radius * .65f);
         }
         private void Fireball(Vector3 position, float radius)
         {

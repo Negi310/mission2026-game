@@ -118,7 +118,7 @@ namespace TankTown
             if (!game.IsPlaying || Detonated || Time.time < nextContact || hit.collider.GetComponentInParent<DestructibleBlock>() == null) return;
             nextContact = Time.time + .12f; Contacts++;
             var point = hit.GetContact(0).point;
-            int count = game.DamageSphere(point, 12, game.Stats.BlastImpulse * 2.5f);
+            int count = game.DamageSphere(point, 12, game.Stats.BlastImpulse * 2.5f, false);
             if (count > 0) game.Effects.EnergyImpact(point, new Color(1, .52f, .08f));
         }
         public void Detonate()

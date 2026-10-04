@@ -14,7 +14,7 @@ namespace TankTown
         private static void Install()
         {
             var args = Environment.GetCommandLineArgs();
-            if (Array.IndexOf(args, "--tank-town-city-smoke") >= 0 || Array.IndexOf(args, "--tank-town-title-wide-smoke") >= 0)
+            if (Array.IndexOf(args, "--tank-town-city-smoke") >= 0 || Array.IndexOf(args, "--tank-town-title-wide-smoke") >= 0 || Array.IndexOf(args, "--tank-town-fuel-smoke") >= 0)
                 new GameObject("City presentation smoke").AddComponent<TankTownCitySmoke>();
         }
 
@@ -24,6 +24,11 @@ namespace TankTown
             output = Path.Combine(Application.dataPath, "..", "Captures"); Directory.CreateDirectory(output);
             yield return new WaitForSecondsRealtime(2);
             var game = FindFirstObjectByType<TankTownGame>();
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-fuel-smoke") >= 0)
+            {
+                yield return FuelTour(game);
+                yield break;
+            }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-title-wide-smoke") >= 0)
             {
                 TankTownSmokeCapture.Capture(Path.Combine(output, "city-title-wide.png"), true, 1920, 1080);
@@ -92,6 +97,46 @@ namespace TankTown
             Application.Quit(beamDuration >= 1.9f && beamDuration < 2.3f ? 0 : 1);
         }
         private void Capture(string name, bool hud = true) => TankTownSmokeCapture.Capture(Path.Combine(output, name + ".png"), hud);
+        private IEnumerator FuelTour(TankTownGame game)
+        {
+            // Keep short explosion captures repeatable even if rendering a PNG takes time.
+            Time.captureDeltaTime = 1f / 60;
+            game.StartOrRestart(); game.Input.useHardware = true;
+            yield return new WaitForSeconds(1);
+            var body = game.Tank.GetComponent<Rigidbody>(); game.Tank.enabled = false;
+            body.linearVelocity = Vector3.zero; body.isKinematic = true;
+            var fuel = game.World.Explosives.Find(x => x.IsFuelTank);
+            foreach (var explosive in game.World.Explosives) if (explosive != fuel) explosive.gameObject.SetActive(false);
+            var building = game.World.Buildings[0];
+            var pillar = building.Blocks.Find(x => x.Foundation && x.Column == 2);
+            Vector3 farTarget = pillar.transform.position;
+            AimAtFuelTarget(game, farTarget);
+            yield return null; CaptureFuel("fuel-01-far-target");
+            game.Tank.Fire(0);
+            yield return new WaitForSeconds(.22f); CaptureFuel("fuel-02-ordinary-impact");
+            yield return new WaitForSeconds(1);
+            bool farStayedSafe = fuel != null && !fuel.Primed && !fuel.GetComponent<DestructibleBlock>().Detached && game.ChainExplosions == 0;
+            int farBroken = game.BrokenBlocks;
+            if (!farStayedSafe) { Debug.LogError("FUEL SMOKE: distant cannon impact incorrectly ignited the fuel tank"); Application.Quit(1); yield break; }
+            AimAtFuelTarget(game, fuel.transform.position);
+            yield return null; CaptureFuel("fuel-03-close-target");
+            game.Tank.Fire(1);
+            float started = Time.time;
+            while (game.ChainExplosions == 0 && Time.time - started < 2) yield return null;
+            if (game.ChainExplosions != 1) { Debug.LogError("FUEL SMOKE: direct cannon hit did not cause the fuel explosion"); Application.Quit(1); yield break; }
+            yield return new WaitForSeconds(.12f); CaptureFuel("fuel-04-big-explosion");
+            yield return new WaitForSeconds(2.6f); CaptureFuel("fuel-05-clear");
+            Debug.Log($"FUEL SMOKE COMPLETE: farStayedSafe={farStayedSafe}, fuelExplosions={game.ChainExplosions}, farBroken={farBroken}, afterFuel={game.BrokenBlocks}, radius={game.Settings.fuelExplosionRadius}, impulse={game.Settings.blastImpulse * game.Settings.fuelImpulseMultiplier}");
+            Application.Quit(game.BrokenBlocks > farBroken ? 0 : 1);
+        }
+        private void CaptureFuel(string name) => TankTownSmokeCapture.Capture(Path.Combine(output, name + ".png"), true, 1920, 1080);
+        private static void AimAtFuelTarget(TankTownGame game, Vector3 target)
+        {
+            var body = game.Tank.GetComponent<Rigidbody>(); body.isKinematic = false;
+            Vector3 start = game.World.GroundPoint(target + Vector3.right * 6, game.Settings.rideHeight);
+            game.Tank.Warp(new Pose(start, Quaternion.LookRotation(Vector3.left))); body.isKinematic = true;
+            Physics.SyncTransforms(); game.CameraRig.enabled = true; game.CameraRig.Snap();
+        }
         private static void View(TankTownGame game, Vector3 position, Vector3 target)
         {
             game.CameraRig.enabled = false; Camera.main.transform.position = position; Camera.main.transform.LookAt(target);

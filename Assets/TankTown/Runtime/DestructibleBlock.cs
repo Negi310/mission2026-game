@@ -32,7 +32,11 @@ namespace TankTown
             game.ScoreBlock();
             foreach (var part in GetComponentsInChildren<Transform>()) part.gameObject.layer = TownPhysics.DebrisLayer;
             var body = GetComponent<Rigidbody>();
-            if (body == null) { body = gameObject.AddComponent<Rigidbody>(); body.mass = Kind == BuildingPart.Slab ? 1.4f : .55f; }
+            if (body == null)
+            {
+                body = gameObject.AddComponent<Rigidbody>();
+                body.mass = explosive != null && explosive.IsFuelTank ? 4 : Kind == BuildingPart.Slab ? 1.4f : .55f;
+            }
             body.isKinematic = false;
             body.constraints = RigidbodyConstraints.None;
             body.maxAngularVelocity = 12;
@@ -41,7 +45,7 @@ namespace TankTown
             body.AddTorque(Random.insideUnitSphere * impulse * 0.3f, ForceMode.Impulse);
             // A primed car/tank must finish its short fuse even when a huge collapse
             // evicts ordinary debris. It destroys itself on detonation after 0.18s.
-            if (explosive == null)
+            if (explosive == null || !explosive.Primed)
             {
                 gameObject.AddComponent<DebrisFade>().Initialize(game.Settings.debrisLifetime);
                 game.TrackDebris(gameObject);

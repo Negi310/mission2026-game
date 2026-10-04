@@ -9,21 +9,42 @@ namespace TankTown
         public bool Detonated { get; private set; }
         public float Radius { get; private set; }
         public int Generation { get; private set; }
+        public bool IsFuelTank { get; private set; }
         private TankTownGame game;
         private DestructibleBlock block;
         private float fuse;
         private Renderer shell;
         private MaterialPropertyBlock tint;
+        private Collider tankCollider;
 
-        public void Initialize(TankTownGame owner, float radius)
+        public void Initialize(TankTownGame owner, float radius, bool fuelTank = false)
         {
-            game = owner; Radius = radius;
+            game = owner; Radius = radius; IsFuelTank = fuelTank;
             block = GetComponent<DestructibleBlock>();
+            tankCollider = GetComponent<Collider>();
             shell = GetComponentInChildren<Renderer>();
             tint = new MaterialPropertyBlock();
         }
 
         public void Ignite()
+        {
+            if (!IsFuelTank) Prime();
+        }
+
+        public bool IgniteFromBlast(Vector3 point)
+        {
+            if (game == null || !game.IsPlaying || Detonated) return false;
+            if (IsFuelTank)
+            {
+                Vector3 nearest = tankCollider != null ? tankCollider.ClosestPoint(point) : transform.position;
+                float distance = game.Settings.fuelIgnitionDistance;
+                if ((point - nearest).sqrMagnitude > distance * distance) return false;
+            }
+            Prime();
+            return Primed;
+        }
+
+        private void Prime()
         {
             if (Primed || Detonated || game == null || !game.IsPlaying) return;
             Primed = true; fuse = .18f;
@@ -36,6 +57,7 @@ namespace TankTown
             fuse -= Time.deltaTime;
             if (shell != null)
             {
+                shell.GetPropertyBlock(tint);
                 tint.SetColor("_BaseColor", Color.Lerp(new Color(1, .08f, .025f), new Color(1, .95f, .1f), Mathf.PingPong(Time.time * 7, 1)));
                 shell.SetPropertyBlock(tint);
             }
@@ -44,9 +66,9 @@ namespace TankTown
 
         private void OnCollisionEnter(Collision collision)
         {
-            if (game == null || !game.IsPlaying || Primed || Detonated) return;
+            if (game == null || !game.IsPlaying || Primed || Detonated || IsFuelTank) return;
             if (collision.relativeVelocity.sqrMagnitude < 16) return;
-            // Falling building parts and a vehicle can also set off a tank.
+            // Cars and barrels may ignite from collisions; fuel needs a nearby blast.
             if (collision.rigidbody == null) return;
             block.Break(collision.GetContact(0).point, 0);
         }
@@ -58,7 +80,7 @@ namespace TankTown
             var point = transform.position;
             foreach (var collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
             foreach (var renderer in GetComponentsInChildren<Renderer>()) renderer.enabled = false;
-            game.ChainBlast(point, Radius, Generation);
+            game.ChainBlast(point, Radius, Generation, IsFuelTank);
             gameObject.SetActive(false);
             Destroy(gameObject);
         }

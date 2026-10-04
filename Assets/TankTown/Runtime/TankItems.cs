@@ -207,7 +207,7 @@ namespace TankTown
         }
         public void Ram(Vector3 point)
         {
-            int hits = game.DamageSphere(point, bulldozer > 0 ? 8 : 6, game.Stats.BlastImpulse * 2.4f);
+            int hits = game.DamageSphere(point, bulldozer > 0 ? 8 : 6, game.Stats.BlastImpulse * 2.4f, false);
             RamEffect(point, hits);
         }
         private void RamEffect(Vector3 point, int hits)
