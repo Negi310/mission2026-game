@@ -64,7 +64,7 @@ namespace TankTown
             shot.AddComponent<TankShell>().Initialize(game, Muzzle.forward);
             game.Effects.Trail(shot);
             game.Effects.Muzzle(Muzzle.position, Muzzle.forward);
-            game.PlayTone(130, 0.12f, 0.22f);
+            game.Sound.Cannon();
         }
 
         private void FixedUpdate()
@@ -276,7 +276,7 @@ namespace TankTown
             game.Items.OnTankCrash();
             game.Effects.Crash(transform.position + Vector3.up);
             game.CameraRig.FadeOut(Mathf.Max(0, game.Settings.respawnDelay - .35f));
-            game.PlayTone(60, 0.3f, 0.25f);
+            game.Sound.BigExplosion(transform.position);
             game.ApplyPenalty();
             Visual.gameObject.SetActive(false);
             respawnAt = Time.time + game.Settings.respawnDelay;

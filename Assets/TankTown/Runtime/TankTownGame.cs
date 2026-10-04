@@ -15,6 +15,7 @@ namespace TankTown
         public TankInput Input { get; private set; }
         public TankStats Stats { get; private set; }
         public TankTownEffects Effects { get; private set; }
+        public TankTownAudio Sound { get; private set; }
         public TankMotor Tank { get; private set; }
         public TankItems Items { get; private set; }
         public TankTownWorld World { get; private set; }
@@ -54,6 +55,10 @@ namespace TankTown
             Remaining = Settings.roundSeconds;
             Stats = new TankStats(Settings);
             Effects = gameObject.AddComponent<TankTownEffects>();
+            var soundRoot = new GameObject("Sound effects");
+            soundRoot.transform.SetParent(transform, false);
+            Sound = soundRoot.AddComponent<TankTownAudio>();
+            Sound.Initialize(this);
             oldDebrisIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer);
             oldTankIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer);
             oldRewardIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.RewardLayer, TownPhysics.DebrisLayer);
@@ -74,6 +79,7 @@ namespace TankTown
             SetupView();
             speaker = gameObject.AddComponent<AudioSource>();
             speaker.spatialBlend = 0;
+            speaker.playOnAwake = false;
             gameObject.AddComponent<TankTownHUD>().Initialize(this);
             CameraRig.Paused = true;
             Time.timeScale = 0;
@@ -159,8 +165,8 @@ namespace TankTown
 
         public void TogglePause()
         {
-            if (State == RoundState.Playing) { State = RoundState.Paused; CameraRig.Paused = true; Time.timeScale = 0; }
-            else if (State == RoundState.Paused) { State = RoundState.Playing; CameraRig.Paused = false; Time.timeScale = 1; }
+            if (State == RoundState.Playing) { State = RoundState.Paused; CameraRig.Paused = true; Sound.SetPaused(true); speaker.Pause(); Time.timeScale = 0; }
+            else if (State == RoundState.Paused) { State = RoundState.Playing; CameraRig.Paused = false; Sound.SetPaused(false); speaker.UnPause(); Time.timeScale = 1; }
         }
 
         private void OnApplicationFocus(bool focus) { if (!focus && IsPlaying) TogglePause(); }
@@ -169,7 +175,7 @@ namespace TankTown
         {
             if (!IsPlaying) return;
             Remaining = Mathf.Max(0, Remaining - Mathf.Max(0, seconds));
-            if (Remaining <= 0) { State = RoundState.Results; CameraRig.CancelTransition(); CameraRig.Paused = true; Items.FinishRound(); Time.timeScale = 0; }
+            if (Remaining <= 0) { State = RoundState.Results; CameraRig.CancelTransition(); CameraRig.Paused = true; Items.FinishRound(); Sound.StopAll(); speaker.Stop(); Time.timeScale = 0; }
         }
         public void RegisterBlock() => TotalBlocks++;
         internal void ReportSpecial(ItemKind kind) => SpecialCollected?.Invoke(kind);
@@ -223,7 +229,7 @@ namespace TankTown
                 LongestChain = Mathf.Max(LongestChain, generation);
                 ChainBurst?.Invoke(generation);
                 Effects.DebrisImpact(point, Settings.debrisBlastRadius);
-                PlayTone(105, .12f, .12f);
+                Sound.Debris(point);
                 return true;
             }
             finally { ExplosionGeneration = previous; }
@@ -243,7 +249,8 @@ namespace TankTown
                 DamageSphere(point, radius, impulse);
                 if (fuelTank) Effects.FuelImpact(point, radius);
                 else Effects.Impact(point, radius);
-                PlayTone(fuelTank ? 60 : 85, fuelTank ? .3f : .16f, fuelTank ? .25f : .2f);
+                if (fuelTank) Sound.BigExplosion(point);
+                else Sound.Chain(point);
             }
             finally { ExplosionGeneration = previous; }
         }
@@ -253,7 +260,7 @@ namespace TankTown
             if (!IsPlaying) return;
             DamageSphere(point, radius, impulse);
             Effects.Impact(point, radius);
-            PlayTone(85, .16f, .2f);
+            Sound.Impact(point);
         }
 
         public int DamageSphere(Vector3 point, float radius, float impulse, bool isExplosion = true)
