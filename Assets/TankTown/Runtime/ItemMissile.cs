@@ -78,8 +78,13 @@ namespace TankTown
                 next = previous + flightDirection * game.Settings.missileSpeed * Time.deltaTime;
             }
             var movement = next - previous;
-            if (age >= .45f && movement.sqrMagnitude > .0001f && Physics.SphereCast(previous, .4f, movement.normalized, out var hit, movement.magnitude, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
-            { Strike(hit.point, hit.collider.GetComponentInParent<TownMovingTarget>() == TrackingTarget && TrackingTarget != null); return; }
+            if (age >= .45f && movement.sqrMagnitude > .0001f)
+            {
+                bool solid = Physics.SphereCast(previous, .4f, movement.normalized, out var hit, movement.magnitude, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore);
+                if (Physics.SphereCast(previous, .4f, movement.normalized, out var personHit, movement.magnitude, TownPhysics.PedestrianMask, QueryTriggerInteraction.Collide) && (!solid || personHit.distance < hit.distance))
+                { hit = personHit; solid = true; }
+                if (solid) { Strike(hit.point, hit.collider.GetComponentInParent<TownMovingTarget>() == TrackingTarget && TrackingTarget != null); return; }
+            }
             if (age >= .45f && TrackingTarget != null)
             {
                 var segment = next - previous;

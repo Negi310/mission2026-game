@@ -60,10 +60,12 @@ MonoBehaviour:
   floorHeight: 3.6
   terraceHeight: 3.5
   trafficCarsPerCircuit: 24
-  pedestriansPerBlock: 6
-  carExplosionRadius: 14
-  carExplosionImpulseMultiplier: 2.1
+  pedestriansPerBlock: 2
+  pedestrianHitRadius: 0.95
+  carExplosionRadius: 10
+  carExplosionImpulseMultiplier: 1.6
   explosionVisualScale: 1.55
+  chainExplosionVisualScale: 0.65
   maxUpgradeLevel: 8
   speedUpgrade: 0.08
   powerUpgrade: 0.18

@@ -15,7 +15,7 @@ namespace TankTown
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
-            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-mobility-smoke") >= 0)
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-mobility-smoke") >= 0 || Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-chain-smoke") >= 0)
                 new GameObject("Homing traffic and laser smoke").AddComponent<TankTownMobilitySmoke>();
         }
         private IEnumerator MeasureFrames(string label, Action<float> record, bool duringLaser = false)
@@ -60,13 +60,15 @@ namespace TankTown
             var game = FindFirstObjectByType<TankTownGame>(); game.StartOrRestart(); game.Input.useHardware = true;
             var body = game.Tank.GetComponent<Rigidbody>(); game.Tank.enabled = false; body.isKinematic = true;
             int cars = game.World.TrafficCars.Count, people = game.World.Pedestrians.Count;
-            if (cars != 72 || people != 216) { Fail("wrong production traffic population"); yield break; }
+            if (cars != 72 || people != 72) { Fail("wrong production traffic population"); yield break; }
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-chain-smoke") >= 0)
+            { yield return ChainTour(game); yield break; }
             for (int i = 0; i < cars; i++) game.World.TrafficCars[i].gameObject.SetActive(i % 4 == 0);
             foreach (var person in game.World.Pedestrians) person.gameObject.SetActive(false);
             yield return MeasureFrames("18cars-no-pedestrians", x => baselineFps = x);
             foreach (var car in game.World.TrafficCars) car.gameObject.SetActive(true);
             foreach (var person in game.World.Pedestrians) person.gameObject.SetActive(true);
-            yield return MeasureFrames("72cars-216pedestrians", x => denseFps = x);
+            yield return MeasureFrames("72cars-72pedestrians", x => denseFps = x);
             Time.captureDeltaTime = 1f / 60;
             Capture("mobility-01-street", true);
             var citizen = game.World.Pedestrians[0];
@@ -140,7 +142,49 @@ namespace TankTown
         }
         private static void View(TankTownGame game, Vector3 position, Vector3 target)
         { game.CameraRig.enabled = false; Camera.main.transform.position = position; Camera.main.transform.LookAt(target); }
-        private void Capture(string name, bool hud) => TankTownSmokeCapture.Capture(Path.Combine(output, name + ".png"), hud, 1920, 1080);
+        private IEnumerator ChainTour(TankTownGame game)
+        {
+            Time.captureDeltaTime = 1f / 60;
+            yield return new WaitForSeconds(1); Capture("chain-01-street", true);
+            foreach (var explosive in game.World.Explosives) if (explosive != null) explosive.gameObject.SetActive(false);
+            foreach (var person in game.World.Pedestrians) person.gameObject.SetActive(false);
+            var citizen = game.World.Pedestrians[0]; citizen.gameObject.SetActive(true);
+            Place(game, citizen.transform.position - Vector3.forward * 6 + Vector3.right * .8f);
+            yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate(); game.Input.PulsePad(0);
+            yield return new WaitForSeconds(.2f);
+            if (citizen.Knockbacks == 0) { Fail("normal cannon missed the enlarged pedestrian hitbox"); yield break; }
+            View(game, citizen.transform.position + new Vector3(-3, 2.4f, 4), citizen.transform.position + Vector3.up * 1.15f);
+            Capture("chain-02-pedestrian-hit", false);
+            yield return new WaitForSeconds(5.3f);
+            foreach (var person in game.World.Pedestrians) person.gameObject.SetActive(false);
+            var first = game.World.TrafficCars.Find(x => x != null && !x.GetComponent<DestructibleBlock>().Detached);
+            var second = game.World.TrafficCars.Find(x => x != null && x != first && !x.GetComponent<DestructibleBlock>().Detached);
+            first.gameObject.SetActive(true); second.gameObject.SetActive(true);
+            first.SetCircuit(new[] { new Vector3(0, 0, -85), new Vector3(0, 0, -45) }, 0);
+            second.SetCircuit(new[] { new Vector3(0, 0, -76), new Vector3(0, 0, -30) }, 0);
+            first.enabled = second.enabled = false;
+            Place(game, new Vector3(0, 0, -91)); yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
+            int before = game.ChainExplosions; game.Input.PulsePad(0);
+            yield return new WaitForSeconds(.27f); Capture("chain-03-count-1", true);
+            yield return new WaitForSeconds(.18f); Capture("chain-04-count-2", true);
+            View(game, new Vector3(-6, 9, -100), new Vector3(0, 2, -84));
+            yield return new WaitForSeconds(.12f); Capture("chain-05-car-moderate", true);
+            yield return new WaitForSeconds(.2f);
+            int carChains = game.ChainExplosions - before;
+            var display = FindFirstObjectByType<TankTownChainDisplay>();
+            if (carChains != 2 || !display.Visible || display.TargetDepth < 2) { Fail("moderated car chain or count-up display failed"); yield break; }
+            game.CameraRig.enabled = true; game.CameraRig.Snap(); yield return null;
+            Capture("chain-06-ui-720", true, 1280, 720);
+            game.TogglePause(); yield return null;
+            if (display.Visible) { Fail("chain display did not hide during pause"); yield break; }
+            game.TogglePause(); yield return null;
+            game.AdvanceTime(1000); yield return null;
+            if (display.Visible) { Fail("chain display did not hide at results"); yield break; }
+            Capture("chain-07-results", true);
+            Debug.Log($"CHAIN POLISH SMOKE COMPLETE: pedestrians={game.World.Pedestrians.Count}, hitRadius={citizen.HitRadius}, pedestrianHits={citizen.Knockbacks}, carChains={carChains}, carRadius={game.Settings.carExplosionRadius}, effectScale={game.Settings.chainExplosionVisualScale}, displayDepth={display.DisplayedDepth}, targetDepth={display.TargetDepth}, highest={game.LongestChain}, totalExplosions={game.ChainExplosions + game.DebrisExplosions}, state={game.State}");
+            Application.Quit();
+        }
+        private void Capture(string name, bool hud, int width = 1920, int height = 1080) => TankTownSmokeCapture.Capture(Path.Combine(output, name + ".png"), hud, width, height);
         private static void Fail(string reason) { Debug.LogError("MOBILITY SMOKE FAILED: " + reason); Application.Quit(1); }
     }
 }

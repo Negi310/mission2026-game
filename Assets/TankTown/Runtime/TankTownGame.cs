@@ -233,7 +233,7 @@ namespace TankTown
                 debrisBurstsInWindow++; DebrisExplosions++;
                 LongestChain = Mathf.Max(LongestChain, generation);
                 ChainBurst?.Invoke(generation);
-                Effects.DebrisImpact(point, Settings.debrisBlastRadius);
+                Effects.DebrisImpact(point, Settings.debrisBlastRadius * Settings.chainExplosionVisualScale);
                 Sound.Debris(point);
                 return true;
             }
@@ -245,16 +245,17 @@ namespace TankTown
             if (!IsPlaying) return;
             ChainExplosions++;
             LongestChain = Mathf.Max(LongestChain, generation);
-            if (generation > 1) ChainBurst?.Invoke(generation);
+            ChainBurst?.Invoke(generation);
             int previous = ExplosionGeneration;
             ExplosionGeneration = generation;
             try
             {
                 float impulse = Settings.blastImpulse * (fuelTank ? Settings.fuelImpulseMultiplier : vehicle ? Settings.carExplosionImpulseMultiplier : 1.35f);
                 DamageSphere(point, radius, impulse);
-                if (fuelTank) Effects.FuelImpact(point, radius);
-                else if (vehicle) Effects.CarImpact(point, radius);
-                else Effects.Impact(point, radius);
+                float visualRadius = radius * Settings.chainExplosionVisualScale;
+                if (fuelTank) Effects.FuelImpact(point, visualRadius);
+                else if (vehicle) Effects.CarImpact(point, visualRadius);
+                else Effects.Impact(point, visualRadius);
                 if (fuelTank) Sound.BigExplosion(point);
                 else Sound.Chain(point);
             }
@@ -299,7 +300,7 @@ namespace TankTown
                 if (person == null || !person.Walking) continue;
                 var point = person.transform.position + Vector3.up;
                 var origin = start + segment * Mathf.Clamp01(Vector3.Dot(point - start, segment) / Mathf.Max(.01f, segment.sqrMagnitude));
-                if ((point - origin).sqrMagnitude <= radius * radius) person.KnockAside(origin, impulse);
+                if ((person.ClosestPoint(origin) - origin).sqrMagnitude <= radius * radius) person.KnockAside(origin, impulse);
             }
             return count;
         }
@@ -343,7 +344,7 @@ namespace TankTown
             foreach (var building in buildings) building.ReleaseUnsupported(point, impulse);
             float pedestrianRadius = forceRadius * .5f;
             foreach (var person in World.Pedestrians)
-                if (person != null && person.Walking && (person.transform.position + Vector3.up - point).sqrMagnitude <= pedestrianRadius * pedestrianRadius)
+                if (person != null && person.Walking && (person.ClosestPoint(point) - point).sqrMagnitude <= pedestrianRadius * pedestrianRadius)
                     person.KnockAside(point, impulse);
             return count;
         }

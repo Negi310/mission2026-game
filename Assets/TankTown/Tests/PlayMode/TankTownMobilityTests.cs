@@ -37,7 +37,7 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator PedestriansWalkOnSidewalksPauseAndRecoverFromABlastWithoutAddingScore()
         {
-            Assert.That(game.World.Pedestrians.Count, Is.EqualTo(216));
+            Assert.That(game.World.Pedestrians.Count, Is.EqualTo(72));
             var person = game.World.Pedestrians[0]; var start = person.transform.position;
             yield return new WaitForSeconds(.4f);
             Assert.That(Vector3.Distance(start, person.transform.position), Is.GreaterThan(.3f));
@@ -75,15 +75,18 @@ namespace TankTown.Tests
             Assert.That(Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None), Is.Empty);
         }
         [UnityTest]
-        public IEnumerator ACarExplosionReachesAndThrowsObjectsBeyondItsPreviousRadius()
+        public IEnumerator ModeratedCarExplosionThrowsNearbyObjectsButLeavesDistantOnesIntact()
         {
-            IsolateTargets(); var car = Car(game, new Vector3(0, 0, -70), new Vector3(0, 0, -30));
+            IsolateTargets(); var car = Car(game, new Vector3(180, 0, -70), new Vector3(180, 0, -30));
             Vector3 point = car.transform.position;
-            var root = game.World.Box("Remote car explosion target", point + Vector3.right * 12, Vector3.one, game.World.ShotMaterial);
+            var root = game.World.Box("Nearby car explosion target", point + Vector3.right * 9, Vector3.one, game.World.ShotMaterial);
             var target = root.AddComponent<DestructibleBlock>(); target.Initialize(game); Physics.SyncTransforms();
+            var remote = game.World.Box("Distant car explosion target", point - Vector3.right * 12, Vector3.one, game.World.ShotMaterial);
+            var distant = remote.AddComponent<DestructibleBlock>(); distant.Initialize(game); Physics.SyncTransforms();
             game.Blast(point); Assert.That(target.Detached, Is.False);
             yield return new WaitForSeconds(.35f);
             Assert.That(game.ChainExplosions, Is.EqualTo(1)); Assert.That(target.Detached, Is.True);
+            Assert.That(distant.Detached, Is.False, "The former 14m car blast must be reduced");
             Assert.That(root.GetComponent<Rigidbody>().linearVelocity.magnitude, Is.GreaterThan(4));
         }
         [UnityTest]

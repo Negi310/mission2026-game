@@ -7,6 +7,9 @@ namespace TankTown
         public bool Walking => isActiveAndEnabled && !thrown;
         public Vector3 Motion { get; private set; }
         public int Knockbacks { get; private set; }
+        public float HitRadius => hitbox.radius;
+        public Vector3 ClosestPoint(Vector3 point) => hitbox.ClosestPoint(point);
+        private CapsuleCollider hitbox;
         private TankTownGame game;
         private Vector3[] route;
         private float distance, perimeter, speed, phase, flightAge;
@@ -21,7 +24,8 @@ namespace TankTown
             for (int i = 0; i < route.Length; i++) perimeter += Vector3.Distance(route[i], route[(i + 1) % route.Length]);
             distance = perimeter * start;
             gameObject.layer = TownPhysics.PedestrianLayer;
-            var trigger = gameObject.AddComponent<CapsuleCollider>(); trigger.isTrigger = true; trigger.radius = .42f; trigger.height = 2.35f; trigger.center = Vector3.up * 1.17f;
+            hitbox = gameObject.AddComponent<CapsuleCollider>(); hitbox.isTrigger = true;
+            hitbox.radius = game.Settings.pedestrianHitRadius; hitbox.height = 2.8f; hitbox.center = Vector3.up * 1.4f;
             model = new GameObject("Low poly citizen").transform; model.SetParent(transform, false);
             model.localScale = Vector3.one * (.95f + variant % 3 * .08f);
             Part("Shirt", new Vector3(0, 1.08f, 0), new Vector3(.62f, .75f, .4f), shirt, model);
@@ -62,6 +66,7 @@ namespace TankTown
             Sample(out var point, out var forward); transform.SetPositionAndRotation(game.World.GroundPoint(point, .04f), Quaternion.LookRotation(forward));
             model.localPosition = Vector3.zero; model.localRotation = Quaternion.identity;
             foreach (var limb in limbs) limb.localRotation = Quaternion.identity;
+            hitbox.enabled = true;
         }
         private void Update()
         {
@@ -87,6 +92,7 @@ namespace TankTown
         {
             if (!game.IsPlaying || thrown) return;
             thrown = true; flightAge = 0; Knockbacks++; Motion = Vector3.zero;
+            hitbox.enabled = false;
             var away = Vector3.ProjectOnPlane(transform.position - origin, Vector3.up).normalized;
             if (away.sqrMagnitude < .01f) away = transform.right;
             flightVelocity = away * Mathf.Clamp(6 + impulse * .28f, 9, 18) + Vector3.up * 8;

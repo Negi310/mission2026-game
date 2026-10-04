@@ -27,8 +27,8 @@ namespace TankTown
         private GameObject activePanel;
         private Image heldIcon;
         private float pickupUntil;
-        private float chainUntil, goUntil;
-        private int chainDepth;
+        private float goUntil;
+        private TankTownChainDisplay chainDisplay;
         private RoundState previousState = RoundState.Ready;
         private GameObject card, noticePanel, modalShade;
         private readonly Color ink = new Color(.08f, .17f, .22f);
@@ -104,7 +104,6 @@ namespace TankTown
             pickupText.alignment = TextAnchor.MiddleCenter;
             game.Stats.Changed += ShowUpgrade;
             game.SpecialCollected += ShowSpecial;
-            game.ChainBurst += ShowChain;
             var itemPanel = Panel("Special items", hud, new Vector2(-28, 28), new Vector2(288, 108), ink, true);
             Bottom(itemPanel, true);
             style.Card(itemPanel, new Color(.83f, .93f, 1));
@@ -135,6 +134,8 @@ namespace TankTown
             noticeCaption.fontStyle = FontStyle.Bold;
             noticeCaption.horizontalOverflow = HorizontalWrapMode.Overflow;
             TextOutline(noticeCaption, ink, 1);
+            var chainRoot = new GameObject("Chain celebration", typeof(RectTransform)); chainRoot.transform.SetParent(hud, false);
+            chainDisplay = chainRoot.AddComponent<TankTownChainDisplay>(); chainDisplay.Initialize(game, font, displayFont, style);
             var bottom = Panel("Controls", hud, new Vector2(0, 28), new Vector2(440, 34), new Color(ink.r, ink.g, ink.b, .86f));
             var br = bottom.GetComponent<RectTransform>();
             br.anchorMin = br.anchorMax = new Vector2(.5f, 0);
@@ -235,16 +236,15 @@ namespace TankTown
             bool respawning = game.Tank.Respawning;
             notice.text = respawning ? "ドカーン！"
                 : edge ? "海が見えたら、街の内側へ曲がろう！"
-                : Time.time < chainUntil ? $"{chainDepth} CHAIN!"
-                : Time.time < goUntil ? "GO！" : "";
-            bool chainVisible = Time.time < chainUntil && !respawning && !edge;
-            notice.color = respawning || chainVisible ? new Color(1, .68f, .18f) : Color.white;
-            bool celebrate = chainVisible || Time.time < goUntil && !edge && !respawning;
+                : Time.time < goUntil && !chainDisplay.ActiveSequence ? "GO！" : "";
+            chainDisplay.SetObscured(respawning || edge);
+            notice.color = respawning ? new Color(1, .68f, .18f) : Color.white;
+            bool celebrate = Time.time < goUntil && !chainDisplay.ActiveSequence && !edge && !respawning;
             notice.fontSize = respawning ? 34 : celebrate ? 35 : 22;
             notice.font = celebrate ? displayFont : font;
             noticeCaption.text = respawning ? $"安全な場所へもどるよ  −{game.Settings.respawnPenalty:0.#}秒" : "連鎖爆破！";
             noticeCaption.color = respawning ? Color.white : yellow;
-            noticeCaption.gameObject.SetActive(respawning || chainVisible);
+            noticeCaption.gameObject.SetActive(respawning);
             noticePanel.SetActive(game.IsPlaying && notice.text.Length > 0);
             for (int i = 0; i < 4; i++)
             {
@@ -296,11 +296,10 @@ namespace TankTown
             pickupText.text = $"{ItemIcons.Label(kind)} GET！";
             pickupText.color = ItemIcons.Color(kind); pickupUntil = Time.time + 1.7f;
         }
-        private void ShowChain(int depth) { chainDepth = depth; chainUntil = Time.time + 1.3f; }
         private void OnDestroy()
         {
             if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
-            if (game != null) { game.SpecialCollected -= ShowSpecial; game.ChainBurst -= ShowChain; }
+            if (game != null) game.SpecialCollected -= ShowSpecial;
             if (font != null) Destroy(font);
             if (displayFont != null) Destroy(displayFont);
             style?.Dispose();

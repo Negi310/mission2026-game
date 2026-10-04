@@ -56,11 +56,13 @@ namespace TankTown
         [Range(0, 5)] public float terraceHeight = 3.5f;
         [Header("City traffic")]
         [Range(6, 40)] public int trafficCarsPerCircuit = 24;
-        [Range(1, 12)] public int pedestriansPerBlock = 6;
-        [Min(1)] public float carExplosionRadius = 14;
-        [Min(1)] public float carExplosionImpulseMultiplier = 2.1f;
+        [Range(1, 12)] public int pedestriansPerBlock = 2;
+        [Range(.5f, 2)] public float pedestrianHitRadius = .95f;
+        [Min(1)] public float carExplosionRadius = 10;
+        [Min(1)] public float carExplosionImpulseMultiplier = 1.6f;
         [Header("Effects")]
         [Range(1, 2.5f)] public float explosionVisualScale = 1.55f;
+        [Range(.25f, 1.5f)] public float chainExplosionVisualScale = .65f;
         [Header("Camera")]
         public Vector3 cameraOffset = new Vector3(0, 3.0f, -9.0f);
         [Range(50, 90)] public float cameraFieldOfView = 72;

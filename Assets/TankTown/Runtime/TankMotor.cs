@@ -294,7 +294,10 @@ namespace TankTown
         {
             if (!game.IsPlaying) return;
             float distance = 52 * Time.deltaTime;
-            if (Physics.SphereCast(transform.position, 0.25f, direction, out RaycastHit hit, distance, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
+            bool solid = Physics.SphereCast(transform.position, .25f, direction, out RaycastHit hit, distance, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore);
+            if (Physics.SphereCast(transform.position, .25f, direction, out var personHit, distance, TownPhysics.PedestrianMask, QueryTriggerInteraction.Collide) && (!solid || personHit.distance < hit.distance))
+            { hit = personHit; solid = true; }
+            if (solid)
             {
                 game.Blast(hit.point, radius, impulse, hit.collider.GetComponentInParent<DestructibleBlock>());
                 Destroy(gameObject);
