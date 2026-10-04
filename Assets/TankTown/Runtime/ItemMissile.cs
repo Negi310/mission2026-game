@@ -57,7 +57,7 @@ namespace TankTown
                 if (delta.sqrMagnitude > range * range) continue;
                 if (!VisibleAhead(game, candidate, forward)) continue;
                 float score = delta.sqrMagnitude + owner.MissilesTracking(candidate) * 1000 +
-                    (candidate.IsVehicle ? 0 : range * range * 2);
+                    (candidate.IsVehicle || candidate.IsExplosive ? 0 : range * range * 2);
                 if (score < bestScore) { bestScore = score; best = candidate; }
             }
             TrackingTarget = best;
@@ -112,7 +112,7 @@ namespace TankTown
         private void Strike(Vector3 point, bool trackedHit = false)
         {
             owner.CountMissileStrike(trackedHit);
-            game.Blast(point, game.Stats.BlastRadius * 1.15f, game.Stats.BlastImpulse * 1.35f);
+            game.MissileBlast(point);
             wave++; Launch();
         }
     }
@@ -121,6 +121,8 @@ namespace TankTown
     {
         public int Contacts { get; private set; }
         public bool Detonated { get; private set; }
+        public bool GroundImpact { get; private set; }
+        public Vector3 DetonationPoint { get; private set; }
         private TankTownGame game;
         private TankItems owner;
         private Rigidbody body;
@@ -134,7 +136,8 @@ namespace TankTown
             body = gameObject.AddComponent<Rigidbody>(); body.mass = 30;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             body.interpolation = RigidbodyInterpolation.Interpolate;
-            body.linearVelocity = game.Tank.Muzzle.forward * game.Settings.gigantBombThrowSpeed + Vector3.up * 10;
+            Vector3 forward = Vector3.ProjectOnPlane(game.Tank.Muzzle.forward, Vector3.up).normalized;
+            body.linearVelocity = forward * game.Settings.gigantBombThrowSpeed + Vector3.up * game.Settings.gigantBombUpSpeed;
             body.angularVelocity = new Vector3(2, 1, 0);
             Physics.IgnoreCollision(GetComponent<Collider>(), game.Tank.HullCollider);
             var fuse = game.World.Box("Gigant bomb fuse", Vector3.up * .53f, new Vector3(.07f, .2f, .07f), game.World.ShotMaterial, transform, false);
@@ -163,7 +166,9 @@ namespace TankTown
         private void OnCollisionStay(Collision hit) => Crush(hit);
         private void Crush(Collision hit)
         {
-            if (!game.IsPlaying || Detonated || Time.time < nextContact || hit.collider.GetComponentInParent<DestructibleBlock>() == null) return;
+            if (!game.IsPlaying || Detonated) return;
+            if (hit.collider.gameObject.layer == TownPhysics.GroundLayer) { GroundImpact = true; Detonate(); return; }
+            if (Time.time < nextContact || hit.collider.GetComponentInParent<DestructibleBlock>() == null) return;
             nextContact = Time.time + .12f; Contacts++;
             var point = hit.GetContact(0).point;
             int count = game.DamageSphere(point, 12, game.Stats.BlastImpulse * 2.5f, false);
@@ -173,12 +178,14 @@ namespace TankTown
         {
             if (Detonated) return;
             Detonated = true;
+            DetonationPoint = body.position;
             if (game.IsPlaying)
             {
-                game.DamageSphere(body.position, game.Settings.gigantBombRadius, game.Stats.BlastImpulse * 4);
+                game.DamageSphere(body.position, game.Settings.gigantBombRadius, game.Stats.BlastImpulse * game.Settings.gigantBombImpulseMultiplier);
                 game.Effects.SuperImpact(body.position, game.Settings.gigantBombRadius);
                 game.Sound.BigExplosion(body.position);
             }
+            owner.BombDetonated(this);
             Destroy(gameObject);
         }
     }

@@ -87,14 +87,17 @@ namespace TankTown
         [Min(10)] public float missileTargetRange = 90;
         [Min(10)] public float missileSpeed = 64;
         [Min(90)] public float missileTurnSpeed = 330;
+        [Min(1)] public float missileChainPowerMultiplier = 2.8f;
         [Min(1)] public float magnetSeconds = 8;
-        [Min(3)] public float magnetRadius = 22;
-        [Min(1)] public float magnetPullSpeed = 24;
+        [Min(3)] public float magnetRadius = 50;
+        [Min(1)] public float magnetPullSpeed = 120;
         [Min(1)] public float bulldozerSeconds = 8;
         [Range(1.5f, 3)] public float bulldozerScale = 2.3f;
-        [Min(.5f)] public float gigantBombFuse = 1.5f;
-        [Min(10)] public float gigantBombThrowSpeed = 38;
-        [Min(10)] public float gigantBombRadius = 30;
+        [Min(.5f)] public float gigantBombFuse = 6;
+        [Min(10)] public float gigantBombThrowSpeed = 90;
+        [Min(0)] public float gigantBombUpSpeed = 6;
+        [Min(10)] public float gigantBombRadius = 60;
+        [Min(1)] public float gigantBombImpulseMultiplier = 12;
         [Min(1)] public float highSpeedSeconds = 6;
         [Range(1.2f, 4)] public float highSpeedMultiplier = 2.2f;
     }

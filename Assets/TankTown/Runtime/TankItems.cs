@@ -13,6 +13,8 @@ namespace TankTown
         public float SpeedMultiplier => (highSpeed > 0 ? game.Settings.highSpeedMultiplier : 1) * (bulldozer > 0 ? .85f : 1);
         public int MissileStrikes { get; private set; }
         public int MissileTrackedStrikes { get; private set; }
+        internal float MagnetPullSpeed => Mathf.Max(game.Settings.magnetPullSpeed,
+            Mathf.Max(game.Stats.Speed * SpeedMultiplier, game.Tank.ActualSpeed) * 3);
         internal Material MissileWhite { get; private set; }
         internal Material MissileOrange { get; private set; }
         internal int MissilesTracking(TownMovingTarget target)
@@ -201,9 +203,13 @@ namespace TankTown
             if (magnet > 0 && !game.Tank.Respawning)
             {
                 var target = game.Tank.GetComponent<Rigidbody>().position + Vector3.up * .6f;
+                float speed = MagnetPullSpeed;
                 foreach (var pickup in game.World.Pickups)
-                    if (pickup != null && !pickup.Collected && (pickup.transform.position - target).sqrMagnitude < game.Settings.magnetRadius * game.Settings.magnetRadius)
-                        pickup.Attract(target, game.Settings.magnetPullSpeed);
+                    if (pickup != null && pickup.isActiveAndEnabled && !pickup.Collected && (pickup.transform.position - target).sqrMagnitude < game.Settings.magnetRadius * game.Settings.magnetRadius)
+                        pickup.Attract(target, speed);
+                foreach (var pickup in game.World.ItemPickups)
+                    if (pickup != null && pickup.isActiveAndEnabled && !pickup.Collected && pickup.Available && (pickup.transform.position - target).sqrMagnitude < game.Settings.magnetRadius * game.Settings.magnetRadius)
+                        pickup.Attract(target, speed);
                 magnetRing.transform.localRotation = Quaternion.Euler(0, Time.time * 90, 0);
             }
         }
@@ -253,6 +259,11 @@ namespace TankTown
             game.Effects.EnergyImpact(point, bulldozer > 0 ? ItemIcons.Color(ItemKind.Bulldozer) : ItemIcons.Color(ItemKind.HighSpeed));
         }
         public void CountMissileStrike(bool trackedHit = false) { MissileStrikes++; if (trackedHit) MissileTrackedStrikes++; }
+        internal void BombDetonated(GigantBomb finished)
+        {
+            if (bomb != finished || Weapon != ItemKind.GigantBomb) return;
+            bomb = null; Weapon = ItemKind.None; weaponTime = 0;
+        }
         private void EndWeapon(bool detonate)
         {
             Weapon = ItemKind.None; weaponTime = 0;

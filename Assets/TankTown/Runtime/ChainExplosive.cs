@@ -11,6 +11,7 @@ namespace TankTown
         public int Generation { get; private set; }
         public bool IsFuelTank { get; private set; }
         public bool IsVehicle { get; private set; }
+        public float PowerMultiplier { get; private set; } = 1;
         private TankTownGame game;
         private DestructibleBlock block;
         private float fuse;
@@ -25,6 +26,7 @@ namespace TankTown
             tankCollider = GetComponent<Collider>();
             shell = GetComponentInChildren<Renderer>();
             tint = new MaterialPropertyBlock();
+            if (!vehicle) gameObject.AddComponent<TownMovingTarget>().Initialize(game);
         }
 
         public void Ignite()
@@ -47,7 +49,9 @@ namespace TankTown
 
         private void Prime()
         {
-            if (Primed || Detonated || game == null || !game.IsPlaying) return;
+            if (Detonated || game == null || !game.IsPlaying) return;
+            PowerMultiplier = Mathf.Max(PowerMultiplier, game.ExplosionPowerMultiplier);
+            if (Primed) return;
             Primed = true; fuse = .18f;
             Generation = game.ExplosionGeneration + 1;
         }
@@ -81,7 +85,7 @@ namespace TankTown
             var point = transform.position;
             foreach (var collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
             foreach (var renderer in GetComponentsInChildren<Renderer>()) renderer.enabled = false;
-            game.ChainBlast(point, Radius, Generation, IsFuelTank, IsVehicle);
+            game.ChainBlast(point, Radius, Generation, IsFuelTank, IsVehicle, PowerMultiplier);
             gameObject.SetActive(false);
             Destroy(gameObject);
         }

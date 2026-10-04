@@ -151,7 +151,7 @@ namespace TankTown.Tests
             Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.Missiles));
         }
         [UnityTest]
-        public IEnumerator MagnetPullsAndCollectsOnlyNearbyUpgrades()
+        public IEnumerator MagnetPullsAndCollectsNearbyUpgradesAndLeavesFarOnes()
         {
             Place(game.World.SpawnPosition + Vector3.right * 6);
             var pickup = game.World.Pickups.Find(x => x.Kind == UpgradeKind.Speed && Vector3.Distance(x.transform.position, game.Tank.transform.position) < 15);
@@ -177,19 +177,24 @@ namespace TankTown.Tests
             Assert.That(game.Tank.VehicleScale, Is.EqualTo(1)); Assert.That(game.Tank.HullCollider.size.x, Is.EqualTo(2.6f));
         }
         [UnityTest]
-        public IEnumerator GigantBombCrushesBeforeItsFuseAndThenBlastsDistantObjects()
+        public IEnumerator GigantBombCrushesWallsThenGroundContactBlastsDistantObjects()
         {
-            FaceBuilding(12); game.Items.Receive(ItemKind.GigantBomb); game.Input.PulsePad(0);
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            game.Items.Receive(ItemKind.GigantBomb); game.Input.PulsePad(0);
             var bomb = Object.FindFirstObjectByType<GigantBomb>(); Assert.That(bomb, Is.Not.Null);
             var body = bomb.GetComponent<Rigidbody>(); Assert.That(body.isKinematic, Is.False); Assert.That(body.linearVelocity.y, Is.GreaterThan(5));
-            yield return new WaitForSeconds(1.1f);
+            Vector3 forward = Vector3.ProjectOnPlane(game.Tank.Muzzle.forward, Vector3.up).normalized;
+            var wallRoot = game.World.Box("Bomb physical contact wall", body.position + forward * 12, new Vector3(9, 12, 1), game.World.ShotMaterial);
+            var wall = wallRoot.AddComponent<DestructibleBlock>(); wall.Initialize(game); Physics.SyncTransforms();
+            for (int i = 0; i < 25 && bomb.Contacts == 0; i++) yield return new WaitForFixedUpdate();
             Assert.That(bomb.Contacts, Is.GreaterThan(0)); Assert.That(bomb.Detonated, Is.False);
-            Assert.That(game.BrokenBlocks, Is.GreaterThan(0), "Physical bomb contact must destroy structures before detonation");
-            var box = game.World.Box("Distant bomb witness", game.World.GroundPoint(body.position + Vector3.right * 22, .6f), Vector3.one * 1.2f, game.World.ShotMaterial);
+            Assert.That(wall.Detached, Is.True, "Physical bomb contact must destroy structures before ground impact");
+            body.position = game.World.GroundPoint(new Vector3(0, 0, -65), 5); body.linearVelocity = Vector3.down * 25;
+            var box = game.World.Box("Distant bomb witness", game.World.GroundPoint(body.position + Vector3.right * 45, .6f), Vector3.one * 1.2f, game.World.ShotMaterial);
             var witness = box.AddComponent<DestructibleBlock>(); witness.CanCrush = true; witness.Initialize(game);
-            body.linearVelocity = Vector3.zero;
-            yield return new WaitForSeconds(game.Items.Remaining(ItemKind.GigantBomb) + .15f);
-            Assert.That(witness.Detached, Is.True, "The delayed explosion must reach beyond the physical impact radius");
+            Physics.SyncTransforms(); float elapsed = 0;
+            while (bomb != null && elapsed < .6f) { elapsed += Time.fixedDeltaTime; yield return new WaitForFixedUpdate(); }
+            Assert.That(witness.Detached, Is.True, "The landing blast must reach well beyond the former 30m radius");
             Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.None)); Assert.That(bomb == null, Is.True);
         }
         [UnityTest]

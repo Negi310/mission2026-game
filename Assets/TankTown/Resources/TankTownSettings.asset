@@ -82,13 +82,16 @@ MonoBehaviour:
   missileTargetRange: 90
   missileSpeed: 64
   missileTurnSpeed: 330
+  missileChainPowerMultiplier: 2.8
   magnetSeconds: 8
-  magnetRadius: 22
-  magnetPullSpeed: 24
+  magnetRadius: 50
+  magnetPullSpeed: 120
   bulldozerSeconds: 8
   bulldozerScale: 2.3
-  gigantBombFuse: 1.5
-  gigantBombThrowSpeed: 38
-  gigantBombRadius: 30
+  gigantBombFuse: 6
+  gigantBombThrowSpeed: 90
+  gigantBombUpSpeed: 6
+  gigantBombRadius: 60
+  gigantBombImpulseMultiplier: 12
   highSpeedSeconds: 6
   highSpeedMultiplier: 2.2

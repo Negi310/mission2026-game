@@ -142,7 +142,7 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator GiantBombTravelsFartherAndExplodesAtTheShorterFuse()
+        public IEnumerator GiantBombTravelsFartherAndHasAFallbackForStuckFlights()
         {
             game.StartOrRestart(); game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
             foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
@@ -150,11 +150,15 @@ namespace TankTown.Tests
             game.Items.Receive(ItemKind.GigantBomb); game.Input.PulsePad(0);
             var bomb = Object.FindFirstObjectByType<GigantBomb>(); var bombBody = bomb.GetComponent<Rigidbody>();
             float speed = Vector3.Dot(bombBody.linearVelocity, Vector3.ProjectOnPlane(game.Tank.Muzzle.forward, Vector3.up).normalized);
-            Assert.That(speed, Is.GreaterThan(37)); Assert.That(game.Items.Remaining(ItemKind.GigantBomb), Is.EqualTo(1.5f));
+            Assert.That(speed, Is.GreaterThan(89)); Assert.That(game.Items.Remaining(ItemKind.GigantBomb), Is.EqualTo(6));
+            bombBody.position += Vector3.up * 80;
             Vector3 start = bombBody.position;
             yield return new WaitForSeconds(.6f);
-            Assert.That(Vector3.ProjectOnPlane(bombBody.position - start, Vector3.up).magnitude, Is.GreaterThan(18));
+            Assert.That(Vector3.ProjectOnPlane(bombBody.position - start, Vector3.up).magnitude, Is.GreaterThan(45));
             Assert.That(bomb.Detonated, Is.False);
+            bombBody.isKinematic = true;
+            yield return new WaitForSeconds(1);
+            Assert.That(bomb.Detonated, Is.False, "The old 1.5 second fuse must not interrupt a flight");
             game.TogglePause(); float remaining = game.Items.Remaining(ItemKind.GigantBomb);
             yield return new WaitForSecondsRealtime(.1f); Assert.That(game.Items.Remaining(ItemKind.GigantBomb), Is.EqualTo(remaining)); game.TogglePause();
             yield return new WaitForSeconds(remaining + .05f);

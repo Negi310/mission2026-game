@@ -19,6 +19,8 @@ namespace TankTown
         private SphereCollider solid;
         private TrailRenderer dropTrail;
         private bool unlockShown;
+        private bool attracted;
+        private float attractUntil;
         public void Initialize(TankTownGame owner, ItemKind kind, Material material, BlockBuilding building = null, DestructibleBlock floor = null)
         {
             game = owner; Kind = kind; SourceBuilding = building; SupportingFloor = floor;
@@ -52,6 +54,7 @@ namespace TankTown
         }
         private void FixedUpdate()
         {
+            if (attracted && Time.time > attractUntil) StopAttracting();
             if (dropTrail != null) dropTrail.emitting = !Collected && game.IsPlaying && DropBody.linearVelocity.sqrMagnitude > 1;
             if (SourceBuilding == null || Released || !game.IsPlaying) return;
             if (SupportingFloor != null && !SupportingFloor.Detached && SourceBuilding.DestroyedFraction < game.Settings.buildingRewardThreshold) return;
@@ -91,6 +94,28 @@ namespace TankTown
             gameObject.SetActive(false);
             return true;
         }
+        public void Attract(Vector3 target, float speed)
+        {
+            if (Collected || !Available || !game.IsPlaying || game.Tank.Respawning || game.Tank.Relocating) return;
+            // Float freed rewards through the rubble instead of fighting their fall velocity.
+            if (DropBody != null && !attracted)
+            {
+                DropBody.linearVelocity = Vector3.zero; DropBody.angularVelocity = Vector3.zero;
+                DropBody.isKinematic = true; solid.enabled = false; attracted = true;
+            }
+            attractUntil = Time.time + .08f;
+            Vector3 point = Vector3.MoveTowards(transform.position, target, speed * Time.deltaTime);
+            if (DropBody != null) DropBody.position = point;
+            transform.position = point;
+            if ((point - target).sqrMagnitude < 2.9f) Collect();
+        }
+        private void StopAttracting()
+        {
+            if (!attracted) return;
+            attracted = false; solid.enabled = true;
+            if (Released) { DropBody.isKinematic = false; DropBody.WakeUp(); }
+        }
+        private void OnDisable() => StopAttracting();
     }
 
     public sealed class ItemIcons

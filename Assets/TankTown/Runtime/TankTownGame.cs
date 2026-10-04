@@ -37,6 +37,7 @@ namespace TankTown
         public int DebrisExplosions { get; private set; }
         public int LongestChain { get; private set; }
         public int ExplosionGeneration { get; private set; }
+        internal float ExplosionPowerMultiplier { get; private set; } = 1;
         public Vector3 LastBeamImpact { get; private set; }
         public event Action<ItemKind> SpecialCollected;
         public event Action<int> ChainBurst;
@@ -322,26 +323,37 @@ namespace TankTown
             finally { ExplosionGeneration = previous; }
         }
 
-        internal void ChainBlast(Vector3 point, float radius, int generation, bool fuelTank = false, bool vehicle = false)
+        internal void ChainBlast(Vector3 point, float radius, int generation, bool fuelTank = false, bool vehicle = false, float powerMultiplier = 1)
         {
             if (!IsPlaying) return;
             ChainExplosions++;
             LongestChain = Mathf.Max(LongestChain, generation);
             ChainBurst?.Invoke(generation);
             int previous = ExplosionGeneration;
+            float previousPower = ExplosionPowerMultiplier;
             ExplosionGeneration = generation;
+            ExplosionPowerMultiplier = Mathf.Max(previousPower, powerMultiplier);
             try
             {
-                float impulse = Settings.blastImpulse * (fuelTank ? Settings.fuelImpulseMultiplier : vehicle ? Settings.carExplosionImpulseMultiplier : 1.35f);
-                DamageSphere(point, radius, impulse);
-                float visualRadius = radius * Settings.chainExplosionVisualScale;
+                float impulse = Settings.blastImpulse * (fuelTank ? Settings.fuelImpulseMultiplier : vehicle ? Settings.carExplosionImpulseMultiplier : 1.35f) * ExplosionPowerMultiplier;
+                float effectiveRadius = radius * Mathf.Sqrt(ExplosionPowerMultiplier);
+                DamageSphere(point, effectiveRadius, impulse);
+                float visualRadius = effectiveRadius * Settings.chainExplosionVisualScale;
                 if (fuelTank) Effects.FuelImpact(point, visualRadius);
                 else if (vehicle) Effects.CarImpact(point, visualRadius);
                 else Effects.Impact(point, visualRadius);
                 if (fuelTank) Sound.BigExplosion(point);
                 else Sound.Chain(point);
             }
-            finally { ExplosionGeneration = previous; }
+            finally { ExplosionGeneration = previous; ExplosionPowerMultiplier = previousPower; }
+        }
+
+        internal void MissileBlast(Vector3 point)
+        {
+            float previousPower = ExplosionPowerMultiplier;
+            ExplosionPowerMultiplier = Mathf.Max(previousPower, Settings.missileChainPowerMultiplier);
+            try { Blast(point, Stats.BlastRadius * 1.15f, Stats.BlastImpulse * 1.35f); }
+            finally { ExplosionPowerMultiplier = previousPower; }
         }
 
         public void Blast(Vector3 point, float radius, float impulse, DestructibleBlock directHit = null)
