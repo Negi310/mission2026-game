@@ -26,8 +26,10 @@ MonoBehaviour:
   rideHeight: 1
   cannonElevation: 4
   shotCooldown: 0.35
-  blastRadius: 4
+  blastRadius: 5.5
   blastImpulse: 12
+  blastBreakRadius: 1.25
+  blastDamageMultiplier: 1.4
   buildingDurability: 3
   fragmentSize: 3
   debrisImpactSpeed: 12

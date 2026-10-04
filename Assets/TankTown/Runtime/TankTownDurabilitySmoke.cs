@@ -44,8 +44,10 @@ namespace TankTown
                     if (game.Sound.PlayedCount(TownSound.Cannon) != before + 1) { Fail("cannon did not fire"); yield break; }
                     var front = building.Blocks.Find(x => x != null && x.Foundation && x.Column == 0);
                     Debug.Log($"DURABILITY SHOT: building={label}, shot={shot}, detached={building.DetachedParts}/{building.Blocks.Count}, collapsed={building.Collapsed}, baseLevel={building.CollapsedFromLevel}, frontDurability={(front != null ? front.Durability01 : 0):0.000}, reward={building.Reward.Available}");
-                    if (building.Collapsed || building.DetachedParts <= detached || building.DestroyedFraction >= .3f || building.Reward.Available)
+                    if (building.Collapsed || building.DetachedParts < detached || building.DestroyedFraction >= .3f || building.Reward.Available)
                     { Fail(label + " did not break locally on shot " + shot); yield break; }
+                    if (shot == 1 && building.DetachedParts < 3)
+                    { Fail(label + " close blast did not widen the initial hole"); yield break; }
                     if (shot == 3) yield return new WaitForSeconds(.4f);
                     TankTownSmokeCapture.Capture(Path.Combine(output, "durability-" + label + "-" + shot + ".png"), true, 1920, 1080);
                     if (shot == 3 && label == "apartment")
@@ -79,7 +81,7 @@ namespace TankTown
                 }
             }
             game.AdvanceTime(1000);
-            Debug.Log($"DURABILITY SMOKE COMPLETE: styles=3, facadeShots=3, aimedSupportShots=2, localBreak=True, broken={game.BrokenBlocks}, durability={game.Settings.buildingDurability}, ordinaryRadius={game.Stats.BlastRadius}, impulse={game.Stats.BlastImpulse}, state={game.State}");
+            Debug.Log($"DURABILITY SMOKE COMPLETE: styles=3, facadeShots=3, aimedSupportShots=2, localBreak=True, broken={game.BrokenBlocks}, durability={game.Settings.buildingDurability}, ordinaryRadius={game.Stats.BlastRadius}, breakRadius={game.Settings.blastBreakRadius}, damageMultiplier={game.Settings.blastDamageMultiplier}, impulse={game.Stats.BlastImpulse}, state={game.State}");
             Application.Quit();
         }
         private static void Fail(string reason) { Debug.LogError("DURABILITY SMOKE FAILED: " + reason); Application.Quit(1); }

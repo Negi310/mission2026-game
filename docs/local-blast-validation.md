@@ -1,5 +1,7 @@
 # 直撃1発と周囲のひびによる局所破壊
 
+この記録は爆風半径4の初回調整です。現行仕様は[局所破壊を強めた調整](stronger-local-blast-validation.md)を参照してください。
+
 2026-10-05。関連: [Issue #5](https://github.com/Negi310/mission2026-game/issues/5)。Unity 6000.3.19f1 / URP 17.3.0。
 
 ## 変更

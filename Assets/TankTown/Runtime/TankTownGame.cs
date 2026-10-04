@@ -294,6 +294,7 @@ namespace TankTown
             var buildings = new HashSet<BlockBuilding>();
             var distances = new Dictionary<DestructibleBlock, float>();
             float blastDamage = Mathf.Max(0, impulse) / Mathf.Max(.1f, Settings.blastImpulse);
+            float breakRadius = Mathf.Min(forceRadius * .5f, Settings.blastBreakRadius * forceRadius * .5f / Mathf.Max(.1f, Settings.blastRadius));
             // 複合Colliderは最も近い表面までの距離で一度だけ判定する。分離前に距離を確定する。
             foreach (var collider in colliders)
             {
@@ -311,11 +312,13 @@ namespace TankTown
                 var explosive = block.GetComponent<ChainExplosive>();
                 // A large damage radius must not bypass the tank's smaller ignition range.
                 if (isExplosion && explosive != null && !explosive.IgniteFromBlast(point)) continue;
-                if (isExplosion && block.Building != null && block != directHit)
+                bool closeBlast = distanceFalloff && blastDamage > 0 && breakRadius > 0 && target.Value <= breakRadius;
+                if (isExplosion && block.Building != null && block != directHit && !closeBlast)
                 {
                     // 燃料の誘爆・ギガント爆弾の範囲威力は維持し、通常の着弾だけを局所化する。
                     float falloff = distanceFalloff ? 1 - Mathf.Clamp01(target.Value / Mathf.Max(.01f, forceRadius * .5f)) : 1;
-                    if (block.DamageFromBlast(point, blastDamage * falloff, impulse * falloff, forceRadius)) count++;
+                    float damage = blastDamage * falloff * (distanceFalloff ? Settings.blastDamageMultiplier : 1);
+                    if (block.DamageFromBlast(point, damage, impulse * falloff, forceRadius)) count++;
                 }
                 else { block.Break(point, impulse, forceRadius); count++; }
                 if (block.Building != null) buildings.Add(block.Building);

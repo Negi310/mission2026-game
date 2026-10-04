@@ -305,7 +305,7 @@ namespace TankTown.Tests
             var building = game.World.Buildings[0];
             var pillar = building.Blocks.Find(x => x.Foundation && x.Column == 0);
             Assert.That(pillar.transform.localScale.x, Is.EqualTo(1.8f).Within(.01f));
-            game.Blast(pillar.transform.position + Vector3.right * 2);
+            game.Blast(pillar.transform.position + Vector3.right * 3);
             Assert.That(pillar.Detached, Is.False, "One facade hit must leave the supporting post standing");
             Assert.That(pillar.Durability01, Is.InRange(.67f, .99f), "A nearby blast must cause distance-dependent cracks");
             Assert.That(building.Blocks.Find(x => x.Foundation && x.Column == 1).Durability01, Is.EqualTo(1));
