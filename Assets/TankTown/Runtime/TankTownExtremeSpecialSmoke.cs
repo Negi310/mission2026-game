@@ -28,6 +28,11 @@ namespace TankTown
             output = Path.Combine(Application.dataPath, "..", "Captures"); Directory.CreateDirectory(output);
             yield return new WaitForSecondsRealtime(.6f);
             var game = FindFirstObjectByType<TankTownGame>(); game.StartOrRestart(); Isolate(game);
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-bomb-structure-check") >= 0)
+            {
+                yield return BombStructureCheck(game);
+                yield break;
+            }
             var upgrades = new TankPickup[4]; Vector3 origin = game.Tank.transform.position;
             for (int i = 0; i < upgrades.Length; i++)
             {
@@ -82,6 +87,41 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(.10f); Capture("specials-06-giant-ground-explosion");
             yield return new WaitForSecondsRealtime(.8f); Capture("specials-07-aftermath");
             Debug.Log($"EXTREME SPECIALS SMOKE COMPLETE: magnetRadius={game.Settings.magnetRadius}, pullSpeed={pullSpeed:0.0}, tankSpeed={tankSpeed:0.0}, upgrades=4, specialCollected=true, fuelPower={fuelPower:0.0}, carPower={carPower:0.0}, bombSpeed={speed:0.0}, earlyBombTravel={travel:0.0}, groundImpact={bomb.GroundImpact}, bombRadius={game.Settings.gigantBombRadius}, bombImpulse={game.Settings.gigantBombImpulseMultiplier}, broken={game.BrokenBlocks}, activeDebris={game.ActiveDebrisCount}, state={game.State}");
+            Application.Quit(0);
+        }
+        private IEnumerator BombStructureCheck(TankTownGame game)
+        {
+            var building = game.World.Buildings[0];
+            var wall = building.Blocks.First(x => x.Kind == BuildingPart.Wall && x.Level == Mathf.Min(1, building.Floors - 1) && x.Column == 0);
+            Vector3 wallPoint = wall.GetComponent<Collider>().bounds.center;
+            Vector3 outward = Vector3.ProjectOnPlane(wallPoint - building.transform.position, Vector3.up).normalized;
+            if (outward.sqrMagnitude < .01f) outward = Vector3.forward;
+            Vector3 launchPoint = wallPoint + outward * 12;
+            game.CameraRig.enabled = false;
+            Camera.main.transform.position = launchPoint + outward * 24 + Vector3.up * 13;
+            Camera.main.transform.LookAt(wallPoint);
+            game.Tank.Warp(new Pose(launchPoint + outward * 8, Quaternion.LookRotation(-outward, Vector3.up)));
+            Freeze(game);
+            game.Items.Receive(ItemKind.GigantBomb); game.Input.PulsePad(0);
+            var bomb = FindFirstObjectByType<GigantBomb>();
+            if (bomb == null) { Fail("could not spawn giant bomb for structure contact"); yield break; }
+            var body = bomb.GetComponent<Rigidbody>();
+            body.position = launchPoint; body.linearVelocity = -outward * game.Settings.gigantBombThrowSpeed;
+            Physics.SyncTransforms();
+            TankTownSmokeCapture.Capture(Path.Combine(output, "bomb-structure-before.png"), true, 1920, 1080);
+            float started = Time.realtimeSinceStartup;
+            while (bomb != null && !bomb.Detonated && Time.realtimeSinceStartup - started < 1.2f) yield return null;
+            bool detonated = bomb.Detonated, structureImpact = bomb.StructureImpact, groundImpact = bomb.GroundImpact;
+            int contacts = bomb.Contacts;
+            float impactSeconds = Time.realtimeSinceStartup - started;
+            if (!detonated || !structureImpact || groundImpact || contacts != 1 || game.Items.Weapon != ItemKind.None)
+            {
+                Fail($"structure contact did not detonate correctly: detonated={detonated}, structure={structureImpact}, ground={groundImpact}, contacts={contacts}");
+                yield break;
+            }
+            yield return new WaitForSecondsRealtime(.10f);
+            TankTownSmokeCapture.Capture(Path.Combine(output, "bomb-structure-explosion.png"), true, 1920, 1080);
+            Debug.Log($"BOMB STRUCTURE SMOKE COMPLETE: impactSeconds={impactSeconds:0.000}, kind={wall.Kind}, groundImpact={groundImpact}, structureImpact={structureImpact}, contacts={contacts}, radius={game.Settings.gigantBombRadius}, impulse={game.Settings.gigantBombImpulseMultiplier}, broken={game.BrokenBlocks}, state={game.State}");
             Application.Quit(0);
         }
         private static IEnumerator FreshCity(TankTownGame game) { game.TogglePause(); game.ReturnToTitle(); yield return null; game = FindFirstObjectByType<TankTownGame>(); game.StartOrRestart(); yield return null; }

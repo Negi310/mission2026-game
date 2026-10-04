@@ -122,11 +122,11 @@ namespace TankTown
         public int Contacts { get; private set; }
         public bool Detonated { get; private set; }
         public bool GroundImpact { get; private set; }
+        public bool StructureImpact { get; private set; }
         public Vector3 DetonationPoint { get; private set; }
         private TankTownGame game;
         private TankItems owner;
         private Rigidbody body;
-        private float nextContact;
         private Renderer visual;
         private MaterialPropertyBlock properties;
         public void Initialize(TankTownGame game, TankItems owner)
@@ -162,17 +162,15 @@ namespace TankTown
                 body.position = p; body.linearVelocity = Vector3.ProjectOnPlane(body.linearVelocity, Vector3.up) * .1f + Vector3.up * body.linearVelocity.y;
             }
         }
-        private void OnCollisionEnter(Collision hit) => Crush(hit);
-        private void OnCollisionStay(Collision hit) => Crush(hit);
-        private void Crush(Collision hit)
+        private void OnCollisionEnter(Collision hit) => Impact(hit);
+        private void OnCollisionStay(Collision hit) => Impact(hit);
+        private void Impact(Collision hit)
         {
             if (!game.IsPlaying || Detonated) return;
             if (hit.collider.gameObject.layer == TownPhysics.GroundLayer) { GroundImpact = true; Detonate(); return; }
-            if (Time.time < nextContact || hit.collider.GetComponentInParent<DestructibleBlock>() == null) return;
-            nextContact = Time.time + .12f; Contacts++;
-            var point = hit.GetContact(0).point;
-            int count = game.DamageSphere(point, 12, game.Stats.BlastImpulse * 2.5f, false);
-            if (count > 0) game.Effects.EnergyImpact(point, new Color(1, .52f, .08f));
+            var block = hit.collider.GetComponentInParent<DestructibleBlock>();
+            if (block == null || block.Detached) return;
+            Contacts++; StructureImpact = true; Detonate();
         }
         public void Detonate()
         {

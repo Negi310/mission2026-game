@@ -46,6 +46,29 @@ namespace TankTown.Tests
             var block = root.AddComponent<DestructibleBlock>(); block.Initialize(game); return block;
         }
         [UnityTest]
+        public IEnumerator BombExplodesOnWallsPillarsAndSlabsBeforeGroundContact()
+        {
+            int index = 0;
+            foreach (var kind in new[] { BuildingPart.Wall, BuildingPart.Pillar, BuildingPart.Slab })
+            {
+                Assert.That(game.Items.Receive(ItemKind.GigantBomb), Is.True);
+                Assert.That(game.Items.UseHeld(), Is.True);
+                yield return null;
+                var bomb = Object.FindFirstObjectByType<GigantBomb>(); var body = bomb.GetComponent<Rigidbody>();
+                body.position = new Vector3(0, 80 + index++ * 100, -65); body.linearVelocity = Vector3.forward * 90;
+                var root = game.World.Box("Bomb contact " + kind, body.position + Vector3.forward * 12, new Vector3(9, 12, 1), game.World.ShotMaterial);
+                var target = root.AddComponent<DestructibleBlock>(); target.Kind = kind; target.Initialize(game);
+                var remote = Witness(body.position + Vector3.right * 45); Physics.SyncTransforms();
+                for (int i = 0; i < 20 && !bomb.Detonated; i++) yield return new WaitForFixedUpdate();
+                Assert.That(bomb.Detonated, Is.True, kind + " must detonate on the first physical contact");
+                Assert.That(bomb.StructureImpact, Is.True); Assert.That(bomb.GroundImpact, Is.False);
+                Assert.That(bomb.Contacts, Is.EqualTo(1), "Multiple colliders must not detonate the bomb twice");
+                Assert.That(target.Detached && remote.Detached, Is.True);
+                Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.None));
+                yield return null;
+            }
+        }
+        [UnityTest]
         public IEnumerator MagnetCollectsMultipleKindsWhileDrivingFasterAndLeavesOutsideItsRadius()
         {
             Vector3 origin = game.Tank.transform.position;
