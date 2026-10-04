@@ -14,6 +14,9 @@ namespace TankTown
         private Transform canvas;
         private GameObject gameplay, titleScreen;
         private TankTownTitleScreen titleView;
+        internal TankTownResultsScreen ResultsView { get; private set; }
+        private Text countdown;
+        private CanvasGroup countdownGroup;
         private Text timer, score, notice, noticeCaption, cardTitle, cardBody, buttonText;
         private ToyHudStyle style;
         private Image fill;
@@ -27,9 +30,7 @@ namespace TankTown
         private GameObject activePanel;
         private Image heldIcon;
         private float pickupUntil;
-        private float goUntil;
         private TankTownChainDisplay chainDisplay;
-        private RoundState previousState = RoundState.Ready;
         private GameObject card, noticePanel, modalShade;
         private readonly Color ink = new Color(.08f, .17f, .22f);
         private readonly Color yellow = new Color(.81f, 1, .14f);
@@ -170,8 +171,20 @@ namespace TankTown
             back.AddComponent<Button>().onClick.AddListener(game.ReturnToTitle);
             var backLabel = Label(back.transform, "タイトルへ", new Vector2(0, -5), new Vector2(550, 34), 19, Color.white);
             backLabel.alignment = TextAnchor.MiddleCenter;
-            titleView = new TankTownTitleScreen(game, canvas, font, style);
+            titleView = new TankTownTitleScreen(game, canvas, font, displayFont, style);
             titleScreen = titleView.Root;
+            ResultsView = new TankTownResultsScreen(game, canvas, font, displayFont, style);
+            var countdownRoot = Panel("Start countdown", canvas, Vector2.zero, new Vector2(540, 232), Color.clear);
+            var countdownRect = (RectTransform)countdownRoot.transform;
+            countdownRect.anchorMin = countdownRect.anchorMax = countdownRect.pivot = Vector2.one * .5f;
+            countdownRoot.GetComponent<Image>().raycastTarget = false;
+            countdownGroup = countdownRoot.AddComponent<CanvasGroup>();
+            countdownGroup.blocksRaycasts = false;
+            countdown = Label(countdownRoot.transform, "", Vector2.zero, new Vector2(540, 232), 132, yellow);
+            countdown.gameObject.name = "Countdown number";
+            countdown.font = displayFont; countdown.fontStyle = FontStyle.Bold; countdown.alignment = TextAnchor.MiddleCenter;
+            TextOutline(countdown, ink, 4);
+            viewFade.transform.SetAsLastSibling();
             gameplay.SetActive(game.State != RoundState.Ready);
         }
 
@@ -223,9 +236,13 @@ namespace TankTown
         {
             titleScreen.SetActive(game.State == RoundState.Ready);
             if (game.State == RoundState.Ready) titleView.Fit();
-            gameplay.SetActive(game.State != RoundState.Ready);
-            if (game.IsPlaying && previousState == RoundState.Ready) goUntil = Time.time + .85f;
-            previousState = game.State;
+            gameplay.SetActive(game.State != RoundState.Ready && game.State != RoundState.Results && game.State != RoundState.Restarting);
+            ResultsView.Tick(Time.unscaledDeltaTime);
+            countdown.text = game.Presentation.Countdown;
+            float beat = Mathf.Clamp01(game.Presentation.BeatProgress);
+            countdownGroup.alpha = countdown.text.Length == 0 ? 0 : Mathf.Min(1, (1 - beat) * 5);
+            countdown.rectTransform.localScale = Vector3.one * Mathf.Lerp(1.22f, 1, Mathf.Min(1, beat * 3));
+            countdown.color = countdown.text == "GO!" ? yellow : Color.white;
             int seconds = Mathf.CeilToInt(game.Remaining);
             timer.text = $"{seconds / 60:00}:{seconds % 60:00}";
             timer.color = seconds <= 20 ? new Color(1, .55f, .35f) : Color.white;
@@ -236,12 +253,11 @@ namespace TankTown
             bool respawning = game.Tank.Respawning;
             notice.text = respawning ? "ドカーン！"
                 : edge ? "海が見えたら、街の内側へ曲がろう！"
-                : Time.time < goUntil && !chainDisplay.ActiveSequence ? "GO！" : "";
+                : "";
             chainDisplay.SetObscured(respawning || edge);
             notice.color = respawning ? new Color(1, .68f, .18f) : Color.white;
-            bool celebrate = Time.time < goUntil && !chainDisplay.ActiveSequence && !edge && !respawning;
-            notice.fontSize = respawning ? 34 : celebrate ? 35 : 22;
-            notice.font = celebrate ? displayFont : font;
+            notice.fontSize = respawning ? 34 : 22;
+            notice.font = font;
             noticeCaption.text = respawning ? $"安全な場所へもどるよ  −{game.Settings.respawnPenalty:0.#}秒" : "連鎖爆破！";
             noticeCaption.color = respawning ? Color.white : yellow;
             noticeCaption.gameObject.SetActive(respawning);
@@ -253,26 +269,13 @@ namespace TankTown
             }
             pickupPanel.SetActive(game.IsPlaying && !game.Tank.Respawning && Time.time < pickupUntil);
             aim.gameObject.SetActive(game.IsPlaying && !game.Tank.Respawning);
-            card.SetActive(game.State != RoundState.Playing);
-            modalShade.SetActive(game.State != RoundState.Playing);
-            if (game.State == RoundState.Ready)
-            {
-                cardTitle.text = "街を、バラバラに！";
-                cardBody.text = "ハンドルで砲塔が向く。車体がついてくる。\nたたいて砲撃！ 武器アイテムも砲撃で発動！\n磁石・ブルドーザー・高速は取ると発動。\n街を走って、バラバラにしよう！";
-                buttonText.text = "あそぶ   →   ENTER";
-            }
-            else if (game.State == RoundState.Paused)
+            card.SetActive(game.State == RoundState.Paused);
+            modalShade.SetActive(game.State == RoundState.Paused);
+            if (game.State == RoundState.Paused)
             {
                 cardTitle.text = "ひとやすみ";
                 cardBody.text = "準備ができたら、もういちど出発！\n時間は止まっているよ。";
-                buttonText.text = "つづける   →   ENTER";
-            }
-            else if (game.State == RoundState.Results)
-            {
-                cardTitle.text = $"{game.Destruction:0.0}%  こわせた！";
-                string rank = game.Destruction >= 85 ? "まちのはかい王" : game.Destruction >= 60 ? "ビルクラッシャー" : game.Destruction >= 35 ? "はかいチャレンジャー" : "はかいルーキー";
-                cardBody.text = $"称号：{rank}\n{game.BrokenBlocks} パーツ破壊 ・ 誘爆 {game.ChainExplosions + game.DebrisExplosions}回\n最高 {game.LongestChain}段の連鎖 ・ リスポーン {game.Crashes}回\n次はどの道を走ろう？";
-                buttonText.text = "もういちど   →   ENTER";
+                buttonText.text = "つづける   →   SPACE";
             }
             var shown = game.Items.Held != ItemKind.None ? game.Items.Held : game.Items.Active;
             heldIcon.gameObject.SetActive(shown != ItemKind.None);
@@ -306,7 +309,7 @@ namespace TankTown
         }
         private void LateUpdate()
         {
-            viewFade.color = new Color(0, 0, 0, game.CameraRig.FadeOpacity);
+            viewFade.color = new Color(.02f, .065f, .10f, Mathf.Max(game.CameraRig.FadeOpacity, game.Presentation.CoverOpacity));
             aim.enabled = game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
             // Project the actual muzzle direction after the comfort camera has moved.
             if (!game.IsPlaying || Camera.main == null) return;

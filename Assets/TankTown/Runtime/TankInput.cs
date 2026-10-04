@@ -10,6 +10,7 @@ namespace TankTown
         public event Action<int> PadPressed;
         public event Action StartPressed;
         public event Action PausePressed;
+        public event Action HelpPressed;
         public float Steering { get; private set; }
         public bool useHardware;
         public TankTownSettings settings;
@@ -49,6 +50,7 @@ namespace TankTown
                 if (keyboard.kKey.wasPressedThisFrame) PulsePad(1);
                 if (keyboard.enterKey.wasPressedThisFrame) StartPressed?.Invoke();
                 if (keyboard.escapeKey.wasPressedThisFrame) PausePressed?.Invoke();
+                if (keyboard.hKey.wasPressedThisFrame) HelpPressed?.Invoke();
             }
             var pad = Gamepad.current;
             if (pad != null)

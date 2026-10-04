@@ -12,8 +12,18 @@ namespace TankTown.Tests
     public sealed class TownGenerationTestSeed
     {
         private int? previous;
-        [OneTimeSetUp] public void SetSeed() { previous = TankTownGame.GenerationSeedOverride; TankTownGame.GenerationSeedOverride = 2026; }
-        [OneTimeTearDown] public void RestoreSeed() { TankTownGame.GenerationSeedOverride = previous; }
+        private bool previousIntro, previousRecords;
+        [OneTimeSetUp] public void SetSeed()
+        {
+            previous = TankTownGame.GenerationSeedOverride; TankTownGame.GenerationSeedOverride = 2026;
+            previousIntro = TankTownGame.SkipIntroForTests; TankTownGame.SkipIntroForTests = true;
+            previousRecords = TankTownGame.DisableRecordSavingForTests; TankTownGame.DisableRecordSavingForTests = true;
+        }
+        [OneTimeTearDown] public void RestoreSeed()
+        {
+            TankTownGame.GenerationSeedOverride = previous;
+            TankTownGame.SkipIntroForTests = previousIntro; TankTownGame.DisableRecordSavingForTests = previousRecords;
+        }
     }
 
     public sealed class TankTownGenerationTests

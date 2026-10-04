@@ -116,6 +116,7 @@ namespace TankTown
                 sparks[i].color = new Color(accent.r, accent.g, accent.b, Mathf.Clamp01(1 - age / .45f));
             }
         }
+        private void OnDisable() { if (group != null) group.alpha = 0; }
         private void OnDestroy() { if (game != null) game.ChainBurst -= Show; }
     }
 }

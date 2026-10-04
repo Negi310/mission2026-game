@@ -10,6 +10,17 @@ namespace TankTown
     // Opt-in visual smoke run for the actual Windows player, not a mock-up.
     public sealed class TankTownSmokeCapture : MonoBehaviour
     {
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void ConfigureLegacyDiagnostics()
+        {
+            foreach (string argument in Environment.GetCommandLineArgs())
+                if (argument.StartsWith("--tank-town-", StringComparison.Ordinal) && argument.EndsWith("-smoke", StringComparison.Ordinal))
+                {
+                    TankTownGame.DisableRecordSavingForTests = true;
+                    if (argument != "--tank-town-round-flow-smoke") TankTownGame.SkipIntroForTests = true;
+                }
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {

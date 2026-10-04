@@ -7,13 +7,17 @@ using UnityEngine.Rendering.Universal;
 
 namespace TankTown
 {
-    public enum RoundState { Ready, Playing, Paused, Results }
+    public enum RoundState { Ready, Playing, Paused, Results, Starting, Restarting }
 
     public sealed class TankTownGame : MonoBehaviour
     {
         public TankTownSettings Settings { get; private set; }
         public int CitySeed { get; private set; }
         internal static int? GenerationSeedOverride;
+        internal static bool SkipIntroForTests;
+        internal static bool DisableRecordSavingForTests;
+        internal TankTownRoundFlow Presentation { get; private set; }
+        public bool HowToOpen { get; private set; }
         public TankInput Input { get; private set; }
         public TankStats Stats { get; private set; }
         public TankTownEffects Effects { get; private set; }
@@ -36,6 +40,11 @@ namespace TankTown
         public event Action<ItemKind> SpecialCollected;
         public event Action<int> ChainBurst;
         public float Destruction => TotalBlocks == 0 ? 0 : 100f * BrokenBlocks / TotalBlocks;
+        // Generated towns have different part counts; equal destruction earns equal points.
+        public int RoundScore => Mathf.RoundToInt(Mathf.Clamp(Destruction, 0, 100) * 1000);
+        public int BestScore { get; private set; }
+        public bool NewBest { get; private set; }
+        private const string BestScoreKey = "TankTown.BestScore.v1";
         private readonly List<FlyingDebris> debris = new List<FlyingDebris>();
         private System.Random debrisRandom;
         internal int ActiveDebrisCount => debris.Count;
@@ -58,6 +67,7 @@ namespace TankTown
             // 消去の乱数を物理演出のUnityEngine.Randomから独立させる。
             debrisRandom = new System.Random(unchecked(CitySeed ^ 0x5D3B17));
             Remaining = Settings.roundSeconds;
+            BestScore = DisableRecordSavingForTests ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(BestScoreKey, 0), 0, 100000);
             Stats = new TankStats(Settings);
             Effects = gameObject.AddComponent<TankTownEffects>();
             var soundRoot = new GameObject("Sound effects");
@@ -85,14 +95,22 @@ namespace TankTown
             Input.PadPressed += HandlePad;
             Input.StartPressed += StartOrRestart;
             Input.PausePressed += TogglePause;
+            Input.HelpPressed += ToggleHowTo;
             SetupView();
             speaker = gameObject.AddComponent<AudioSource>();
             speaker.spatialBlend = 0;
             speaker.playOnAwake = false;
+            Presentation = new TankTownRoundFlow(this, CameraRig.GetComponent<Camera>());
             gameObject.AddComponent<TankTownHUD>().Initialize(this);
             CameraRig.Paused = true;
             Time.timeScale = 0;
-            if (playAfterReload) { playAfterReload = false; StartOrRestart(); }
+            if (playAfterReload)
+            {
+                playAfterReload = false;
+                State = RoundState.Starting;
+                Presentation.BeginStart(true);
+                if (SkipIntroForTests) FinishIntro();
+            }
         }
 
         private int ResolveCitySeed()
@@ -105,8 +123,8 @@ namespace TankTown
 
         private void HandlePad(int pad)
         {
-            if (State == RoundState.Ready) StartOrRestart();
-            else Tank.Fire(pad);
+            if (State == RoundState.Ready || State == RoundState.Results || State == RoundState.Paused) StartOrRestart();
+            else if (IsPlaying) Tank.Fire(pad);
         }
 
         private void SetupView()
@@ -162,15 +180,44 @@ namespace TankTown
 
         public void StartOrRestart()
         {
-            if (State == RoundState.Ready) { State = RoundState.Playing; CameraRig.Paused = false; Time.timeScale = 1; }
+            if (State == RoundState.Ready)
+            {
+                HowToOpen = false;
+                State = RoundState.Starting;
+                Presentation.BeginStart(false);
+                if (SkipIntroForTests) FinishIntro();
+            }
             else if (State == RoundState.Paused) TogglePause();
             else if (State == RoundState.Results)
             {
-                playAfterReload = true;
-                Time.timeScale = 1;
-                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+                State = RoundState.Restarting;
+                if (SkipIntroForTests) ReloadForReplay();
+                else Presentation.BeginReplay();
             }
         }
+
+        internal void FinishIntro()
+        {
+            Presentation.UsePlayCamera();
+            State = RoundState.Playing;
+            CameraRig.Paused = false;
+            Time.timeScale = 1;
+        }
+
+        internal void ReloadForReplay()
+        {
+            playAfterReload = true;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        internal void SetOverviewShadows(bool overview)
+        {
+            if (toyPipeline != null) toyPipeline.shadowDistance = overview ? 430 : 95;
+            RenderSettings.fogStartDistance = overview ? 430 : 160;
+            RenderSettings.fogEndDistance = overview ? 700 : 410;
+        }
+
+        public void ToggleHowTo() { if (State == RoundState.Ready) HowToOpen = !HowToOpen; }
 
         public void ReturnToTitle()
         {
@@ -182,17 +229,30 @@ namespace TankTown
 
         public void TogglePause()
         {
+            if (State == RoundState.Ready && HowToOpen) { HowToOpen = false; return; }
             if (State == RoundState.Playing) { State = RoundState.Paused; CameraRig.Paused = true; Sound.SetPaused(true); speaker.Pause(); Time.timeScale = 0; }
             else if (State == RoundState.Paused) { State = RoundState.Playing; CameraRig.Paused = false; Sound.SetPaused(false); speaker.UnPause(); Time.timeScale = 1; }
         }
 
         private void OnApplicationFocus(bool focus) { if (!focus && IsPlaying) TogglePause(); }
-        private void Update() { if (IsPlaying) AdvanceTime(Time.deltaTime); }
+        private void Update()
+        {
+            Presentation.Tick(Time.unscaledDeltaTime);
+            if (IsPlaying) AdvanceTime(Time.deltaTime);
+        }
+        private void LateUpdate() => Presentation.MoveOverview(Time.unscaledDeltaTime);
         public void AdvanceTime(float seconds)
         {
             if (!IsPlaying) return;
             Remaining = Mathf.Max(0, Remaining - Mathf.Max(0, seconds));
-            if (Remaining <= 0) { State = RoundState.Results; CameraRig.CancelTransition(); CameraRig.Paused = true; Items.FinishRound(); Sound.StopAll(); speaker.Stop(); Time.timeScale = 0; }
+            if (Remaining <= 0)
+            {
+                State = RoundState.Results; CameraRig.CancelTransition(); CameraRig.Paused = true;
+                Items.FinishRound(); Sound.StopAll(); speaker.Stop(); Time.timeScale = 0;
+                NewBest = RoundScore > BestScore;
+                BestScore = Mathf.Max(BestScore, RoundScore);
+                if (NewBest && !DisableRecordSavingForTests) { PlayerPrefs.SetInt(BestScoreKey, BestScore); PlayerPrefs.Save(); }
+            }
         }
         public void RegisterBlock() => TotalBlocks++;
         internal void ReportSpecial(ItemKind kind) => SpecialCollected?.Invoke(kind);
