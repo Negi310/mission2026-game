@@ -23,11 +23,12 @@ namespace TankTown
         [Range(0, 10)] public float cannonElevation = 4;
         [Min(0)] public float shotCooldown = 0.35f;
         [Min(1)] public float blastRadius = 6.5f;
-        [Min(0)] public float blastImpulse = 32;
+        [Min(0)] public float blastImpulse = 16;
         [Header("Debris destruction")]
         [Min(1)] public float fragmentSize = 3;
         [Min(1)] public float debrisImpactSpeed = 12;
         [Min(.5f)] public float debrisBlastRadius = 3.5f;
+        [Range(0, 1)] public float debrisImpulseMultiplier = .5f;
         [Range(1, 6)] public int debrisChainLimit = 4;
         [Header("Fuel tanks")]
         [Min(.1f)] public float fuelIgnitionDistance = 3;

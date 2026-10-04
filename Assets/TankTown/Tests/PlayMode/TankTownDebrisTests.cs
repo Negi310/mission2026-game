@@ -71,17 +71,17 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator StrongerExplosionActuallyLaunchesDebrisFaster()
+        public IEnumerator ReducedExplosionStillScattersDebrisButSlowerThanBefore()
         {
             var old = Block("Previous impulse", new Vector3(180, 12, 0), Vector3.one);
-            var current = Block("Stronger impulse", new Vector3(180, 12, 15), Vector3.one);
-            old.Break(old.transform.position - Vector3.right * 1.5f, 20);
+            var current = Block("Reduced impulse", new Vector3(180, 12, 15), Vector3.one);
+            old.Break(old.transform.position - Vector3.right * 1.5f, 32);
             current.Break(current.transform.position - Vector3.right * 1.5f, game.Stats.BlastImpulse);
             var oldBody = old.GetComponent<Rigidbody>(); var newBody = current.GetComponent<Rigidbody>();
             oldBody.useGravity = newBody.useGravity = false;
             yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
-            Assert.That(newBody.linearVelocity.magnitude, Is.GreaterThan(oldBody.linearVelocity.magnitude * 1.4f));
-            Assert.That(newBody.linearVelocity.magnitude, Is.GreaterThan(30));
+            Assert.That(newBody.linearVelocity.magnitude, Is.LessThan(oldBody.linearVelocity.magnitude * .6f));
+            Assert.That(newBody.linearVelocity.magnitude, Is.GreaterThan(6), "A weaker shot must still visibly scatter debris");
         }
 
         [UnityTest]

@@ -217,7 +217,7 @@ namespace TankTown
             ExplosionGeneration = generation;
             try
             {
-                int broken = DamageSphere(point, Settings.debrisBlastRadius, Stats.BlastImpulse * .9f);
+                int broken = DamageSphere(point, Settings.debrisBlastRadius, Stats.BlastImpulse * Settings.debrisImpulseMultiplier);
                 if (broken == 0) return false;
                 debrisBurstsInWindow++; DebrisExplosions++;
                 LongestChain = Mathf.Max(LongestChain, generation);
