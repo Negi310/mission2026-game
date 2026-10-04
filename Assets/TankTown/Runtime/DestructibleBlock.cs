@@ -114,13 +114,15 @@ namespace TankTown
             body.AddTorque(Random.insideUnitSphere * impulse * 0.3f, ForceMode.Impulse);
             // A primed car/tank must finish its short fuse even when a huge collapse
             // evicts ordinary debris. It destroys itself on detonation after 0.18s.
+            float lifetime = game.Settings.debrisLifetime;
             if (explosive == null || !explosive.Primed)
             {
+                lifetime = game.NextDebrisLifetime();
                 piece.AddComponent<FlyingDebris>().Initialize(game, this);
-                piece.AddComponent<DebrisFade>().Initialize(game.Settings.debrisLifetime);
+                piece.AddComponent<DebrisFade>().Initialize(lifetime);
                 game.TrackDebris(piece);
             }
-            Destroy(piece, game.Settings.debrisLifetime);
+            Destroy(piece, lifetime);
         }
 
         internal void TipDebris(Vector3 direction)
@@ -140,6 +142,7 @@ namespace TankTown
         private Renderer[] debrisRenderers;
         private MaterialPropertyBlock debrisProperties;
         private float debrisBornAt, debrisLifetime;
+        internal float Lifetime => debrisLifetime;
         private static readonly int DebrisVisibilityId = Shader.PropertyToID("_DebrisVisibility");
 
         public void Initialize(float lifetime)

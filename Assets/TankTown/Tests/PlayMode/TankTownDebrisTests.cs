@@ -64,8 +64,9 @@ namespace TankTown.Tests
             Assert.That(game.TotalBlocks, Is.EqualTo(total)); Assert.That(game.BrokenBlocks, Is.EqualTo(broken + 1));
             game.TogglePause(); yield return new WaitForSecondsRealtime(.1f);
             Assert.That(pieces.All(x => x != null), Is.True);
-            game.TogglePause(); yield return new WaitForSeconds(game.Settings.debrisLifetime + .1f);
+            game.TogglePause(); yield return new WaitForSeconds(game.Settings.debrisLifetime + game.Settings.debrisLifetimeSpread + .1f);
             Assert.That(pieces.All(x => x == null), Is.True, "Each independent piece must be cleaned up");
+            Assert.That(game.ActiveDebrisCount, Is.Zero, "Expired pieces must release their tracked slots");
             Assert.That(game.BrokenBlocks, Is.EqualTo(broken + 1));
         }
 
@@ -211,6 +212,54 @@ namespace TankTown.Tests
             game.TogglePause(); Vector3 position = next.position; int explosions = game.DebrisExplosions;
             yield return new WaitForSecondsRealtime(.12f);
             Assert.That(next.position, Is.EqualTo(position)); Assert.That(game.DebrisExplosions, Is.EqualTo(explosions));
+        }
+
+        [UnityTest]
+        public IEnumerator RandomBudgetRemovalKeepsDebrisFromOldAndNewGroups()
+        {
+            int originalLimit = game.Settings.maxDebris;
+            game.Settings.maxDebris = 64;
+            try
+            {
+                var pieces = new System.Collections.Generic.List<DestructibleBlock>();
+                for (int i = 0; i < 256; i++)
+                {
+                    var piece = Block("Random cleanup " + i, new Vector3(180 + i % 16 * 2, 18, i / 16 * 2), Vector3.one);
+                    piece.Break(piece.transform.position, 0);
+                    piece.GetComponent<Rigidbody>().useGravity = false;
+                    pieces.Add(piece);
+                }
+                Assert.That(game.ActiveDebrisCount, Is.EqualTo(64));
+                Assert.That(pieces.Take(128).Count(x => x.gameObject.activeSelf), Is.GreaterThan(0), "Older groups must not disappear as a whole");
+                Assert.That(pieces.Skip(128).Count(x => x.gameObject.activeSelf), Is.GreaterThan(0));
+                yield return null;
+                Assert.That(Object.FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length, Is.EqualTo(64));
+            }
+            finally { game.Settings.maxDebris = originalLimit; }
+        }
+
+        [UnityTest]
+        public IEnumerator SimultaneousDebrisExpiresInStagesAndFreesEverySlot()
+        {
+            var pieces = new System.Collections.Generic.List<DestructibleBlock>();
+            var lifetimes = new System.Collections.Generic.List<float>();
+            for (int i = 0; i < 32; i++)
+            {
+                var piece = Block("Staggered cleanup " + i, new Vector3(180, 18, i * 2), Vector3.one);
+                piece.Break(piece.transform.position, 0);
+                piece.GetComponent<Rigidbody>().useGravity = false;
+                pieces.Add(piece); lifetimes.Add(piece.GetComponent<DebrisFade>().Lifetime);
+            }
+            Assert.That(lifetimes.Min(), Is.GreaterThanOrEqualTo(game.Settings.debrisLifetime));
+            Assert.That(lifetimes.Max(), Is.LessThanOrEqualTo(game.Settings.debrisLifetime + game.Settings.debrisLifetimeSpread));
+            Assert.That(lifetimes.Max() - lifetimes.Min(), Is.GreaterThan(game.Settings.debrisLifetimeSpread * .5f));
+            yield return new WaitForSeconds(game.Settings.debrisLifetime + game.Settings.debrisLifetimeSpread * .5f);
+            int remaining = pieces.Count(x => x != null);
+            Assert.That(remaining, Is.InRange(1, 31), "A simultaneous burst must disappear in stages");
+            Assert.That(game.ActiveDebrisCount, Is.EqualTo(remaining));
+            yield return new WaitForSeconds(game.Settings.debrisLifetimeSpread * .5f + .15f);
+            Assert.That(pieces.All(x => x == null), Is.True);
+            Assert.That(game.ActiveDebrisCount, Is.Zero);
         }
 
         [UnityTest]

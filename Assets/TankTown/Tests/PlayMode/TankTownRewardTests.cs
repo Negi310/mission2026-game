@@ -168,7 +168,7 @@ namespace TankTown.Tests
             Assert.That(game.World.Buildings[0].DetachedParts, Is.GreaterThan(0));
             // 新しい破片の衝突連鎖が収束した後に、重複加点がないことを確認する。
             float settledAt = Time.time;
-            while (Object.FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length > 0 && Time.time - settledAt < (game.Settings.debrisChainLimit + 1) * game.Settings.debrisLifetime + 1)
+            while (Object.FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length > 0 && Time.time - settledAt < (game.Settings.debrisChainLimit + 1) * (game.Settings.debrisLifetime + game.Settings.debrisLifetimeSpread) + 1)
                 yield return null;
             Assert.That(Object.FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length, Is.Zero, "The debris chain must finish and clean up");
             int score = game.BrokenBlocks, explosions = game.ChainExplosions;

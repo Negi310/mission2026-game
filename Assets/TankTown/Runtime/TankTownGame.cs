@@ -32,7 +32,9 @@ namespace TankTown
         public event Action<ItemKind> SpecialCollected;
         public event Action<int> ChainBurst;
         public float Destruction => TotalBlocks == 0 ? 0 : 100f * BrokenBlocks / TotalBlocks;
-        private readonly Queue<GameObject> debris = new Queue<GameObject>();
+        private readonly List<FlyingDebris> debris = new List<FlyingDebris>();
+        private System.Random debrisRandom;
+        internal int ActiveDebrisCount => debris.Count;
         private readonly List<AudioClip> clips = new List<AudioClip>();
         private AudioSource speaker;
         private bool ownedSettings, oldDebrisIgnore, oldTankIgnore, oldRewardIgnore;
@@ -47,6 +49,8 @@ namespace TankTown
             Time.timeScale = 1;
             Settings = Resources.Load<TankTownSettings>("TankTownSettings");
             if (Settings == null) { Settings = ScriptableObject.CreateInstance<TankTownSettings>(); ownedSettings = true; }
+            // 消去の乱数を物理演出のUnityEngine.Randomから独立させる。
+            debrisRandom = new System.Random(unchecked(Settings.citySeed ^ 0x5D3B17));
             Remaining = Settings.roundSeconds;
             Stats = new TankStats(Settings);
             Effects = gameObject.AddComponent<TankTownEffects>();
@@ -173,13 +177,33 @@ namespace TankTown
         public void ApplyPenalty() { if (IsPlaying) { Crashes++; AdvanceTime(Settings.respawnPenalty); } }
         public void TrackDebris(GameObject item)
         {
-            debris.Enqueue(item);
-            while (debris.Count > Mathf.Max(1, Settings.maxDebris))
+            var fragment = item.GetComponent<FlyingDebris>();
+            if (fragment == null || fragment.RegistryIndex >= 0) return;
+            while (debris.Count >= Mathf.Max(1, Settings.maxDebris))
             {
-                var old = debris.Dequeue();
-                if (old != null) { old.SetActive(false); Destroy(old); }
+                // 古い建物一棟から消さず、残っている破片全体から一様に選ぶ。
+                var victim = debris[debrisRandom.Next(debris.Count)];
+                UntrackDebris(victim);
+                victim.gameObject.SetActive(false);
+                Destroy(victim.gameObject);
             }
+            fragment.RegistryIndex = debris.Count;
+            debris.Add(fragment);
         }
+
+        internal void UntrackDebris(FlyingDebris fragment)
+        {
+            int index = fragment.RegistryIndex;
+            if (index < 0 || index >= debris.Count || !ReferenceEquals(debris[index], fragment)) return;
+            int last = debris.Count - 1;
+            debris[index] = debris[last];
+            debris[index].RegistryIndex = index;
+            debris.RemoveAt(last);
+            fragment.RegistryIndex = -1;
+        }
+
+        internal float NextDebrisLifetime() => Settings.debrisLifetime +
+            (float)debrisRandom.NextDouble() * Mathf.Max(0, Settings.debrisLifetimeSpread);
 
         public void Blast(Vector3 point) => Blast(point, Stats.BlastRadius, Stats.BlastImpulse);
 

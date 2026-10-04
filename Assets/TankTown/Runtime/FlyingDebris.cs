@@ -9,6 +9,7 @@ namespace TankTown
         public int Generation { get; private set; }
         public bool ImpactSpent { get; private set; }
         public Renderer[] Renderers { get; private set; }
+        internal int RegistryIndex { get; set; } = -1;
         private TankTownGame game;
         private Rigidbody body;
 
@@ -24,6 +25,11 @@ namespace TankTown
             // 大爆発や強化射撃でも高速衝突を解決できる範囲に収める。
             if (game.IsPlaying && body.linearVelocity.sqrMagnitude > 3600)
                 body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, 60);
+        }
+
+        private void OnDestroy()
+        {
+            if (game != null) game.UntrackDebris(this);
         }
 
         private void OnCollisionEnter(Collision hit)

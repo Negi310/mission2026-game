@@ -1,6 +1,7 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
@@ -14,7 +15,7 @@ namespace TankTown
         private static void Install()
         {
             var args = Environment.GetCommandLineArgs();
-            if (Array.IndexOf(args, "--tank-town-city-smoke") >= 0 || Array.IndexOf(args, "--tank-town-title-wide-smoke") >= 0 || Array.IndexOf(args, "--tank-town-fuel-smoke") >= 0 || Array.IndexOf(args, "--tank-town-debris-smoke") >= 0)
+            if (Array.IndexOf(args, "--tank-town-city-smoke") >= 0 || Array.IndexOf(args, "--tank-town-title-wide-smoke") >= 0 || Array.IndexOf(args, "--tank-town-fuel-smoke") >= 0 || Array.IndexOf(args, "--tank-town-debris-smoke") >= 0 || Array.IndexOf(args, "--tank-town-debris-cleanup-smoke") >= 0)
                 new GameObject("City presentation smoke").AddComponent<TankTownCitySmoke>();
         }
 
@@ -24,6 +25,11 @@ namespace TankTown
             output = Path.Combine(Application.dataPath, "..", "Captures"); Directory.CreateDirectory(output);
             yield return new WaitForSecondsRealtime(2);
             var game = FindFirstObjectByType<TankTownGame>();
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-debris-cleanup-smoke") >= 0)
+            {
+                yield return CleanupTour(game);
+                yield break;
+            }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-debris-smoke") >= 0)
             {
                 yield return DebrisTour(game);
@@ -184,6 +190,72 @@ namespace TankTown
             var item = game.World.Box(name, position, size, game.World.ShotMaterial);
             var block = item.AddComponent<DestructibleBlock>(); block.Kind = kind; block.Initialize(game);
             return block;
+        }
+
+        private IEnumerator CleanupTour(TankTownGame game)
+        {
+            // 通常の時間進行で測り、フレーム計測とPNG保存は別の時間帯に行う。
+            Time.captureDeltaTime = 0; QualitySettings.vSyncCount = 0; Application.targetFrameRate = 60;
+            game.StartOrRestart(); game.Input.useHardware = true;
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
+            View(game, new Vector3(90, 75, -115), new Vector3(0, 7, 0));
+            yield return new WaitForSeconds(.5f);
+            var baseline = new List<float>(); var loaded = new List<float>();
+            yield return MeasureFrames(baseline, 1.5f);
+            float born = Time.time;
+            var creation = System.Diagnostics.Stopwatch.StartNew();
+            foreach (var building in game.World.Buildings)
+            {
+                foreach (var support in building.Blocks.FindAll(x => x != null && x.Foundation && x.Column < 2)) support.Break(support.transform.position, 0);
+                building.ReleaseUnsupported(building.transform.position, 0);
+            }
+            creation.Stop();
+            var cohort = FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None);
+            var buildings = new HashSet<BlockBuilding>();
+            foreach (var piece in cohort)
+            {
+                var building = piece.GetComponentInParent<BlockBuilding>();
+                if (building != null) buildings.Add(building);
+            }
+            yield return null; yield return null;
+            yield return MeasureFrames(loaded, 1.5f);
+            Capture("cleanup-01-before-expiry");
+            yield return new WaitForSeconds(Mathf.Max(0, born + game.Settings.debrisLifetime + game.Settings.debrisLifetimeSpread * .5f - Time.time));
+            int middle = Surviving(cohort); Capture("cleanup-02-staggered");
+            yield return new WaitForSeconds(Mathf.Max(0, born + game.Settings.debrisLifetime + game.Settings.debrisLifetimeSpread * .75f - Time.time));
+            int later = Surviving(cohort); Capture("cleanup-03-later");
+            yield return new WaitForSeconds(Mathf.Max(0, born + game.Settings.debrisLifetime + game.Settings.debrisLifetimeSpread + .2f - Time.time));
+            yield return null;
+            int expired = Surviving(cohort); Capture("cleanup-04-expired");
+            Debug.Log($"CLEANUP SMOKE COMPLETE: limit={game.Settings.maxDebris}, initial={cohort.Length}, buildingsRetained={buildings.Count}/{game.World.Buildings.Count}, middle={middle}, later={later}, expired={expired}, creationMs={creation.Elapsed.TotalMilliseconds:0.0}, baselineFrames={baseline.Count}, baselineFps={SampleFps(baseline):0.0}, baselineP95Ms={SampleP95(baseline):0.0}, loadedFrames={loaded.Count}, loadedFps={SampleFps(loaded):0.0}, loadedP95Ms={SampleP95(loaded):0.0}, minLifetime={game.Settings.debrisLifetime}, lifetimeSpread={game.Settings.debrisLifetimeSpread}");
+            Application.Quit(cohort.Length == game.Settings.maxDebris && buildings.Count > game.World.Buildings.Count / 2 && middle > 0 && middle < cohort.Length && later <= middle && expired == 0 && loaded.Count >= 15 ? 0 : 1);
+        }
+
+        private static IEnumerator MeasureFrames(List<float> samples, float seconds)
+        {
+            double started = Time.realtimeSinceStartupAsDouble;
+            while (Time.realtimeSinceStartupAsDouble - started < seconds)
+            {
+                yield return null;
+                samples.Add(Time.unscaledDeltaTime * 1000);
+            }
+        }
+        private static int Surviving(FlyingDebris[] cohort)
+        {
+            int count = 0;
+            foreach (var piece in cohort) if (piece != null && piece.gameObject.activeInHierarchy) count++;
+            return count;
+        }
+        private static float SampleFps(List<float> samples)
+        {
+            float total = 0; foreach (float sample in samples) total += sample;
+            return samples.Count * 1000 / Mathf.Max(.001f, total);
+        }
+        private static float SampleP95(List<float> samples)
+        {
+            if (samples.Count == 0) return 0;
+            samples.Sort(); return samples[Mathf.Clamp(Mathf.CeilToInt(samples.Count * .95f) - 1, 0, samples.Count - 1)];
         }
         private static void AimAtFuelTarget(TankTownGame game, Vector3 target)
         {

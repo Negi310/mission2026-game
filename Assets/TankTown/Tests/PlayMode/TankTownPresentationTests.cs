@@ -114,7 +114,7 @@ namespace TankTown.Tests
             properties.SetFloat("_CameraVisibility", .4f); renderer.SetPropertyBlock(properties);
             pillar.Break(pillar.transform.position, 0);
             int score = game.BrokenBlocks;
-            yield return new WaitForSeconds(game.Settings.debrisLifetime - .22f);
+            yield return new WaitForSeconds(pillar.GetComponent<DebrisFade>().Lifetime - .22f);
             Assert.That(pillar != null, Is.True, "A piece must remain through its visible physical collapse");
             renderer.GetPropertyBlock(properties);
             float visibility = properties.GetFloat("_DebrisVisibility");

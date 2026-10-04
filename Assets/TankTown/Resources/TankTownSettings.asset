@@ -36,8 +36,9 @@ MonoBehaviour:
   fuelExplosionRadius: 24
   fuelImpulseMultiplier: 3
   fatalImpactSpeed: 5
-  maxDebris: 4000
+  maxDebris: 2000
   debrisLifetime: 3.6
+  debrisLifetimeSpread: 1.2
   pressureThreshold: 0.55
   pressureRelease: 0.25
   citySeed: 2026
