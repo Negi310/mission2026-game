@@ -70,7 +70,7 @@ namespace TankTown
             TextOutline(tankWord, ink, 3); TextOutline(townWord, ink, 3);
             var clock = Panel("Clock", hud, new Vector2(-28, -26), new Vector2(190, 83), ink, true);
             style.Card(clock, new Color(.83f, .93f, 1));
-            timer = Label(clock.transform, "03:00", new Vector2(18, -4), new Vector2(162, 48), 38, Color.white);
+            timer = Label(clock.transform, "01:00", new Vector2(18, -4), new Vector2(162, 48), 38, Color.white);
             timer.fontStyle = FontStyle.Bold;
             Label(clock.transform, "のこり時間", new Vector2(26, -53), new Vector2(158, 24), 16, yellow);
             var progress = Panel("Destruction", hud, new Vector2(28, -89), new Vector2(310, 89), new Color(.98f, .97f, .9f, .98f));
@@ -156,7 +156,7 @@ namespace TankTown
             style.Card(card, ink);
             var cr = card.GetComponent<RectTransform>();
             cr.anchorMin = cr.anchorMax = cr.pivot = new Vector2(.5f, .5f);
-            Label(card.transform, "3 MINUTE DESTRUCTION PLAYGROUND", new Vector2(38, -30), new Vector2(570, 27), 16, new Color(.22f, .55f, .43f));
+            Label(card.transform, "1 MINUTE DESTRUCTION PLAYGROUND", new Vector2(38, -30), new Vector2(570, 27), 16, new Color(.22f, .55f, .43f));
             cardTitle = Label(card.transform, "", new Vector2(38, -78), new Vector2(560, 62), 42, ink);
             cardTitle.fontStyle = FontStyle.Bold;
             cardBody = Label(card.transform, "", new Vector2(40, -156), new Vector2(550, 110), 21, ink);
@@ -278,9 +278,9 @@ namespace TankTown
             heldIcon.gameObject.SetActive(shown != ItemKind.None);
             emptyItem.gameObject.SetActive(shown == ItemKind.None);
             if (shown != ItemKind.None) heldIcon.sprite = game.World.SpecialIcons.Sprite(shown);
-            heldName.text = shown != ItemKind.None ? ItemIcons.Label(shown) : "ビルをくずそう！";
+            heldName.text = shown != ItemKind.None ? ItemIcons.Label(shown) : "ほしい色のビルへ！";
             heldName.fontSize = shown == ItemKind.Bulldozer ? 19 : shown == ItemKind.None ? 18 : 22;
-            heldHint.text = game.Items.Held != ItemKind.None ? game.Items.Weapon == ItemKind.None ? "SPACE でつかう" : "次の砲撃でつかう" : shown != ItemKind.None ? "発動中！" : "上のスペシャルをGET";
+            heldHint.text = game.Items.Held != ItemKind.None ? game.Items.Weapon == ItemKind.None ? "SPACE でつかう" : "次の砲撃でつかう" : shown != ItemKind.None ? "発動中！" : "くずしてスペシャルGET";
             activeItems.text = game.Items.ActiveSummary;
             activePanel.SetActive(activeItems.text.Length > 0);
         }

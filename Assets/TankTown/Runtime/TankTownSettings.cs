@@ -5,7 +5,7 @@ namespace TankTown
     [CreateAssetMenu(menuName = "Tank Town/Settings")]
     public sealed class TankTownSettings : ScriptableObject
     {
-        [Min(1)] public float roundSeconds = 180;
+        [Min(1)] public float roundSeconds = 60;
         [Min(0)] public float respawnPenalty = 3;
         [Min(0.1f)] public float respawnDelay = 1.2f;
         [Min(1)] public float driveSpeed = 16;
@@ -45,6 +45,7 @@ namespace TankTown
         [Range(0.05f, 1)] public float pressureThreshold = 0.55f;
         [Range(0, 0.9f)] public float pressureRelease = 0.25f;
         public int citySeed = 2026;
+        public bool randomizeCitySeed = true;
         [Header("City")]
         [Range(2, 5)] public int cityHalfBlocks = 3;
         [Min(24)] public float blockSpacing = 40;
@@ -91,7 +92,8 @@ namespace TankTown
         [Min(1)] public float magnetPullSpeed = 24;
         [Min(1)] public float bulldozerSeconds = 8;
         [Range(1.5f, 3)] public float bulldozerScale = 2.3f;
-        [Min(.5f)] public float gigantBombFuse = 3;
+        [Min(.5f)] public float gigantBombFuse = 1.5f;
+        [Min(10)] public float gigantBombThrowSpeed = 38;
         [Min(10)] public float gigantBombRadius = 30;
         [Min(1)] public float highSpeedSeconds = 6;
         [Range(1.2f, 4)] public float highSpeedMultiplier = 2.2f;

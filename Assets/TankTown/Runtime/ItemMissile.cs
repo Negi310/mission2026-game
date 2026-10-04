@@ -55,12 +55,24 @@ namespace TankTown
                 if (candidate == null || !candidate.Available) continue;
                 var delta = candidate.AimPoint - game.Tank.transform.position;
                 if (delta.sqrMagnitude > range * range) continue;
+                if (!VisibleAhead(game, candidate, forward)) continue;
                 float score = delta.sqrMagnitude + owner.MissilesTracking(candidate) * 1000 +
-                    (candidate.IsVehicle ? 0 : range * range * 2) + Mathf.Max(0, -Vector3.Dot(delta, forward)) * 25;
+                    (candidate.IsVehicle ? 0 : range * range * 2);
                 if (score < bestScore) { bestScore = score; best = candidate; }
             }
             TrackingTarget = best;
             if (best != null) { aimPoint = best.AimPoint; Retargets++; }
+        }
+        internal static bool VisibleAhead(TankTownGame game, TownMovingTarget candidate, Vector3 forward)
+        {
+            var delta = Vector3.ProjectOnPlane(candidate.AimPoint - game.Tank.Muzzle.position, Vector3.up);
+            if (delta.sqrMagnitude < .01f || Vector3.Dot(delta.normalized, forward) < Mathf.Cos(50 * Mathf.Deg2Rad)) return false;
+            var camera = game.CameraRig.GetComponent<Camera>();
+            var viewport = camera.WorldToViewportPoint(candidate.AimPoint);
+            if (viewport.z <= camera.nearClipPlane || viewport.x < 0 || viewport.x > 1 || viewport.y < 0 || viewport.y > 1) return false;
+            if (Physics.Linecast(camera.transform.position, candidate.AimPoint, out var hit, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
+                return hit.collider.GetComponentInParent<TownMovingTarget>() == candidate;
+            return true;
         }
         private void Update()
         {
@@ -122,7 +134,7 @@ namespace TankTown
             body = gameObject.AddComponent<Rigidbody>(); body.mass = 30;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             body.interpolation = RigidbodyInterpolation.Interpolate;
-            body.linearVelocity = game.Tank.Muzzle.forward * 18 + Vector3.up * 10;
+            body.linearVelocity = game.Tank.Muzzle.forward * game.Settings.gigantBombThrowSpeed + Vector3.up * 10;
             body.angularVelocity = new Vector3(2, 1, 0);
             Physics.IgnoreCollision(GetComponent<Collider>(), game.Tank.HullCollider);
             var fuse = game.World.Box("Gigant bomb fuse", Vector3.up * .53f, new Vector3(.07f, .2f, .07f), game.World.ShotMaterial, transform, false);

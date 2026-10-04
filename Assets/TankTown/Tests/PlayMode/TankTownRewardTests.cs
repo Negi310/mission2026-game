@@ -51,13 +51,13 @@ namespace TankTown.Tests
             Assert.That(Time.timeScale, Is.Zero);
             var position = game.Tank.transform.position;
             yield return new WaitForSecondsRealtime(.12f);
-            Assert.That(game.Remaining, Is.EqualTo(180));
+            Assert.That(game.Remaining, Is.EqualTo(60));
             Assert.That(game.Tank.transform.position, Is.EqualTo(position));
             game.Input.PulsePad(1); yield return null;
             Assert.That(game.IsPlaying, Is.True); Assert.That(Time.timeScale, Is.EqualTo(1));
             Assert.That(title.activeSelf, Is.False);
             Assert.That(Object.FindFirstObjectByType<TankShell>(), Is.Null);
-            Assert.That(game.Remaining, Is.LessThan(180));
+            Assert.That(game.Remaining, Is.LessThan(60));
         }
 
         [UnityTest]
@@ -125,7 +125,9 @@ namespace TankTown.Tests
             body.position = game.World.GroundPoint(reward.transform.position, game.Settings.rideHeight);
             game.Tank.transform.position = body.position; Physics.SyncTransforms();
             yield return new WaitForFixedUpdate(); yield return null;
-            Assert.That(reward.Collected, Is.True); Assert.That(game.Items.Held, Is.EqualTo(reward.Kind));
+            Assert.That(reward.Collected, Is.True);
+            if (ItemIcons.Automatic(reward.Kind)) Assert.That(game.Items.Remaining(reward.Kind), Is.GreaterThan(0));
+            else Assert.That(game.Items.Held, Is.EqualTo(reward.Kind));
             Assert.That(reward.gameObject.activeSelf, Is.False);
         }
 
@@ -138,8 +140,9 @@ namespace TankTown.Tests
             game.Settings.maxDebris = 128;
             try
             {
-                var first = game.World.Buildings[0]; var reward = first.Reward;
+                var first = game.World.Buildings.Find(x => !ItemIcons.Automatic(x.Reward.Kind)); var reward = first.Reward;
                 reward.gameObject.SetActive(true);
+                Collapse(first);
                 foreach (var building in game.World.Buildings.GetRange(0, 5)) Collapse(building);
                 yield return new WaitForFixedUpdate(); yield return null;
                 Assert.That(first.DestroyedFraction, Is.GreaterThanOrEqualTo(game.Settings.buildingRewardThreshold));

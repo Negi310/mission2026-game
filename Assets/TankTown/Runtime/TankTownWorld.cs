@@ -15,6 +15,7 @@ namespace TankTown
         public float BuildingWidth => Mathf.Clamp(game.Settings.buildingWidth, 10, game.Settings.blockSpacing - RoadWidth - 4);
         public Vector3 SpawnPosition => GroundPoint(new Vector3(0, 0, -HalfExtent + 20), game.Settings.rideHeight);
         public TownTerrain Terrain { get; private set; }
+        public TownLayout Layout { get; private set; }
         public int ParkCount { get; private set; }
         public Vector3 GroundPoint(Vector3 p, float lift = 0) { p.y = Terrain.HeightAt(p) + lift; return p; }
         public readonly List<BlockBuilding> Buildings = new List<BlockBuilding>();
@@ -93,7 +94,8 @@ namespace TankTown
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
             Icons = new UpgradeIcons();
             SpecialIcons = new ItemIcons();
-            Terrain = new TownTerrain(game.Settings, transform, RoadWidth);
+            Layout = new TownLayout(game.Settings, game.CitySeed, RoadWidth);
+            Terrain = new TownTerrain(game.Settings, transform, RoadWidth, Layout);
             Box("Island", new Vector3(0, -.9f, 0), new Vector3(HalfExtent * 2, 1.8f, HalfExtent * 2), grass, solid: false);
             float paving = HalfExtent * 2 - 8;
             Terrain.Surface("Terraced ground", new Vector2(-HalfExtent, -HalfExtent), Vector2.one * HalfExtent * 2, 0, grass, true);
@@ -112,30 +114,27 @@ namespace TankTown
                     SurfaceBox("Lane dash", new Vector3(d, 0, lane), new Vector3(2.1f, .02f, .32f), cream);
                 }
             }
-            var random = new System.Random(game.Settings.citySeed);
-            for (int x = -half; x < half; x++)
-                for (int z = -half; z < half; z++)
+            var buildingPaints = new Material[6];
+            for (int i = 0; i < 6; i++) buildingPaints[i] = MakeMaterial(ItemIcons.Color((ItemKind)i), ToySurface.Concrete);
+            var random = new System.Random(unchecked(game.CitySeed ^ 0x4D190));
+            foreach (var plot in Layout.Plots)
                 {
+                    int x = plot.X, z = plot.Z;
                     var center = GroundPoint(new Vector3((x + .5f) * spacing, 0, (z + .5f) * spacing));
-                    bool park = (x == 0 && z == 0) || (x == -2 && z == -1) || (x == 1 && z == -2);
-                    int style = (x - z + half * 3 + 6) % 3;
-                    if (x == -half && z == -half) style = 1;
-                    int floors = style == 0 ? random.Next(6, 9) : style == 1 ? random.Next(4, 7) : random.Next(2, 4);
-                    float width = Mathf.Max(10, BuildingWidth * (style == 0 ? .72f : style == 2 ? .88f : 1));
-                    if (park) CreatePark(center);
-                    else CreateBuilding(center, floors, MakeMaterial(palette[random.Next(palette.Length)], ToySurface.Concrete), width, style);
+                    if (plot.Park) CreatePark(center);
+                    else CreateBuilding(GroundPoint(plot.Center), plot.Floors, buildingPaints[(int)plot.Reward], plot.Width, plot.Style, plot.Reward);
                     float sidewalk = BuildingWidth / 2 + 1.5f;
                     CreateProp(center + new Vector3(-sidewalk, 0, -sidewalk), "Street sign", ShotMaterial, true);
                     CreateProp(center + new Vector3(sidewalk, 0, sidewalk), "Tree", grass, false);
                     CreateProp(center + new Vector3(-sidewalk, 0, sidewalk), "Street lamp", cream, true);
                     var crate = Box("Crushable crate", GroundPoint(center + new Vector3(sidewalk, 0, -sidewalk), .6f), Vector3.one * 1.2f, lime);
                     AddBlock(crate, true);
-                    var pickupPosition = x == 0 && z == -half ? new Vector3(spacing * .375f, 1.2f, z * spacing) : new Vector3(x * spacing, 1.2f, (z + .45f) * spacing);
+                    var pickupPosition = new Vector3(x * spacing, 1.2f, (z + .2f + (float)random.NextDouble() * .6f) * spacing);
                     CreatePickup(pickupPosition, (UpgradeKind)random.Next(4));
-                    CreatePickup(new Vector3((x + .6f) * spacing, 1.2f, z * spacing), (UpgradeKind)random.Next(4));
+                    CreatePickup(new Vector3((x + .2f + (float)random.NextDouble() * .6f) * spacing, 1.2f, z * spacing), (UpgradeKind)random.Next(4));
                 }
             // The first straight has all four upgrades, so their effect is easy to try.
-            for (int i = 0; i < 4; i++) CreatePickup(SpawnPosition + new Vector3(0, .2f, 8 + i * 7), (UpgradeKind)i);
+            for (int i = 0; i < 4; i++) CreatePickup(SpawnPosition + new Vector3(0, .2f, 8 + i * 7), (UpgradeKind)i, false);
             CreateTraffic();
             var scenery = gameObject.AddComponent<TownScenery>();
             SkyMaterial = scenery.Build(this, game);
@@ -298,8 +297,11 @@ namespace TankTown
             }
         }
 
-        private void CreatePickup(Vector3 position, UpgradeKind kind)
+        private void CreatePickup(Vector3 position, UpgradeKind kind, bool reserveOpeningStraight = true)
         {
+            // Reserve the opening straight for its four tutorial pickups.
+            if (reserveOpeningStraight && Mathf.Abs(position.x) < 4 && position.z > SpawnPosition.z - 8 && position.z < SpawnPosition.z + 40)
+                position.x = RoadWidth * .32f;
             position = GroundPoint(position, 1.2f);
             var item = new GameObject(TankStats.Label(kind) + " UP");
             item.transform.SetParent(transform, false);
@@ -311,7 +313,7 @@ namespace TankTown
 
         private void CreateBuildingReward(BlockBuilding building)
         {
-            var kind = (ItemKind)((Buildings.Count - 1) % 6);
+            var kind = building.RewardKind;
             var item = new GameObject(ItemIcons.Label(kind));
             item.transform.SetParent(transform, false);
             // The upper slab really supports this reward; it is never spawned at ground level.
@@ -362,7 +364,7 @@ namespace TankTown
             return block;
         }
 
-        private void CreateBuilding(Vector3 center, int floors, Material color, float width, int style)
+        private void CreateBuilding(Vector3 center, int floors, Material color, float width, int style, ItemKind reward)
         {
             var root = new GameObject(style == 0 ? "Tower frame" : style == 1 ? "Apartment frame" : "Shop frame");
             root.transform.SetParent(transform);
@@ -370,6 +372,7 @@ namespace TankTown
             var building = root.AddComponent<BlockBuilding>();
             building.Initialize(game);
             building.Width = width; building.Floors = floors;
+            building.Style = style; building.RewardKind = reward; building.FacadeColor = ItemIcons.Color(reward);
             Buildings.Add(building);
             float pillar = Mathf.Clamp(game.Settings.pillarWidth, .6f, width / 5);
             float height = game.Settings.floorHeight, h = (width - pillar) / 2;

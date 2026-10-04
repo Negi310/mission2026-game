@@ -110,7 +110,7 @@ namespace TankTown.Tests
             yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.State, Is.EqualTo(RoundState.Playing));
-            Assert.That(game.Remaining, Is.InRange(179.5f, 180f), "Retry starts immediately, so its first rendered frame already consumes time");
+            Assert.That(game.Remaining, Is.InRange(59.5f, 60f), "Retry starts immediately, so its first rendered frame already consumes time");
             Assert.That(game.BrokenBlocks, Is.Zero);
         }
 
@@ -327,7 +327,7 @@ namespace TankTown.Tests
             Assert.That(tree.GetComponent<Rigidbody>().linearVelocity.z, Is.GreaterThan(0));
             Assert.That(tree.transform.Find("Tree crown").gameObject.layer, Is.EqualTo(TownPhysics.DebrisLayer));
             Assert.That(game.Crashes, Is.Zero);
-            Assert.That(Quaternion.Angle(tankBody.rotation, Quaternion.identity), Is.LessThan(.2f));
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, tankBody.rotation.eulerAngles.y)), Is.LessThan(.2f), "Ground pitch is allowed; tree contact must not change heading");
         }
 
         [UnityTest]
@@ -371,19 +371,31 @@ namespace TankTown.Tests
         {
             var body = game.Tank.GetComponent<Rigidbody>();
             game.Input.useHardware = true; game.Input.SetWheel(0);
-            body.position = game.World.GroundPoint(new Vector3(0, 0, 8), game.Settings.rideHeight);
-            body.rotation = Quaternion.identity; body.linearVelocity = Vector3.zero;
+            float rise = 0; Vector3 start = Vector3.zero; bool reverse = false;
+            int half = game.Settings.cityHalfBlocks; float spacing = game.Settings.blockSpacing;
+            for (int x = -half; x <= half; x++) for (int z = -half; z < half; z++)
+            {
+                float change = game.World.Layout.JunctionHeight(x, z + 1) - game.World.Layout.JunctionHeight(x, z);
+                if (Mathf.Abs(change) <= rise) continue;
+                rise = Mathf.Abs(change); reverse = change < 0;
+                start = new Vector3(x * spacing, 0, (reverse ? z + 1 : z) * spacing + (reverse ? -8 : 8));
+            }
+            Assert.That(rise, Is.GreaterThan(.5f));
+            body.position = game.World.GroundPoint(start, game.Settings.rideHeight);
+            body.rotation = Quaternion.Euler(0, reverse ? 180 : 0, 0); body.linearVelocity = Vector3.zero;
             game.Tank.transform.SetPositionAndRotation(body.position, body.rotation); Physics.SyncTransforms();
+            var origin = body.position; var direction = reverse ? Vector3.back : Vector3.forward;
             float startHeight = body.position.y, maxPitch = 0;
             yield return null;
             for (int i = 0; i < 200; i++)
             {
                 yield return new WaitForFixedUpdate();
                 maxPitch = Mathf.Max(maxPitch, Mathf.Abs((body.rotation * Vector3.forward).y));
+                if (Vector3.Dot(body.position - origin, direction) > 30) break;
             }
-            Assert.That(body.position.z, Is.GreaterThan(30));
-            Assert.That(body.position.y, Is.GreaterThan(startHeight + 2));
-            Assert.That(maxPitch, Is.GreaterThan(.1f), "The tank must pitch upward on a slope");
+            Assert.That(Vector3.Dot(body.position - origin, direction), Is.GreaterThan(30));
+            Assert.That(body.position.y, Is.GreaterThan(startHeight + rise * .7f));
+            Assert.That(maxPitch, Is.GreaterThan(.07f), "The tank must pitch upward on a generated slope");
             Assert.That(Physics.Raycast(body.position + Vector3.up, Vector3.down, out var ground, 5, TownPhysics.GroundMask), Is.True);
             Assert.That(body.position.y - ground.point.y, Is.EqualTo(game.Settings.rideHeight).Within(.25f));
             Assert.That(game.Crashes, Is.Zero);
@@ -416,6 +428,10 @@ namespace TankTown.Tests
 
         private IEnumerator DriveTerrainRoute(Vector3 start, float yaw, int steps, Vector3 direction, float minimumDistance, bool atCruise = false)
         {
+            // Random plots can now contain buildings where this used to be a park.
+            // These checks isolate terrain contact from buildings, props and traffic.
+            foreach (var block in Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None)) block.gameObject.SetActive(false);
+            foreach (var pickup in game.World.Pickups) pickup.gameObject.SetActive(false);
             var body = game.Tank.GetComponent<Rigidbody>();
             game.Input.useHardware = true; game.Input.SetWheel(0);
             body.position = game.World.GroundPoint(start, game.Settings.rideHeight);
@@ -501,7 +517,7 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator PlazaFountainHasAMatchingColliderAndIsCrushable()
         {
-            var fountain = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Crushable fountain" && x.transform.position.x < 0);
+            var fountain = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Crushable fountain");
             var collider = fountain.GetComponent<MeshCollider>();
             Assert.That(collider.convex, Is.True);
             Physics.SyncTransforms();

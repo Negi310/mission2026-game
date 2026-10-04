@@ -30,11 +30,11 @@ namespace TankTown
             layout.GetComponent<RectTransform>().anchoredPosition = new Vector2(-720, 450);
             var parent = layout.transform;
             Panel(parent, "Sky accent", new Vector2(720, -52), new Vector2(648, 548), new Color(.065f, .19f, .27f));
-            Text(parent, "3 MINUTE DESTRUCTION PLAYGROUND", new Vector2(72, -62), new Vector2(625, 35), 20, cyan);
+            Text(parent, "1 MINUTE DESTRUCTION PLAYGROUND", new Vector2(72, -62), new Vector2(625, 35), 20, cyan);
             Text(parent, "TANK", new Vector2(66, -96), new Vector2(630, 140), 108, new Color(1, .75f, .08f));
             Text(parent, "TOWN", new Vector2(66, -208), new Vector2(630, 140), 108, cyan);
             Text(parent, "まちを、バラバラに！", new Vector2(74, -338), new Vector2(640, 54), 36, Color.white);
-            Text(parent, "3分で、街をどこまでこわせる？", new Vector2(76, -399), new Vector2(610, 38), 24, new Color(.66f, .79f, .84f));
+            Text(parent, "1分で、街をどこまでこわせる？", new Vector2(76, -399), new Vector2(610, 38), 24, new Color(.66f, .79f, .84f));
             var start = Panel(parent, "Title play button", new Vector2(72, -465), new Vector2(572, 82), lime);
             style.Card(start, new Color(.9f, 1, .65f));
             var button = start.AddComponent<Button>(); button.onClick.AddListener(game.StartOrRestart);
@@ -43,17 +43,18 @@ namespace TankTown
             label.alignment = TextAnchor.MiddleCenter;
             Text(parent, "ENTER / SPACE / パッドをたたいてスタート", new Vector2(78, -564), new Vector2(620, 34), 19, Color.white);
             DrawTank(parent);
-            Text(parent, "ビルをくずして、スペシャルGET！", new Vector2(744, -473), new Vector2(606, 40), 25, Color.white).alignment = TextAnchor.MiddleCenter;
+            Text(parent, "ビルの色が、スペシャルの目印！", new Vector2(744, -473), new Vector2(606, 40), 25, Color.white).alignment = TextAnchor.MiddleCenter;
             for (int i = 0; i < 6; i++)
             {
                 var icon = Panel(parent, "Title special icon", new Vector2(779 + i * 91, -528), new Vector2(64, 64), Color.white).GetComponent<Image>();
                 icon.sprite = game.World.SpecialIcons.Sprite((ItemKind)i);
                 icon.type = Image.Type.Simple;
+                Text(parent, ItemIcons.Label((ItemKind)i), new Vector2(766 + i * 91, -597), new Vector2(90, 24), 13, ItemIcons.Color((ItemKind)i)).alignment = TextAnchor.MiddleCenter;
             }
             Instruction(parent, new Vector2(72, -658), "01", "ハンドルで走る", "A / D  または  ← / →", cyan);
             Instruction(parent, new Vector2(510, -658), "02", "たたいて、発射！", "SPACE / J / K", lime);
             Instruction(parent, new Vector2(948, -658), "03", "こわして、集めよう", "赤いタンクで連鎖爆破！", new Color(1, .36f, .22f));
-            Text(parent, "3分間の破壊度にチャレンジ！    ／    ESC：ひとやすみ", new Vector2(72, -845), new Vector2(1296, 30), 18, new Color(.6f, .74f, .8f)).alignment = TextAnchor.MiddleCenter;
+            Text(parent, "1分間の破壊度にチャレンジ！    ／    ESC：ひとやすみ", new Vector2(72, -845), new Vector2(1296, 30), 18, new Color(.6f, .74f, .8f)).alignment = TextAnchor.MiddleCenter;
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(start);
             Fit();
         }

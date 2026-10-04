@@ -134,7 +134,10 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator FiveMissilesRiseAndTrackMovingObjectsWhileDriving()
         {
-            FaceBuilding(); var body = game.Tank.GetComponent<Rigidbody>(); var origin = body.position;
+            // Acquisition now requires an unobstructed forward view, so use a car on the avenue.
+            Place(game.World.SpawnPosition);
+            TankTownMobilityTests.Car(game, game.World.SpawnPosition + Vector3.forward * 22, game.World.SpawnPosition + Vector3.forward * 55);
+            Physics.SyncTransforms(); var body = game.Tank.GetComponent<Rigidbody>(); var origin = body.position;
             game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
             var rockets = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None); Assert.That(rockets.Length, Is.EqualTo(5));
             var launch = rockets[0].transform.position;

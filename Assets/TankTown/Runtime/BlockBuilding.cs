@@ -9,6 +9,9 @@ namespace TankTown
         public bool Collapsed { get; private set; }
         public float Width { get; set; }
         public int Floors { get; set; }
+        public int Style { get; internal set; }
+        public Color FacadeColor { get; internal set; }
+        public ItemKind RewardKind { get; internal set; }
         public int DetachedParts { get; private set; }
         public float DestroyedFraction => Blocks.Count == 0 ? 0 : (float)DetachedParts / Blocks.Count;
         public ItemPickup Reward { get; set; }

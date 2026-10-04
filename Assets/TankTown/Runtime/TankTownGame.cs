@@ -12,6 +12,8 @@ namespace TankTown
     public sealed class TankTownGame : MonoBehaviour
     {
         public TankTownSettings Settings { get; private set; }
+        public int CitySeed { get; private set; }
+        internal static int? GenerationSeedOverride;
         public TankInput Input { get; private set; }
         public TankStats Stats { get; private set; }
         public TankTownEffects Effects { get; private set; }
@@ -51,8 +53,10 @@ namespace TankTown
             Time.timeScale = 1;
             Settings = Resources.Load<TankTownSettings>("TankTownSettings");
             if (Settings == null) { Settings = ScriptableObject.CreateInstance<TankTownSettings>(); ownedSettings = true; }
+            CitySeed = ResolveCitySeed();
+            Debug.Log($"TOWN GENERATED: seed={CitySeed}, seconds={Settings.roundSeconds}");
             // 消去の乱数を物理演出のUnityEngine.Randomから独立させる。
-            debrisRandom = new System.Random(unchecked(Settings.citySeed ^ 0x5D3B17));
+            debrisRandom = new System.Random(unchecked(CitySeed ^ 0x5D3B17));
             Remaining = Settings.roundSeconds;
             Stats = new TankStats(Settings);
             Effects = gameObject.AddComponent<TankTownEffects>();
@@ -89,6 +93,14 @@ namespace TankTown
             CameraRig.Paused = true;
             Time.timeScale = 0;
             if (playAfterReload) { playAfterReload = false; StartOrRestart(); }
+        }
+
+        private int ResolveCitySeed()
+        {
+            if (GenerationSeedOverride.HasValue) return GenerationSeedOverride.Value;
+            foreach (var argument in Environment.GetCommandLineArgs())
+                if (argument.StartsWith("--tank-town-seed=", StringComparison.Ordinal) && int.TryParse(argument.Substring(17), out int seed)) return seed;
+            return Settings.randomizeCitySeed ? BitConverter.ToInt32(Guid.NewGuid().ToByteArray(), 0) : Settings.citySeed;
         }
 
         private void HandlePad(int pad)

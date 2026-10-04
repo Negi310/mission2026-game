@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb55b8b074edc749b29833fe70fbd3b, type: 3}
   m_Name: TankTownSettings
   m_EditorClassIdentifier: TankTown.Runtime::TankTown.TankTownSettings
-  roundSeconds: 180
+  roundSeconds: 60
   respawnPenalty: 3
   respawnDelay: 1.2
   driveSpeed: 16
@@ -46,6 +46,7 @@ MonoBehaviour:
   pressureThreshold: 0.55
   pressureRelease: 0.25
   citySeed: 2026
+  randomizeCitySeed: 1
   cityHalfBlocks: 3
   blockSpacing: 40
   buildingWidth: 20
@@ -86,7 +87,8 @@ MonoBehaviour:
   magnetPullSpeed: 24
   bulldozerSeconds: 8
   bulldozerScale: 2.3
-  gigantBombFuse: 3
+  gigantBombFuse: 1.5
+  gigantBombThrowSpeed: 38
   gigantBombRadius: 30
   highSpeedSeconds: 6
   highSpeedMultiplier: 2.2

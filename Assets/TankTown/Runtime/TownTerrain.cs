@@ -10,17 +10,13 @@ namespace TankTown
         private readonly TankTownSettings settings;
         private readonly Transform parent;
         private readonly float roadWidth;
+        private readonly TownLayout layout;
         private readonly List<Mesh> meshes = new List<Mesh>();
-        public TownTerrain(TankTownSettings settings, Transform parent, float roadWidth)
-        { this.settings = settings; this.parent = parent; this.roadWidth = roadWidth; }
+        public TownTerrain(TankTownSettings settings, Transform parent, float roadWidth, TownLayout layout = null)
+        { this.settings = settings; this.parent = parent; this.roadWidth = roadWidth; this.layout = layout ?? new TownLayout(settings, settings.citySeed, roadWidth); }
 
         private float Junction(int x, int z)
-        {
-            float h = (x >= 1 ? 1 : 0) + (z >= 1 ? 1 : 0);
-            if (x <= -1 && z >= 1) h += 1.1f;
-            if (x >= 2 && z >= 2) h += 1;
-            return h * settings.terraceHeight;
-        }
+            => layout.JunctionHeight(x, z);
         private float Ramp(float local)
         {
             float t = Mathf.Clamp01((local - roadWidth / 2) / (settings.blockSpacing - roadWidth));
