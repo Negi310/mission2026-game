@@ -34,8 +34,8 @@ namespace TankTown
         [Min(1)] public float fuelExplosionRadius = 24;
         [Min(0)] public float fuelImpulseMultiplier = 3;
         [Min(0)] public float fatalImpactSpeed = 5;
-        [Min(1)] public int maxDebris = 280;
-        [Min(1)] public float debrisLifetime = 2.4f;
+        [Min(1)] public int maxDebris = 360;
+        [Min(1)] public float debrisLifetime = 3.6f;
         [Range(0.05f, 1)] public float pressureThreshold = 0.55f;
         [Range(0, 0.9f)] public float pressureRelease = 0.25f;
         public int citySeed = 2026;
