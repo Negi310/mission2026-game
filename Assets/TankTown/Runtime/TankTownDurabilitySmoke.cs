@@ -44,13 +44,13 @@ namespace TankTown
                     if (game.Sound.PlayedCount(TownSound.Cannon) != before + 1) { Fail("cannon did not fire"); yield break; }
                     var front = building.Blocks.Find(x => x != null && x.Foundation && x.Column == 0);
                     Debug.Log($"DURABILITY SHOT: building={label}, shot={shot}, detached={building.DetachedParts}/{building.Blocks.Count}, collapsed={building.Collapsed}, baseLevel={building.CollapsedFromLevel}, frontDurability={(front != null ? front.Durability01 : 0):0.000}, reward={building.Reward.Available}");
-                    if (building.Collapsed || building.DetachedParts < detached || building.DestroyedFraction >= .3f || building.Reward.Available)
+                    if (building.DetachedParts < detached || (shot == 1 && (building.DestroyedFraction >= .5f || building.Reward.Available)))
                     { Fail(label + " did not break locally on shot " + shot); yield break; }
-                    if (shot == 1 && building.DetachedParts < 3)
+                    if (shot == 1 && building.DetachedParts < 7)
                     { Fail(label + " close blast did not widen the initial hole"); yield break; }
                     if (shot == 3) yield return new WaitForSeconds(.4f);
                     TankTownSmokeCapture.Capture(Path.Combine(output, "durability-" + label + "-" + shot + ".png"), true, 1920, 1080);
-                    if (shot == 3 && label == "apartment")
+                    if (shot == 3 && label == "apartment" && building.DestroyedFraction < 1)
                     {
                         yield return new WaitForSeconds(.25f);
                         var cracked = building.Blocks.Find(x => x != null && !x.Detached && x.Durability01 < .99f);
@@ -61,11 +61,13 @@ namespace TankTown
                         TankTownSmokeCapture.Capture(Path.Combine(output, "durability-cracks-close.png"), false, 1920, 1080);
                         game.CameraRig.enabled = true; game.CameraRig.Snap();
                     }
+                    if (building.DestroyedFraction == 1) break;
                 }
-                // 壁を削った後、実弾を左右の支柱へ個別に当てる。一本だけでは全壊させない。
-                for (int column = 0; column < 2; column++)
+                // 連射で残った支柱を狙い、支持を失うと報酬まで解放されることを確認する。
+                for (int column = 0; column < 2 && building.DestroyedFraction < 1; column++)
                 {
                     var support = building.Blocks.Find(x => x != null && x.Foundation && x.Column == column);
+                    if (support == null || support.Detached) continue;
                     start.x = support.transform.position.x;
                     body.isKinematic = false; game.Tank.Warp(new Pose(start, Quaternion.identity)); body.isKinematic = true;
                     body.position = start; game.Tank.transform.position = start; Physics.SyncTransforms(); game.CameraRig.Snap();
@@ -74,14 +76,14 @@ namespace TankTown
                     game.Tank.Fire(column); yield return new WaitForSeconds(.5f);
                     if (game.Sound.PlayedCount(TownSound.Cannon) != before + 1 || !support.Detached)
                     { Fail(label + " real pillar shot missed column " + column); yield break; }
-                    if ((column == 0 && building.Collapsed) || (column == 1 && (building.DestroyedFraction != 1 || !building.Reward.Available)))
-                    { Fail(label + " support balance did not match local damage"); yield break; }
                     Debug.Log($"LOCAL SUPPORT SHOT: building={label}, column={column}, detached={building.DetachedParts}/{building.Blocks.Count}, collapsed={building.Collapsed}, reward={building.Reward.Available}");
                     TankTownSmokeCapture.Capture(Path.Combine(output, "durability-" + label + "-support-" + column + ".png"), true, 1920, 1080);
                 }
+                if (building.DestroyedFraction != 1 || !building.Reward.Available)
+                { Fail(label + " did not collapse/unlock after losing the front supports"); yield break; }
             }
             game.AdvanceTime(1000);
-            Debug.Log($"DURABILITY SMOKE COMPLETE: styles=3, facadeShots=3, aimedSupportShots=2, localBreak=True, broken={game.BrokenBlocks}, durability={game.Settings.buildingDurability}, ordinaryRadius={game.Stats.BlastRadius}, breakRadius={game.Settings.blastBreakRadius}, damageMultiplier={game.Settings.blastDamageMultiplier}, impulse={game.Stats.BlastImpulse}, state={game.State}");
+            Debug.Log($"DURABILITY SMOKE COMPLETE: styles=3, maxFacadeShots=3, maxAimedSupportShots=2, localBreak=True, broken={game.BrokenBlocks}, durability={game.Settings.buildingDurability}, ordinaryRadius={game.Stats.BlastRadius}, breakRadius={game.Settings.blastBreakRadius}, damageMultiplier={game.Settings.blastDamageMultiplier}, impulse={game.Stats.BlastImpulse}, state={game.State}");
             Application.Quit();
         }
         private static void Fail(string reason) { Debug.LogError("DURABILITY SMOKE FAILED: " + reason); Application.Quit(1); }
