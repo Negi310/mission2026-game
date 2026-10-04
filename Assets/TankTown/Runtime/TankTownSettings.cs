@@ -22,8 +22,8 @@ namespace TankTown
         [Header("Cannon")]
         [Range(0, 10)] public float cannonElevation = 4;
         [Min(0)] public float shotCooldown = 0.35f;
-        [Min(1)] public float blastRadius = 6.5f;
-        [Min(0)] public float blastImpulse = 16;
+        [Min(1)] public float blastRadius = 4;
+        [Min(0)] public float blastImpulse = 12;
         [Header("Debris destruction")]
         [Min(1)] public float fragmentSize = 3;
         [Min(1)] public float debrisImpactSpeed = 12;

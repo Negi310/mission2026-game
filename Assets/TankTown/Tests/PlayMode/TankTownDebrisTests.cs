@@ -102,7 +102,8 @@ namespace TankTown.Tests
             Assert.That(source.GetComponent<FlyingDebris>().ImpactSpent, Is.True);
             var next = target.GetComponent<Rigidbody>();
             yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
-            Assert.That(next.linearVelocity.magnitude, Is.GreaterThan(12), "Newly broken pieces must be propelled again");
+            // 初期状態の二次爆発は弱い。飛散を確認し、次段の接触速度は後で与える。
+            Assert.That(next.linearVelocity.magnitude, Is.GreaterThan(3), "A weaker secondary explosion must still propel new debris");
             Assert.That(next.GetComponent<FlyingDebris>().Generation, Is.EqualTo(1));
             // 次の接触だけ向きを固定し、二段目も実際の物理衝突で確認する。
             next.useGravity = false; next.position = distant.transform.position - Vector3.right * 4;
