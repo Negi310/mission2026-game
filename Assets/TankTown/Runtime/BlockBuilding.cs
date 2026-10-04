@@ -86,9 +86,7 @@ namespace TankTown
                 {
                     if (block == null || block.Detached || block.Level < level) continue;
                     block.Break(origin, impulse * .18f);
-                    var body = block.GetComponent<Rigidbody>();
-                    body.AddForce(direction * 3.5f + Vector3.down, ForceMode.VelocityChange);
-                    body.AddTorque(Vector3.Cross(Vector3.up, direction) * 2.2f, ForceMode.VelocityChange);
+                    block.TipDebris(direction);
                 }
                 MarkCollapse(level);
                 break;

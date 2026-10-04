@@ -223,7 +223,12 @@ namespace TankTown
 
         private void HandleCollision(Collision hit)
         {
-            if (!game.IsPlaying || Relocating) return;
+            if (!game.IsPlaying || Relocating || body.isKinematic) return;
+            if (hit.collider.GetComponentInParent<FlyingDebris>() != null)
+            {
+                PushAside(hit.rigidbody);
+                return;
+            }
             var block = hit.collider.GetComponentInParent<DestructibleBlock>();
             if (block == null) return;
             if (game.Items.Invincible && !block.Detached)
@@ -250,9 +255,10 @@ namespace TankTown
             if (Time.time >= protectedUntil && impact >= game.Settings.fatalImpactSpeed) Explode();
         }
 
-        private void PushAside(DestructibleBlock block)
+        private void PushAside(DestructibleBlock block) => PushAside(block.GetComponent<Rigidbody>());
+
+        private void PushAside(Rigidbody fragment)
         {
-            var fragment = block.GetComponent<Rigidbody>();
             if (fragment == null) return;
             var forward = body.rotation * Vector3.forward;
             var away = fragment.worldCenterOfMass - body.position;

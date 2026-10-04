@@ -271,7 +271,7 @@ namespace TankTown
             {
                 cardTitle.text = $"{game.Destruction:0.0}%  こわせた！";
                 string rank = game.Destruction >= 85 ? "まちのはかい王" : game.Destruction >= 60 ? "ビルクラッシャー" : game.Destruction >= 35 ? "はかいチャレンジャー" : "はかいルーキー";
-                cardBody.text = $"称号：{rank}\n{game.BrokenBlocks} パーツ破壊 ・ 誘爆 {game.ChainExplosions}回\n最高 {game.LongestChain}段の連鎖 ・ リスポーン {game.Crashes}回\n次はどの道を走ろう？";
+                cardBody.text = $"称号：{rank}\n{game.BrokenBlocks} パーツ破壊 ・ 誘爆 {game.ChainExplosions + game.DebrisExplosions}回\n最高 {game.LongestChain}段の連鎖 ・ リスポーン {game.Crashes}回\n次はどの道を走ろう？";
                 buttonText.text = "もういちど   →   ENTER";
             }
             var shown = game.Items.Held != ItemKind.None ? game.Items.Held : game.Items.Active;

@@ -26,6 +26,7 @@ namespace TankTown
         public int BrokenBlocks { get; private set; }
         public int Crashes { get; private set; }
         public int ChainExplosions { get; private set; }
+        public int DebrisExplosions { get; private set; }
         public int LongestChain { get; private set; }
         public int ExplosionGeneration { get; private set; }
         public event Action<ItemKind> SpecialCollected;
@@ -38,6 +39,8 @@ namespace TankTown
         private UniversalRenderPipelineAsset toyPipeline;
         private RenderPipelineAsset previousPipeline;
         private static bool playAfterReload;
+        private float debrisBurstWindow;
+        private int debrisBurstsInWindow;
 
         private void Awake()
         {
@@ -179,6 +182,28 @@ namespace TankTown
         }
 
         public void Blast(Vector3 point) => Blast(point, Stats.BlastRadius, Stats.BlastImpulse);
+
+        internal bool TryDebrisBlast(Vector3 point, int generation)
+        {
+            if (!IsPlaying || generation > Settings.debrisChainLimit) return false;
+            // 同時多発する接触は短い時間窓で制限し、大量倒壊でも演出を増やし続けない。
+            if (Time.time >= debrisBurstWindow) { debrisBurstWindow = Time.time + .12f; debrisBurstsInWindow = 0; }
+            if (debrisBurstsInWindow >= 3) return false;
+            int previous = ExplosionGeneration;
+            ExplosionGeneration = generation;
+            try
+            {
+                int broken = DamageSphere(point, Settings.debrisBlastRadius, Stats.BlastImpulse * .9f);
+                if (broken == 0) return false;
+                debrisBurstsInWindow++; DebrisExplosions++;
+                LongestChain = Mathf.Max(LongestChain, generation);
+                ChainBurst?.Invoke(generation);
+                Effects.DebrisImpact(point, Settings.debrisBlastRadius);
+                PlayTone(105, .12f, .12f);
+                return true;
+            }
+            finally { ExplosionGeneration = previous; }
+        }
 
         internal void ChainBlast(Vector3 point, float radius, int generation, bool fuelTank = false)
         {

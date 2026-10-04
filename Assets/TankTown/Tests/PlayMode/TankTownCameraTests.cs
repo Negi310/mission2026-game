@@ -81,22 +81,34 @@ namespace TankTown.Tests
             var position = camera.transform.position;
             var center = (position + camera.Target.position) * .5f;
             var box = game.World.Box("Camera occlusion witness", center, new Vector3(4, 5, 1), game.World.ShotMaterial);
-            box.AddComponent<DestructibleBlock>().Initialize(game); Physics.SyncTransforms();
+            var obstruction = box.AddComponent<DestructibleBlock>(); obstruction.Kind = BuildingPart.Wall;
+            obstruction.Initialize(game); Physics.SyncTransforms();
             var renderer = box.GetComponent<Renderer>(); var properties = new MaterialPropertyBlock();
             yield return new WaitForSeconds(.35f);
             Assert.That(Vector3.Distance(camera.transform.position, position), Is.LessThan(.001f), "An obstacle must not push the camera into the tank");
             renderer.GetPropertyBlock(properties);
             Assert.That(properties.GetFloat("_CameraVisibility"), Is.Zero, "Fully covered parts must not leave a distracting dotted pattern");
             Assert.That(renderer.sharedMaterial.GetFloat("_CameraVisibility"), Is.EqualTo(1), "Other parts that share this material must remain opaque");
-            box.GetComponent<DestructibleBlock>().Break(center, 0);
-            box.GetComponent<Rigidbody>().constraints = RigidbodyConstraints.FreezeAll;
-            box.GetComponent<Rigidbody>().useGravity = false;
-            yield return new WaitForSeconds(.35f); renderer.GetPropertyBlock(properties);
-            Assert.That(properties.GetFloat("_CameraVisibility"), Is.Zero, "A detached slab must keep fading while it still blocks the view");
-            box.transform.position += Vector3.right * 20; Physics.SyncTransforms();
+            var block = box.GetComponent<DestructibleBlock>(); block.Break(center, 0);
+            Assert.That(block.DebrisBodies.Count, Is.GreaterThan(1));
+            foreach (var piece in block.DebrisBodies)
+            {
+                piece.constraints = RigidbodyConstraints.FreezeAll; piece.useGravity = false;
+            }
             yield return new WaitForSeconds(.35f);
-            renderer.GetPropertyBlock(properties);
-            Assert.That(properties.GetFloat("_CameraVisibility"), Is.EqualTo(1).Within(.001f));
+            foreach (var piece in block.DebrisBodies)
+            {
+                piece.GetComponent<Renderer>().GetPropertyBlock(properties);
+                Assert.That(properties.GetFloat("_CameraVisibility"), Is.Zero, "Each separate fragment must keep fading while it blocks the view");
+                piece.transform.position += Vector3.right * 20;
+            }
+            Physics.SyncTransforms();
+            yield return new WaitForSeconds(.35f);
+            foreach (var piece in block.DebrisBodies)
+            {
+                piece.GetComponent<Renderer>().GetPropertyBlock(properties);
+                Assert.That(properties.GetFloat("_CameraVisibility"), Is.EqualTo(1).Within(.001f), "A fragment must become opaque again after leaving the camera");
+            }
             Assert.That(Vector3.Distance(camera.transform.position, position), Is.LessThan(.001f));
         }
 

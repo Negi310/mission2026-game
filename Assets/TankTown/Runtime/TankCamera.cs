@@ -109,12 +109,18 @@ namespace TankTown
                 occlusionHits, (TownPhysics.StructureMask | 1 << TownPhysics.DebrisLayer) & ~TownPhysics.GroundMask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < count; i++)
             {
-                var block = occlusionHits[i].GetComponentInParent<DestructibleBlock>();
-                if (block == null) continue;
-                if (!blockRenderers.TryGetValue(block, out var renderers))
+                Renderer[] renderers;
+                var flying = occlusionHits[i].GetComponentInParent<FlyingDebris>();
+                if (flying != null) renderers = flying.Renderers;
+                else
                 {
-                    renderers = block.GetComponentsInChildren<Renderer>();
-                    blockRenderers.Add(block, renderers);
+                    var block = occlusionHits[i].GetComponentInParent<DestructibleBlock>();
+                    if (block == null) continue;
+                    if (!blockRenderers.TryGetValue(block, out renderers))
+                    {
+                        renderers = block.GetComponentsInChildren<Renderer>();
+                        blockRenderers.Add(block, renderers);
+                    }
                 }
                 foreach (var renderer in renderers)
                 {
@@ -132,6 +138,13 @@ namespace TankTown
                 SetVisibility(renderer, value);
                 if (value >= 1) visibility.Remove(renderer); else visibility[renderer] = value;
             }
+        }
+
+        internal void InheritOcclusion(Renderer source, Renderer fragment)
+        {
+            float value = visibility.TryGetValue(source, out var current) ? current : 1;
+            SetVisibility(fragment, value);
+            if (value < 1) visibility[fragment] = value;
         }
 
         private void SetVisibility(Renderer renderer, float value)

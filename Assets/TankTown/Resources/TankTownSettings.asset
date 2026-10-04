@@ -27,7 +27,11 @@ MonoBehaviour:
   cannonElevation: 4
   shotCooldown: 0.35
   blastRadius: 6.5
-  blastImpulse: 20
+  blastImpulse: 32
+  fragmentSize: 3
+  debrisImpactSpeed: 12
+  debrisBlastRadius: 3.5
+  debrisChainLimit: 4
   fuelIgnitionDistance: 3
   fuelExplosionRadius: 24
   fuelImpulseMultiplier: 3

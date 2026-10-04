@@ -94,6 +94,13 @@ namespace TankTown
             Particles(position, new Color(1, .67f, .15f), 35, 13, .4f, .4f, Vector3.up, false, true);
             Shockwave(position, new Color(1, .75f, .3f), width, .35f);
         }
+        public void DebrisImpact(Vector3 position, float radius)
+        {
+            Fireball(position, radius * .85f);
+            Particles(position, new Color(1, .66f, .08f), 48, 28, .45f, .35f, Vector3.up, false, true);
+            Shockwave(position, new Color(1, .8f, .2f), radius * 2, .25f);
+            Flash(position, new Color(1, .96f, .68f), radius * 1.1f, .1f);
+        }
         public void EnergyImpact(Vector3 position, Color color)
         {
             Particles(position, color, 36, 14, .8f, .5f, Vector3.up, false, true);

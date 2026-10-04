@@ -14,7 +14,7 @@ namespace TankTown
         private static void Install()
         {
             var args = Environment.GetCommandLineArgs();
-            if (Array.IndexOf(args, "--tank-town-city-smoke") >= 0 || Array.IndexOf(args, "--tank-town-title-wide-smoke") >= 0 || Array.IndexOf(args, "--tank-town-fuel-smoke") >= 0)
+            if (Array.IndexOf(args, "--tank-town-city-smoke") >= 0 || Array.IndexOf(args, "--tank-town-title-wide-smoke") >= 0 || Array.IndexOf(args, "--tank-town-fuel-smoke") >= 0 || Array.IndexOf(args, "--tank-town-debris-smoke") >= 0)
                 new GameObject("City presentation smoke").AddComponent<TankTownCitySmoke>();
         }
 
@@ -24,6 +24,11 @@ namespace TankTown
             output = Path.Combine(Application.dataPath, "..", "Captures"); Directory.CreateDirectory(output);
             yield return new WaitForSecondsRealtime(2);
             var game = FindFirstObjectByType<TankTownGame>();
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-debris-smoke") >= 0)
+            {
+                yield return DebrisTour(game);
+                yield break;
+            }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-fuel-smoke") >= 0)
             {
                 yield return FuelTour(game);
@@ -130,6 +135,52 @@ namespace TankTown
             Application.Quit(game.BrokenBlocks > farBroken ? 0 : 1);
         }
         private void CaptureFuel(string name) => TankTownSmokeCapture.Capture(Path.Combine(output, name + ".png"), true, 1920, 1080);
+        private IEnumerator DebrisTour(TankTownGame game)
+        {
+            Time.captureDeltaTime = 1f / 60;
+            game.StartOrRestart(); game.Input.useHardware = true;
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
+            var building = game.World.Buildings[0];
+            var pillar = building.Blocks.Find(x => x.Foundation && x.Column == 0);
+            AimAtFuelTarget(game, pillar.transform.position);
+            yield return null; CaptureFuel("debris-01-cannon-target");
+            game.Tank.Fire(0);
+            yield return new WaitForSeconds(.2f); CaptureFuel("debris-02-cannon-impact");
+            View(game, building.transform.position + new Vector3(25, 21, -28), building.transform.position + Vector3.up * 9);
+            yield return new WaitForSeconds(.25f); CaptureFuel("debris-03-city-fragments");
+            yield return new WaitForSeconds(2.5f); CaptureFuel("debris-04-clear");
+            int cityBroken = game.BrokenBlocks, cityBursts = game.DebrisExplosions;
+
+            // 分割数と実接触を安定して撮るための診断用配置。二次爆発は通常の衝突経路を使う。
+            Vector3 center = new Vector3(0, 6, -85);
+            var floor = SmokePart(game, "Diagnostic floor", center, new Vector3(9, .3f, 6), BuildingPart.Slab);
+            var wall = SmokePart(game, "Diagnostic impact wall", center + Vector3.right * 10, new Vector3(.35f, 5, 9), BuildingPart.Wall);
+            Physics.SyncTransforms();
+            View(game, center + new Vector3(-7, 14, -19), center + Vector3.right * 6);
+            CaptureFuel("debris-05-floor-before");
+            floor.Break(center - Vector3.right * 2, game.Stats.BlastImpulse);
+            int pieces = floor.DebrisBodies.Count;
+            yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
+            CaptureFuel("debris-06-split-floor");
+            var incoming = floor.DebrisBodies[0];
+            incoming.useGravity = false; incoming.position = wall.transform.position - Vector3.right * 6;
+            incoming.rotation = Quaternion.identity; incoming.angularVelocity = Vector3.zero; incoming.linearVelocity = Vector3.right * 42;
+            Physics.SyncTransforms();
+            float start = Time.time; int before = game.DebrisExplosions;
+            while (!wall.Detached && Time.time - start < 1) yield return new WaitForFixedUpdate();
+            yield return new WaitForSeconds(.1f); CaptureFuel("debris-07-contact-explosion");
+            yield return new WaitForSeconds(.25f); CaptureFuel("debris-08-new-fragments");
+            int wallPieces = wall != null ? wall.DebrisBodies.Count : 0;
+            Debug.Log($"DEBRIS SMOKE COMPLETE: floorPieces={pieces}, wallPieces={wallPieces}, contactBursts={game.DebrisExplosions - before}, cityBursts={cityBursts}, cityBroken={cityBroken}, totalBursts={game.DebrisExplosions}, impulse={game.Settings.blastImpulse}, fuelImpulse={game.Settings.blastImpulse * game.Settings.fuelImpulseMultiplier}, longestChain={game.LongestChain}");
+            Application.Quit(pieces > 1 && wallPieces > 1 && game.DebrisExplosions > before ? 0 : 1);
+        }
+        private static DestructibleBlock SmokePart(TankTownGame game, string name, Vector3 position, Vector3 size, BuildingPart kind)
+        {
+            var item = game.World.Box(name, position, size, game.World.ShotMaterial);
+            var block = item.AddComponent<DestructibleBlock>(); block.Kind = kind; block.Initialize(game);
+            return block;
+        }
         private static void AimAtFuelTarget(TankTownGame game, Vector3 target)
         {
             var body = game.Tank.GetComponent<Rigidbody>(); body.isKinematic = false;
