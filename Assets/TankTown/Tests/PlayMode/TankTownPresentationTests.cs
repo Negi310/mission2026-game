@@ -72,7 +72,7 @@ namespace TankTown.Tests
         {
             Assert.That(game.Items.Receive(ItemKind.Missiles), Is.True); yield return null;
             var card = GameObject.Find("Special items");
-            Assert.That(card.GetComponentsInChildren<Text>().Any(x => x.text == "ミサイル"), Is.True);
+            Assert.That(card.GetComponentsInChildren<Text>().Any(x => x.text == "追尾ミサイル"), Is.True);
             Assert.That(card.GetComponentsInChildren<Image>().Any(x => x.sprite == game.World.SpecialIcons.Sprite(ItemKind.Missiles)), Is.True);
             Assert.That(game.Items.UseHeld(), Is.True); yield return null;
             Assert.That(card.GetComponentsInChildren<Text>().Any(x => x.text == "発動中！"), Is.True);
@@ -82,7 +82,7 @@ namespace TankTown.Tests
             yield return null; Canvas.ForceUpdateCanvases();
             var active = GameObject.Find("Active item timers");
             var timers = active.GetComponentInChildren<Text>();
-            foreach (string name in new[] { "ミサイル", "マグネット", "ブルドーザー", "ハイスピード" })
+            foreach (string name in new[] { "追尾ミサイル", "マグネット", "ブルドーザー", "ハイスピード" })
                 Assert.That(timers.text, Does.Contain(name));
             Assert.That(timers.preferredHeight, Is.LessThanOrEqualTo(timers.rectTransform.rect.height), "All four effect timers must fit without clipping");
             Rect panelBounds = Bounds((RectTransform)active.transform), textBounds = Bounds(timers.rectTransform);

@@ -77,7 +77,8 @@ namespace TankTown
             previousTurretYaw = turretYaw;
             previousVisualRotation = visualRotation;
             previousHullRotation = hullRotation;
-            turretYaw = Mathf.MoveTowards(turretYaw, wheel * game.Settings.turretMaxYaw, game.Settings.turretTurnSpeed * dt);
+            float aimSpeed = game.Settings.turretTurnSpeed * (game.Items.StopsForward ? game.Settings.megaBeamTurnMultiplier : 1);
+            turretYaw = Mathf.MoveTowards(turretYaw, wheel * game.Settings.turretMaxYaw, aimSpeed * dt);
             if (driving)
             {
                 steeringHistory.Enqueue(new SteeringSample { time = Time.fixedTime, value = wheel });

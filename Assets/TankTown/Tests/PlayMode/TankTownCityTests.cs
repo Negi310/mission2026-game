@@ -26,7 +26,8 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator TrafficDrivesOnTheRoadAndFreezesWhenPaused()
         {
-            Assert.That(game.World.TrafficCars.Count, Is.EqualTo(18));
+            Assert.That(game.World.TrafficCars.Count, Is.EqualTo(game.Settings.cityHalfBlocks * game.Settings.trafficCarsPerCircuit));
+            Assert.That(game.World.TrafficCars.Count, Is.GreaterThanOrEqualTo(60));
             var starts = game.World.TrafficCars.Select(x => x.GetComponent<Rigidbody>().position).ToArray();
             yield return new WaitForSeconds(2);
             int moved = 0;

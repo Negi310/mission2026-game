@@ -121,6 +121,32 @@ namespace TankTown
         {
             SuperImpact(position, radius * .65f);
         }
+        public void CarImpact(Vector3 position, float radius)
+        {
+            Fireball(position, radius * .95f);
+            Fireball(position + Vector3.up * 3, radius * .6f);
+            Particles(position, new Color(1, .45f, .035f), 150, 34, 1.8f, .48f, Vector3.up);
+            Particles(position, new Color(1, .9f, .15f), 130, 44, .55f, .38f, Vector3.up, false, true);
+            Particles(position + Vector3.up * 2, new Color(.94f, .76f, .48f), 35, 9, 5, .65f, Vector3.up, true);
+            Shockwave(position, new Color(1, .72f, .12f), radius * 2.8f, .38f);
+            Shockwave(position + Vector3.up * 2, new Color(1, .96f, .5f), radius * 2.2f, .3f, Quaternion.Euler(90, 0, 0));
+            Flash(position, new Color(1, .96f, .6f), radius * 1.4f, .1f);
+        }
+        public void PedestrianBonk(Vector3 position)
+        {
+            Particles(position, new Color(1, .92f, .18f), 10, 6, .24f, .35f, Vector3.up, false, true);
+            Shockwave(position, new Color(1, .9f, .3f), 1.8f, .22f);
+        }
+        public void BeamPulse(Vector3 start, Vector3 forward, float radius, Vector3 impact, bool hit)
+        {
+            Particles(start + forward * 1.5f, new Color(.2f, .95f, 1), 24, 12, .4f, .24f, forward, false, true);
+            Shockwave(start + forward * 2, new Color(.12f, .85f, 1), radius * 1.1f, .22f, Quaternion.FromToRotation(Vector3.up, forward));
+            if (!hit) return;
+            Particles(impact, new Color(.8f, .98f, 1), 65, 30, .55f, .3f, Vector3.up, false, true);
+            Particles(impact, new Color(1, .18f, .7f), 30, 20, .45f, .25f, Vector3.up, false, true);
+            Shockwave(impact, new Color(.1f, .9f, 1), radius * 2.5f, .3f);
+            Flash(impact, new Color(.65f, .95f, 1), radius * .85f, .12f);
+        }
         private void Fireball(Vector3 position, float radius)
         {
             var root = new GameObject("Large explosion fireball");

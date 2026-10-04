@@ -54,6 +54,11 @@ namespace TankTown
         [Range(0, 1)] public float stabilityMargin = .25f;
         [Min(2)] public float floorHeight = 3.6f;
         [Range(0, 5)] public float terraceHeight = 3.5f;
+        [Header("City traffic")]
+        [Range(6, 40)] public int trafficCarsPerCircuit = 24;
+        [Range(1, 12)] public int pedestriansPerBlock = 6;
+        [Min(1)] public float carExplosionRadius = 14;
+        [Min(1)] public float carExplosionImpulseMultiplier = 2.1f;
         [Header("Effects")]
         [Range(1, 2.5f)] public float explosionVisualScale = 1.55f;
         [Header("Camera")]
@@ -72,9 +77,13 @@ namespace TankTown
         [Header("Special items")]
         [Range(.3f, .9f)] public float buildingRewardThreshold = .6f;
         [Min(.5f)] public float megaBeamSeconds = 2;
-        [Min(10)] public float megaBeamLength = 70;
-        [Min(1)] public float megaBeamRadius = 5;
+        [Min(10)] public float megaBeamLength = 105;
+        [Min(1)] public float megaBeamRadius = 9;
+        [Range(.05f, 1)] public float megaBeamTurnMultiplier = .18f;
         [Min(1)] public float missileSeconds = 6;
+        [Min(10)] public float missileTargetRange = 90;
+        [Min(10)] public float missileSpeed = 64;
+        [Min(90)] public float missileTurnSpeed = 330;
         [Min(1)] public float magnetSeconds = 8;
         [Min(3)] public float magnetRadius = 22;
         [Min(1)] public float magnetPullSpeed = 24;

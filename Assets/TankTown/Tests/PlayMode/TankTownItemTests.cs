@@ -132,16 +132,17 @@ namespace TankTown.Tests
             Assert.That(game.Tank.ActualSpeed, Is.GreaterThan(1));
         }
         [UnityTest]
-        public IEnumerator FiveMissilesRiseAndContinueBombardingAWhileDriving()
+        public IEnumerator FiveMissilesRiseAndTrackMovingObjectsWhileDriving()
         {
             FaceBuilding(); var body = game.Tank.GetComponent<Rigidbody>(); var origin = body.position;
             game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
             var rockets = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None); Assert.That(rockets.Length, Is.EqualTo(5));
             var launch = rockets[0].transform.position;
+            Assert.That(System.Array.Exists(rockets, x => x.TrackingTarget != null), Is.True);
             yield return new WaitForSeconds(.35f);
             Assert.That(rockets[0].transform.position.y, Is.GreaterThan(launch.y + 3));
             yield return new WaitForSeconds(3.6f);
-            Assert.That(game.Items.MissileStrikes, Is.GreaterThanOrEqualTo(10));
+            Assert.That(game.Items.MissileStrikes, Is.GreaterThanOrEqualTo(5));
             Assert.That(game.BrokenBlocks, Is.GreaterThan(0));
             Assert.That(Vector3.Distance(body.position, origin), Is.GreaterThan(10));
             Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.Missiles));

@@ -30,6 +30,7 @@ namespace TankTown
         public int DebrisExplosions { get; private set; }
         public int LongestChain { get; private set; }
         public int ExplosionGeneration { get; private set; }
+        public Vector3 LastBeamImpact { get; private set; }
         public event Action<ItemKind> SpecialCollected;
         public event Action<int> ChainBurst;
         public float Destruction => TotalBlocks == 0 ? 0 : 100f * BrokenBlocks / TotalBlocks;
@@ -38,7 +39,7 @@ namespace TankTown
         internal int ActiveDebrisCount => debris.Count;
         private readonly List<AudioClip> clips = new List<AudioClip>();
         private AudioSource speaker;
-        private bool ownedSettings, oldDebrisIgnore, oldTankIgnore, oldRewardIgnore;
+        private bool ownedSettings, oldDebrisIgnore, oldTankIgnore, oldRewardIgnore, oldPedestrianDebrisIgnore, oldPedestrianIgnore;
         private UniversalRenderPipelineAsset toyPipeline;
         private RenderPipelineAsset previousPipeline;
         private static bool playAfterReload;
@@ -65,6 +66,10 @@ namespace TankTown
             Physics.IgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer, true);
             Physics.IgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer, false);
             Physics.IgnoreLayerCollision(TownPhysics.RewardLayer, TownPhysics.DebrisLayer, true);
+            oldPedestrianDebrisIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.DebrisLayer);
+            oldPedestrianIgnore = Physics.GetIgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.PedestrianLayer);
+            Physics.IgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.DebrisLayer, true);
+            Physics.IgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.PedestrianLayer, true);
             Input = gameObject.AddComponent<TankInput>();
             Input.settings = Settings;
             var worldRoot = new GameObject("Procedural Town");
@@ -235,7 +240,7 @@ namespace TankTown
             finally { ExplosionGeneration = previous; }
         }
 
-        internal void ChainBlast(Vector3 point, float radius, int generation, bool fuelTank = false)
+        internal void ChainBlast(Vector3 point, float radius, int generation, bool fuelTank = false, bool vehicle = false)
         {
             if (!IsPlaying) return;
             ChainExplosions++;
@@ -245,9 +250,10 @@ namespace TankTown
             ExplosionGeneration = generation;
             try
             {
-                float impulse = Settings.blastImpulse * (fuelTank ? Settings.fuelImpulseMultiplier : 1.35f);
+                float impulse = Settings.blastImpulse * (fuelTank ? Settings.fuelImpulseMultiplier : vehicle ? Settings.carExplosionImpulseMultiplier : 1.35f);
                 DamageSphere(point, radius, impulse);
                 if (fuelTank) Effects.FuelImpact(point, radius);
+                else if (vehicle) Effects.CarImpact(point, radius);
                 else Effects.Impact(point, radius);
                 if (fuelTank) Sound.BigExplosion(point);
                 else Sound.Chain(point);
@@ -276,15 +282,25 @@ namespace TankTown
             var buildings = new HashSet<BlockBuilding>();
             int count = 0;
             var segment = end - start;
+            float nearest = float.PositiveInfinity; LastBeamImpact = end;
             foreach (var collider in Physics.OverlapCapsule(start, end, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
             {
                 var block = collider.GetComponentInParent<DestructibleBlock>();
                 if (block == null || block.Detached) continue;
                 var origin = start + segment * Mathf.Clamp01(Vector3.Dot(block.transform.position - start, segment) / segment.sqrMagnitude);
+                float distance = (origin - start).sqrMagnitude;
+                if (distance < nearest) { nearest = distance; LastBeamImpact = origin; }
                 block.Break(origin, impulse, radius * 3); count++;
                 if (block.Building != null) buildings.Add(block.Building);
             }
             foreach (var building in buildings) building.ReleaseUnsupported(start, impulse);
+            foreach (var person in World.Pedestrians)
+            {
+                if (person == null || !person.Walking) continue;
+                var point = person.transform.position + Vector3.up;
+                var origin = start + segment * Mathf.Clamp01(Vector3.Dot(point - start, segment) / Mathf.Max(.01f, segment.sqrMagnitude));
+                if ((point - origin).sqrMagnitude <= radius * radius) person.KnockAside(origin, impulse);
+            }
             return count;
         }
 
@@ -325,6 +341,10 @@ namespace TankTown
             }
             // 直撃と周囲の損傷をまとめてから支持を調べ、失われた部分だけを倒壊させる。
             foreach (var building in buildings) building.ReleaseUnsupported(point, impulse);
+            float pedestrianRadius = forceRadius * .5f;
+            foreach (var person in World.Pedestrians)
+                if (person != null && person.Walking && (person.transform.position + Vector3.up - point).sqrMagnitude <= pedestrianRadius * pedestrianRadius)
+                    person.KnockAside(point, impulse);
             return count;
         }
 
@@ -354,6 +374,8 @@ namespace TankTown
             Physics.IgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer, oldDebrisIgnore);
             Physics.IgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer, oldTankIgnore);
             Physics.IgnoreLayerCollision(TownPhysics.RewardLayer, TownPhysics.DebrisLayer, oldRewardIgnore);
+            Physics.IgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.DebrisLayer, oldPedestrianDebrisIgnore);
+            Physics.IgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.PedestrianLayer, oldPedestrianIgnore);
             foreach (var clip in clips) if (clip != null) Destroy(clip);
             if (ownedSettings) Destroy(Settings);
             if (toyPipeline != null)

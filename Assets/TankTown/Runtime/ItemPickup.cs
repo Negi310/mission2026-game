@@ -106,7 +106,7 @@ namespace TankTown
             switch (kind)
             {
                 case ItemKind.MegaBeam: return "メガビーム";
-                case ItemKind.Missiles: return "ミサイル";
+                case ItemKind.Missiles: return "追尾ミサイル";
                 case ItemKind.Magnet: return "マグネット";
                 case ItemKind.Bulldozer: return "ブルドーザー";
                 case ItemKind.GigantBomb: return "ギガント爆弾";

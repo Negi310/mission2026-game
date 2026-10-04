@@ -7,6 +7,24 @@ namespace TankTown
     internal sealed class ToyGeometry
     {
         private readonly Dictionary<(Vector3, bool), Mesh> boxes = new Dictionary<(Vector3, bool), Mesh>();
+        private Mesh head;
+        public Mesh LowPolyHead()
+        {
+            if (head != null) return head;
+            var points = new List<Vector3>(); var triangles = new List<int>();
+            Vector3 Point(int ring, int sector)
+            {
+                float y = ring * Mathf.PI / 3, a = sector * Mathf.PI / 4;
+                return new Vector3(Mathf.Sin(y) * Mathf.Sin(a), Mathf.Cos(y), Mathf.Sin(y) * Mathf.Cos(a)) * .5f;
+            }
+            void Face(Vector3 a, Vector3 b, Vector3 c) { int n = points.Count; points.Add(a); points.Add(b); points.Add(c); triangles.Add(n); triangles.Add(n + 1); triangles.Add(n + 2); }
+            for (int r = 0; r < 3; r++) for (int s = 0; s < 8; s++)
+            {
+                var a = Point(r, s); var b = Point(r + 1, s); var c = Point(r + 1, s + 1); var d = Point(r, s + 1);
+                if (r != 2) Face(a, b, c); if (r != 0) Face(a, c, d);
+            }
+            head = new Mesh { name = "32 face low poly head" }; head.SetVertices(points); head.SetTriangles(triangles, 0); head.RecalculateNormals(); head.RecalculateBounds(); return head;
+        }
 
         public Mesh RoundedBox(Vector3 size, bool tapered = false)
         {
@@ -58,6 +76,6 @@ namespace TankTown
 
         private static Vector3 Abs(Vector3 p) => new Vector3(Mathf.Abs(p.x), Mathf.Abs(p.y), Mathf.Abs(p.z));
         private static float[] Grid(float half, float radius) => new[] { -half, -half + radius * .293f, -half + radius, half - radius, half - radius * .293f, half };
-        public void Dispose() { foreach (var mesh in boxes.Values) Object.Destroy(mesh); boxes.Clear(); }
+        public void Dispose() { foreach (var mesh in boxes.Values) Object.Destroy(mesh); boxes.Clear(); if (head != null) Object.Destroy(head); }
     }
 }

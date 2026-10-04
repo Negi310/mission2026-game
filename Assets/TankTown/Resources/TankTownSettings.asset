@@ -59,6 +59,10 @@ MonoBehaviour:
   cameraMaxTurnAcceleration: 240
   floorHeight: 3.6
   terraceHeight: 3.5
+  trafficCarsPerCircuit: 24
+  pedestriansPerBlock: 6
+  carExplosionRadius: 14
+  carExplosionImpulseMultiplier: 2.1
   explosionVisualScale: 1.55
   maxUpgradeLevel: 8
   speedUpgrade: 0.08
@@ -68,9 +72,13 @@ MonoBehaviour:
   handlingUpgrade: 0.06
   buildingRewardThreshold: 0.6
   megaBeamSeconds: 2
-  megaBeamLength: 70
-  megaBeamRadius: 5
+  megaBeamLength: 105
+  megaBeamRadius: 9
+  megaBeamTurnMultiplier: 0.18
   missileSeconds: 6
+  missileTargetRange: 90
+  missileSpeed: 64
+  missileTurnSpeed: 330
   magnetSeconds: 8
   magnetRadius: 22
   magnetPullSpeed: 24

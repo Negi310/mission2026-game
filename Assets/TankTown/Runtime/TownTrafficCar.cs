@@ -6,6 +6,8 @@ namespace TankTown
     {
         public float CruiseSpeed { get; private set; }
         public float Speed { get; private set; }
+        public bool IsDriving => isActiveAndEnabled && block != null && !block.Detached;
+        public Vector3 Motion => body == null ? Vector3.zero : body.rotation * Vector3.forward * Speed;
         private TankTownGame game;
         private Rigidbody body;
         private DestructibleBlock block;
@@ -15,17 +17,21 @@ namespace TankTown
 
         public void Initialize(TankTownGame owner, Vector3[] circuit, float phase, float speed)
         {
-            game = owner; route = circuit; CruiseSpeed = speed;
+            game = owner; CruiseSpeed = speed;
             block = GetComponent<DestructibleBlock>();
-            lengths = new float[route.Length];
-            for (int i = 0; i < route.Length; i++) { lengths[i] = Vector3.Distance(route[i], route[(i + 1) % route.Length]); total += lengths[i]; }
-            distance = total * phase;
             body = gameObject.AddComponent<Rigidbody>(); body.mass = 4;
             body.isKinematic = true; body.interpolation = RigidbodyInterpolation.Interpolate;
             body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-            Sample(distance, out var point, out var direction);
-            body.position = game.World.GroundPoint(point, .72f);
-            body.rotation = Quaternion.LookRotation(direction);
+            SetCircuit(circuit, phase);
+            gameObject.AddComponent<TownMovingTarget>().Initialize(game);
+        }
+        internal void SetCircuit(Vector3[] circuit, float phase)
+        {
+            route = circuit; total = 0; Speed = 0; lengths = new float[route.Length];
+            for (int i = 0; i < route.Length; i++) { lengths[i] = Vector3.Distance(route[i], route[(i + 1) % route.Length]); total += lengths[i]; }
+            distance = total * phase; Sample(distance, out var point, out var direction);
+            body.position = game.World.GroundPoint(point, .72f); body.rotation = Quaternion.LookRotation(direction);
+            transform.SetPositionAndRotation(body.position, body.rotation);
         }
 
         private void FixedUpdate()

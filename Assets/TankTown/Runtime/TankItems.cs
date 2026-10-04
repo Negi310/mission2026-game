@@ -12,6 +12,13 @@ namespace TankTown
         public bool Invincible => bulldozer > 0 || highSpeed > 0;
         public float SpeedMultiplier => (highSpeed > 0 ? game.Settings.highSpeedMultiplier : 1) * (bulldozer > 0 ? .85f : 1);
         public int MissileStrikes { get; private set; }
+        public int MissileTrackedStrikes { get; private set; }
+        internal Material MissileWhite { get; private set; }
+        internal Material MissileOrange { get; private set; }
+        internal int MissilesTracking(TownMovingTarget target)
+        {
+            int count = 0; foreach (var missile in missiles) if (missile != null && missile.TrackingTarget == target) count++; return count;
+        }
         public int BeamHits { get; private set; }
         public ItemKind Active => Weapon != ItemKind.None ? Weapon : bulldozer > 0 ? ItemKind.Bulldozer : highSpeed > 0 ? ItemKind.HighSpeed : magnet > 0 ? ItemKind.Magnet : ItemKind.None;
         public float Remaining(ItemKind kind) => kind == Weapon ? weaponTime : kind == ItemKind.Magnet ? magnet : kind == ItemKind.Bulldozer ? bulldozer : kind == ItemKind.HighSpeed ? highSpeed : 0;
@@ -31,7 +38,7 @@ namespace TankTown
         private float weaponTime, magnet, bulldozer, highSpeed, nextBeamHit, nextRam, nextRamEffect;
         private GameObject beamRoot, bladeRoot, magnetRing, shield;
         private readonly List<ItemMissile> missiles = new List<ItemMissile>();
-        private LineRenderer[] beam;
+        private LineRenderer[] beam, beamRings;
         private TrailRenderer[] dashTrails;
         private GigantBomb bomb;
         private Material energy, yellow;
@@ -41,6 +48,8 @@ namespace TankTown
         public void Initialize(TankTownGame owner)
         {
             game = owner;
+            MissileWhite = game.World.MakeMaterial(new Color(1, .93f, .72f));
+            MissileOrange = game.World.MakeMaterial(new Color(1, .3f, .04f));
             energy = new Material(Shader.Find("TankTown/Item Energy"));
             energy.SetColor("_Color", Color.white);
             yellow = game.World.MakeMaterial(new Color(1, .72f, .025f));
@@ -111,12 +120,26 @@ namespace TankTown
             if (Weapon == ItemKind.MegaBeam)
             {
                 beamRoot = new GameObject("Mega beam"); beamRoot.transform.SetParent(game.Effects.transform, false);
-                beam = new LineRenderer[3];
-                for (int i = 0; i < 3; i++)
+                beam = new LineRenderer[5];
+                float[] widths = { 2.7f, 1.65f, .3f, .055f, .055f };
+                Color[] tints = { new Color(.05f, .9f, 1, .12f), new Color(.08f, .8f, 1, .4f), Color.white, new Color(1, .3f, .8f, .85f), new Color(.65f, .98f, 1, .9f) };
+                for (int i = 0; i < beam.Length; i++)
                 {
                     var layer = new GameObject("Mega beam layer"); layer.transform.SetParent(beamRoot.transform, false);
                     beam[i] = layer.AddComponent<LineRenderer>();
-                    SetupLine(beam[i], game.Settings.megaBeamRadius * (i == 0 ? 2.4f : i == 1 ? 1.5f : .45f), i == 2 ? Color.white : new Color(.08f, .8f, 1, i == 0 ? .28f : .6f));
+                    SetupLine(beam[i], game.Settings.megaBeamRadius * widths[i], tints[i]);
+                    if (i < 2)
+                    {
+                        var halo = new MaterialPropertyBlock(); halo.SetFloat("_SoftEdge", 1); beam[i].SetPropertyBlock(halo);
+                    }
+                    if (i >= 3) beam[i].positionCount = 22;
+                }
+                beamRings = new LineRenderer[2];
+                for (int i = 0; i < 2; i++)
+                {
+                    var ring = new GameObject("Beam muzzle energy ring"); ring.transform.SetParent(beamRoot.transform, false);
+                    beamRings[i] = ring.AddComponent<LineRenderer>(); SetupLine(beamRings[i], .28f, i == 0 ? new Color(.1f, .95f, 1) : Color.white);
+                    beamRings[i].positionCount = 48; beamRings[i].loop = true;
                 }
                 nextBeamHit = 0; UpdateBeam();
             }
@@ -124,7 +147,7 @@ namespace TankTown
             {
                 for (int i = 0; i < 5; i++)
                 {
-                    var root = new GameObject("Bombardment missile " + (i + 1)); root.transform.SetParent(game.World.transform);
+                    var root = new GameObject("Homing missile " + (i + 1)); root.transform.SetParent(game.World.transform);
                     var missile = root.AddComponent<ItemMissile>(); missile.Initialize(game, this, i); missiles.Add(missile);
                 }
             }
@@ -188,12 +211,25 @@ namespace TankTown
         {
             var start = game.Tank.Muzzle.position;
             var end = start + game.Tank.Muzzle.forward * game.Settings.megaBeamLength;
-            for (int i = 0; i < beam.Length; i++) { beam[i].SetPosition(0, start); beam[i].SetPosition(1, end); }
+            var right = game.Tank.Muzzle.right; var up = game.Tank.Muzzle.up;
+            for (int i = 0; i < 3; i++) { beam[i].SetPosition(0, start); beam[i].SetPosition(1, end); beam[i].widthMultiplier = 1 + Mathf.Sin(Time.time * 18 + i) * .035f; }
+            for (int i = 3; i < beam.Length; i++) for (int p = 0; p < beam[i].positionCount; p++)
+            {
+                float t = p / (float)(beam[i].positionCount - 1), angle = t * 28 - Time.time * 9 + i * Mathf.PI;
+                float radius = game.Settings.megaBeamRadius * .32f * Mathf.Sin(t * Mathf.PI);
+                beam[i].SetPosition(p, Vector3.Lerp(start, end, t) + (right * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * radius);
+            }
+            for (int i = 0; i < beamRings.Length; i++) for (int p = 0; p < beamRings[i].positionCount; p++)
+            {
+                float angle = p * Mathf.PI * 2 / beamRings[i].positionCount;
+                float radius = game.Settings.megaBeamRadius * (.3f + i * .1f) * (1 + Mathf.Sin(Time.time * 9 + i) * .06f);
+                beamRings[i].SetPosition(p, start + game.Tank.Muzzle.forward * (1.3f + i * 2) + (right * Mathf.Cos(angle) + up * Mathf.Sin(angle)) * radius);
+            }
             if (Time.time < nextBeamHit) return;
             nextBeamHit = Time.time + .12f;
             int hits = game.DamageBeam(start, end, game.Settings.megaBeamRadius, game.Stats.BlastImpulse * 1.8f);
             BeamHits += hits;
-            if (hits > 0) game.Effects.EnergyImpact(start + game.Tank.Muzzle.forward * 10, new Color(.12f, .9f, 1));
+            game.Effects.BeamPulse(start, game.Tank.Muzzle.forward, game.Settings.megaBeamRadius, game.LastBeamImpact, hits > 0);
         }
         private void FixedUpdate()
         {
@@ -216,11 +252,11 @@ namespace TankTown
             nextRamEffect = Time.time + .22f;
             game.Effects.EnergyImpact(point, bulldozer > 0 ? ItemIcons.Color(ItemKind.Bulldozer) : ItemIcons.Color(ItemKind.HighSpeed));
         }
-        public void CountMissileStrike() => MissileStrikes++;
+        public void CountMissileStrike(bool trackedHit = false) { MissileStrikes++; if (trackedHit) MissileTrackedStrikes++; }
         private void EndWeapon(bool detonate)
         {
             Weapon = ItemKind.None; weaponTime = 0;
-            if (beamRoot != null) Destroy(beamRoot); beamRoot = null; beam = null;
+            if (beamRoot != null) Destroy(beamRoot); beamRoot = null; beam = beamRings = null;
             foreach (var missile in missiles) if (missile != null) Destroy(missile.gameObject);
             missiles.Clear();
             if (bomb != null) { if (detonate) bomb.Detonate(); else Destroy(bomb.gameObject); }

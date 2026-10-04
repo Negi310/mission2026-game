@@ -22,9 +22,12 @@ namespace TankTown
         public readonly List<ItemPickup> ItemPickups = new List<ItemPickup>();
         public readonly List<ChainExplosive> Explosives = new List<ChainExplosive>();
         public readonly List<TownTrafficCar> TrafficCars = new List<TownTrafficCar>();
+        public readonly List<TownPedestrian> Pedestrians = new List<TownPedestrian>();
+        public readonly List<TownMovingTarget> MovingTargets = new List<TownMovingTarget>();
         public readonly List<TownTrafficSignal> Signals = new List<TownTrafficSignal>();
         public Material SkyMaterial { get; private set; }
         private readonly List<Material> materials = new List<Material>();
+        private readonly Dictionary<Color, Material> carPaints = new Dictionary<Color, Material>();
         private readonly ToyGeometry geometry = new ToyGeometry();
         private TankTownGame game;
         private Material road, cream, dark, glass, lime, grass, frame, rubber, wood, cannonPaint;
@@ -197,8 +200,10 @@ namespace TankTown
                         route[corner * 9 + n] = center + new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
                     }
                 }
-                for (int i = 0; i < 6; i++) CreateCar(route, i / 6f, 8 + (i + ring) % 4, palette[(i + ring) % palette.Length]);
+                int count = game.Settings.trafficCarsPerCircuit;
+                for (int i = 0; i < count; i++) CreateCar(route, Mathf.Repeat(i / (float)count + ring * .017f, 1), 8 + (i + ring) % 4, palette[(i + ring) % palette.Length]);
             }
+            CreatePedestrians();
         }
 
         private DestructibleBlock CreatePowerPole(Vector3 point)
@@ -211,11 +216,32 @@ namespace TankTown
             return pole.GetComponent<DestructibleBlock>();
         }
 
+        private void CreatePedestrians()
+        {
+            var shirts = new Material[palette.Length];
+            for (int i = 0; i < shirts.Length; i++) shirts[i] = MakeMaterial(palette[i]);
+            var skins = new[] { MakeMaterial(new Color(1, .76f, .51f)), MakeMaterial(new Color(.68f, .4f, .25f)), MakeMaterial(new Color(.94f, .6f, .39f)) };
+            int half = game.Settings.cityHalfBlocks, variant = 0; float spacing = game.Settings.blockSpacing, sidewalk = RoadWidth / 2 + 1.1f;
+            for (int x = -half; x < half; x++) for (int z = -half; z < half; z++)
+            {
+                float left = x * spacing + sidewalk, right = (x + 1) * spacing - sidewalk;
+                float south = z * spacing + sidewalk, north = (z + 1) * spacing - sidewalk;
+                var route = new[] { new Vector3(left, 0, south), new Vector3(left, 0, north), new Vector3(right, 0, north), new Vector3(right, 0, south) };
+                for (int i = 0; i < game.Settings.pedestriansPerBlock; i++, variant++)
+                {
+                    var root = new GameObject("City pedestrian " + variant); root.transform.SetParent(transform);
+                    var person = root.AddComponent<TownPedestrian>();
+                    person.Initialize(game, route, i / (float)game.Settings.pedestriansPerBlock, variant, shirts[variant % shirts.Length], skins[variant % skins.Length], dark, geometry.LowPolyHead());
+                    Pedestrians.Add(person);
+                }
+            }
+        }
+
         private void CreateCar(Vector3[] route, float phase, float speed, Color color)
         {
             var root = new GameObject("Explosive city car"); root.transform.SetParent(transform);
             var collider = root.AddComponent<BoxCollider>(); collider.center = Vector3.up * .25f; collider.size = new Vector3(1.8f, 2, 3.3f);
-            var bodyColor = MakeMaterial(color);
+            if (!carPaints.TryGetValue(color, out var bodyColor)) { bodyColor = MakeMaterial(color); carPaints.Add(color, bodyColor); }
             Box("Car body", Vector3.zero, new Vector3(1.7f, .55f, 3.2f), bodyColor, root.transform, false);
             Box("Car cabin", new Vector3(0, .75f, -.15f), new Vector3(1.4f, 1.05f, 1.65f), bodyColor, root.transform, false);
             Box("Front windshield", new Vector3(0, .75f, .685f), new Vector3(1.22f, .65f, .035f), glass, root.transform, false);
@@ -234,7 +260,7 @@ namespace TankTown
                 }
             }
             AddBlock(root, true);
-            var explosive = root.AddComponent<ChainExplosive>(); explosive.Initialize(game, 9.5f); Explosives.Add(explosive);
+            var explosive = root.AddComponent<ChainExplosive>(); explosive.Initialize(game, game.Settings.carExplosionRadius, vehicle: true); Explosives.Add(explosive);
             var traffic = root.AddComponent<TownTrafficCar>(); traffic.Initialize(game, route, phase, speed); TrafficCars.Add(traffic);
         }
 

@@ -8,13 +8,16 @@ namespace TankTown
         private TankItems owner;
         private int lane, wave;
         private float age;
-        private Vector3 launch, apex, target, previous;
+        private Vector3 launch, apex, aimPoint, previous, flightDirection;
         private TrailRenderer trail;
+        public TownMovingTarget TrackingTarget { get; private set; }
+        public Vector3 AimPoint => aimPoint;
+        public int Retargets { get; private set; }
         public void Initialize(TankTownGame game, TankItems owner, int lane)
         {
             this.game = game; this.owner = owner; this.lane = lane;
-            var white = game.World.MakeMaterial(new Color(1, .93f, .72f));
-            var orange = game.World.MakeMaterial(new Color(1, .3f, .04f));
+            var white = owner.MissileWhite;
+            var orange = owner.MissileOrange;
             game.World.Box("Missile body", Vector3.zero, new Vector3(.55f, .55f, 1.6f), white, transform, false);
             var nose = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             nose.GetComponent<Collider>().enabled = false; Destroy(nose.GetComponent<Collider>());
@@ -32,38 +35,66 @@ namespace TankTown
             var right = Vector3.Cross(Vector3.up, forward);
             launch = game.Tank.Muzzle.position + right * (lane - 2) * .7f + Vector3.up * .6f;
             apex = launch + Vector3.up * (17 + lane * 1.2f);
-            var offset = forward * (18 + lane * 5 + (wave % 3) * 4) + right * ((lane - 2) * 7 + Mathf.Sin(wave * 2.1f + lane) * 3);
+            var offset = forward * (28 + lane * 3) + right * ((lane - 2) * 3);
             var aim = game.Tank.transform.position + offset;
             aim.x = Mathf.Clamp(aim.x, -game.World.HalfExtent + 6, game.World.HalfExtent - 6);
             aim.z = Mathf.Clamp(aim.z, -game.World.HalfExtent + 6, game.World.HalfExtent - 6);
-            target = game.World.GroundPoint(aim, .45f);
+            aimPoint = game.World.GroundPoint(aim, .45f);
+            TrackingTarget = null; AcquireTarget(forward);
+            flightDirection = Vector3.up;
             previous = transform.position = launch;
             transform.rotation = Quaternion.LookRotation(Vector3.up, Vector3.forward);
             trail.Clear();
+        }
+        private void AcquireTarget(Vector3 forward)
+        {
+            TownMovingTarget best = null; float bestScore = float.PositiveInfinity;
+            float range = game.Settings.missileTargetRange;
+            foreach (var candidate in game.World.MovingTargets)
+            {
+                if (candidate == null || !candidate.Available) continue;
+                var delta = candidate.AimPoint - game.Tank.transform.position;
+                if (delta.sqrMagnitude > range * range) continue;
+                float score = delta.sqrMagnitude + owner.MissilesTracking(candidate) * 1000 +
+                    (candidate.IsVehicle ? 0 : range * range * 2) + Mathf.Max(0, -Vector3.Dot(delta, forward)) * 25;
+                if (score < bestScore) { bestScore = score; best = candidate; }
+            }
+            TrackingTarget = best;
+            if (best != null) { aimPoint = best.AimPoint; Retargets++; }
         }
         private void Update()
         {
             if (!game.IsPlaying || owner.Weapon != ItemKind.Missiles) return;
             age += Time.deltaTime;
+            if (TrackingTarget != null && !TrackingTarget.Available) TrackingTarget = null;
+            if (TrackingTarget == null) AcquireTarget(Vector3.ProjectOnPlane(game.Tank.Muzzle.forward, Vector3.up).normalized);
+            if (TrackingTarget != null) aimPoint = TrackingTarget.AimPoint + TrackingTarget.Velocity * .12f;
             Vector3 next;
             if (age < .45f) next = Vector3.Lerp(launch, apex, Mathf.Clamp01(age / .45f));
             else
             {
-                float t = Mathf.Clamp01((age - .45f) / .95f);
-                var control = (apex + target) * .5f + Vector3.up * 7;
-                next = (1 - t) * (1 - t) * apex + 2 * (1 - t) * t * control + t * t * target;
+                var desired = (aimPoint - previous).normalized;
+                flightDirection = Vector3.RotateTowards(flightDirection, desired, game.Settings.missileTurnSpeed * Mathf.Deg2Rad * Time.deltaTime, 0);
+                next = previous + flightDirection * game.Settings.missileSpeed * Time.deltaTime;
             }
             var movement = next - previous;
             if (age >= .45f && movement.sqrMagnitude > .0001f && Physics.SphereCast(previous, .4f, movement.normalized, out var hit, movement.magnitude, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
-            { Strike(hit.point); return; }
+            { Strike(hit.point, hit.collider.GetComponentInParent<TownMovingTarget>() == TrackingTarget && TrackingTarget != null); return; }
+            if (age >= .45f && TrackingTarget != null)
+            {
+                var segment = next - previous;
+                float t = segment.sqrMagnitude > .0001f ? Mathf.Clamp01(Vector3.Dot(TrackingTarget.AimPoint - previous, segment) / segment.sqrMagnitude) : 0;
+                if ((TrackingTarget.AimPoint - (previous + segment * t)).sqrMagnitude < TrackingTarget.HitRadius * TrackingTarget.HitRadius)
+                { Strike(TrackingTarget.AimPoint, true); return; }
+            }
             transform.position = next;
             if (movement.sqrMagnitude > .0001f) transform.rotation = Quaternion.LookRotation(movement.normalized);
             previous = next;
-            if (age >= 1.4f) Strike(target);
+            if ((next - aimPoint).sqrMagnitude < 1 || age >= 3.2f) Strike(next);
         }
-        private void Strike(Vector3 point)
+        private void Strike(Vector3 point, bool trackedHit = false)
         {
-            owner.CountMissileStrike();
+            owner.CountMissileStrike(trackedHit);
             game.Blast(point, game.Stats.BlastRadius * 1.15f, game.Stats.BlastImpulse * 1.35f);
             wave++; Launch();
         }

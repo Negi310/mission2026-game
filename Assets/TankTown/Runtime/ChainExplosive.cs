@@ -10,6 +10,7 @@ namespace TankTown
         public float Radius { get; private set; }
         public int Generation { get; private set; }
         public bool IsFuelTank { get; private set; }
+        public bool IsVehicle { get; private set; }
         private TankTownGame game;
         private DestructibleBlock block;
         private float fuse;
@@ -17,9 +18,9 @@ namespace TankTown
         private MaterialPropertyBlock tint;
         private Collider tankCollider;
 
-        public void Initialize(TankTownGame owner, float radius, bool fuelTank = false)
+        public void Initialize(TankTownGame owner, float radius, bool fuelTank = false, bool vehicle = false)
         {
-            game = owner; Radius = radius; IsFuelTank = fuelTank;
+            game = owner; Radius = radius; IsFuelTank = fuelTank; IsVehicle = vehicle;
             block = GetComponent<DestructibleBlock>();
             tankCollider = GetComponent<Collider>();
             shell = GetComponentInChildren<Renderer>();
@@ -80,7 +81,7 @@ namespace TankTown
             var point = transform.position;
             foreach (var collider in GetComponentsInChildren<Collider>()) collider.enabled = false;
             foreach (var renderer in GetComponentsInChildren<Renderer>()) renderer.enabled = false;
-            game.ChainBlast(point, Radius, Generation, IsFuelTank);
+            game.ChainBlast(point, Radius, Generation, IsFuelTank, IsVehicle);
             gameObject.SetActive(false);
             Destroy(gameObject);
         }
