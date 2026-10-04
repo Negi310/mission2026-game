@@ -7,11 +7,12 @@ namespace TankTown
     {
         internal const float CoverSeconds = .10f;
         internal const float RevealSeconds = .12f;
-        internal const float BeatSeconds = .16f;
-        internal const float GoSeconds = .32f;
+        internal const float BeatSeconds = .22f;
+        internal const float GoSeconds = .40f;
         internal const float IntroSeconds = CoverSeconds + RevealSeconds + BeatSeconds * 3;
         private readonly TankTownGame game;
         private readonly Camera camera;
+        private readonly float overviewHeight, overviewFocusHeight;
         private float elapsed, goElapsed = GoSeconds, orbit = -36;
         private bool fromReload, cameraChanged, reloading;
         public float CoverOpacity { get; private set; }
@@ -21,6 +22,12 @@ namespace TankTown
         public TankTownRoundFlow(TankTownGame owner, Camera view)
         {
             game = owner; camera = view;
+            float highestRoof = 0;
+            foreach (var building in game.World.Buildings)
+                highestRoof = Mathf.Max(highestRoof, building.transform.position.y + building.Floors * game.Settings.floorHeight + 3);
+            // Orbit just above the tallest roof, at a constant height clear of all buildings.
+            overviewHeight = Mathf.Max(38, highestRoof + 9);
+            overviewFocusHeight = Mathf.Max(8, highestRoof * .35f);
             game.CameraRig.enabled = false;
             game.SetOverviewShadows(true);
             MoveOverview(0);
@@ -105,8 +112,8 @@ namespace TankTown
             orbit += Mathf.Min(dt, .05f) * 3.5f;
             float radians = orbit * Mathf.Deg2Rad;
             float extent = game.World.HalfExtent;
-            Vector3 position = new Vector3(Mathf.Sin(radians) * 1.10f, 1.6f, -Mathf.Cos(radians) * 1.10f) * extent;
-            Vector3 focus = new Vector3(0, 5, 0);
+            Vector3 position = new Vector3(Mathf.Sin(radians) * extent * 1.22f, overviewHeight, -Mathf.Cos(radians) * extent * 1.22f);
+            Vector3 focus = new Vector3(0, overviewFocusHeight, 0);
             Quaternion rotation = Quaternion.LookRotation(focus - position);
             // Leave the left portion available for the title while revealing the town on the right.
             focus -= rotation * Vector3.right * extent * .32f;

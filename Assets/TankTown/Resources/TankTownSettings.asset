@@ -75,7 +75,7 @@ MonoBehaviour:
   handlingUpgrade: 0.06
   buildingRewardThreshold: 0.6
   megaBeamSeconds: 2
-  megaBeamLength: 105
+  megaBeamLength: 400
   megaBeamRadius: 9
   megaBeamTurnMultiplier: 0.18
   missileSeconds: 6

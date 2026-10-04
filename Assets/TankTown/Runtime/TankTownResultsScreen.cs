@@ -6,6 +6,8 @@ namespace TankTown
 {
     internal sealed class TankTownResultsScreen
     {
+        internal const float CountSeconds = .95f;
+        private const float EntrySeconds = .26f;
         private readonly TankTownGame game;
         private readonly TankTownMenuLayout menu;
         private readonly RectTransform card;
@@ -22,7 +24,7 @@ namespace TankTown
         private float elapsed, tickAt;
         private bool showing;
         internal int DisplayedScore { get; private set; }
-        internal bool Counting => showing && elapsed < .72f;
+        internal bool Counting => showing && elapsed < CountSeconds;
         private static Color Ink => TankTownMenuLayout.Ink;
         private static Color Lime => TankTownMenuLayout.Lime;
         private static Color Cyan => TankTownMenuLayout.Cyan;
@@ -83,20 +85,20 @@ namespace TankTown
                 game.PlayTone(220, .13f, .15f);
             }
             elapsed += dt;
-            float entry = 1 - Mathf.Pow(1 - Mathf.Clamp01(elapsed / .20f), 3);
+            float entry = 1 - Mathf.Pow(1 - Mathf.Clamp01(elapsed / EntrySeconds), 3);
             card.anchoredPosition = new Vector2(140, -67 - (1 - entry) * 36);
             cardGroup.alpha = entry;
-            float progress = 1 - Mathf.Pow(1 - Mathf.Clamp01(elapsed / .72f), 3);
-            DisplayedScore = elapsed >= .72f ? game.RoundScore : Mathf.RoundToInt(game.RoundScore * progress);
+            float progress = 1 - Mathf.Pow(1 - Mathf.Clamp01(elapsed / CountSeconds), 3);
+            DisplayedScore = elapsed >= CountSeconds ? game.RoundScore : Mathf.RoundToInt(game.RoundScore * progress);
             score.text = DisplayedScore.ToString("N0");
             destruction.text = $"破壊度  {game.Destruction * progress:0.0}%";
             fill.rectTransform.sizeDelta = new Vector2(700 * game.Destruction * progress / 100, 18);
-            if (elapsed < .72f && elapsed >= tickAt) { tickAt = elapsed + .09f; game.PlayTone(330, .04f, .045f); }
+            if (elapsed < CountSeconds && elapsed >= tickAt) { tickAt = elapsed + .10f; game.PlayTone(330, .04f, .045f); }
             values[0] = game.BrokenBlocks; values[1] = game.ChainExplosions + game.DebrisExplosions;
             values[2] = game.LongestChain; values[3] = game.Crashes;
             for (int i = 0; i < metrics.Length; i++)
             {
-                float t = Mathf.Clamp01((elapsed - .08f - i * .05f) / .35f);
+                float t = Mathf.Clamp01((elapsed - .10f - i * .065f) / .46f);
                 metricGroups[i].alpha = t;
                 metrics[i].text = Mathf.RoundToInt(values[i] * t).ToString("N0") + units[i];
             }

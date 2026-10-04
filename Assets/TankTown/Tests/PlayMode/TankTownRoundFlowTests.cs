@@ -64,8 +64,11 @@ namespace TankTown.Tests
             Quaternion cameraRotation = view.transform.rotation;
             Vector3 tankPosition = game.Tank.transform.position;
             Vector3 support = game.World.Buildings[0].Blocks[0].transform.position;
-            Assert.That(view.transform.position.y, Is.GreaterThan(150));
-            Assert.That(view.transform.forward.y, Is.LessThan(-.65f));
+            float highestRoof = 0;
+            foreach (var building in game.World.Buildings)
+                highestRoof = Mathf.Max(highestRoof, building.transform.position.y + building.Floors * game.Settings.floorHeight + 3);
+            Assert.That(view.transform.position.y - highestRoof, Is.InRange(8, 14), "The title must stay near roof height and clear the tallest building");
+            Assert.That(view.transform.forward.y, Is.InRange(-.35f, -.10f), "The town must be seen from the side with only a gentle downward pitch");
             yield return new WaitForSecondsRealtime(.4f);
             Assert.That(Vector3.Distance(cameraPosition, view.transform.position), Is.InRange(.1f, 8));
             Assert.That(Quaternion.Angle(cameraRotation, view.transform.rotation), Is.InRange(.1f, 3));
@@ -118,7 +121,7 @@ namespace TankTown.Tests
             Assert.That(game.CameraRig.enabled, Is.True);
             Assert.That(Camera.main.fieldOfView, Is.EqualTo(game.Settings.cameraFieldOfView));
             Assert.That(game.Remaining, Is.InRange(59.9f, 60));
-            yield return new WaitForSecondsRealtime(.4f);
+            yield return new WaitForSecondsRealtime(TankTownRoundFlow.GoSeconds + .08f);
             Assert.That(game.Presentation.Countdown, Is.Empty);
             game.Input.PulsePad(0); Assert.That(Object.FindFirstObjectByType<TankShell>(), Is.Not.Null);
         }
@@ -187,7 +190,7 @@ namespace TankTown.Tests
             game.ReturnToTitle(); yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.State, Is.EqualTo(RoundState.Ready)); Assert.That(game.CameraRig.enabled, Is.False);
-            Assert.That(Camera.main.transform.position.y, Is.GreaterThan(150));
+            Assert.That(Camera.main.transform.position.y, Is.InRange(38, 60));
             GameObject.Find("How to button").GetComponent<Button>().onClick.Invoke(); yield return null;
             Assert.That(game.HowToOpen, Is.True); Assert.That(GameObject.Find("How to card"), Is.Not.Null);
         }

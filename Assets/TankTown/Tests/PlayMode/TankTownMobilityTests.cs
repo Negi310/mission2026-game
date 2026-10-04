@@ -90,6 +90,33 @@ namespace TankTown.Tests
             Assert.That(root.GetComponent<Rigidbody>().linearVelocity.magnitude, Is.GreaterThan(4));
         }
         [UnityTest]
+        public IEnumerator LaserCrossesTheCityDiagonalHitsTheFarEdgeAndItsVisualMatchesTheDamageRange()
+        {
+            IsolateTargets();
+            float extent = game.World.HalfExtent;
+            game.Tank.Warp(new Pose(game.World.GroundPoint(new Vector3(-extent + 12, 0, -extent + 12), game.Settings.rideHeight), Quaternion.Euler(0, 45, 0)));
+            Vector3 start = game.Tank.Muzzle.position, direction = game.Tank.Muzzle.forward;
+            float horizontalComponent = Vector3.ProjectOnPlane(direction, Vector3.up).magnitude;
+            float acrossCity = 2 * (extent - 12) * Mathf.Sqrt(2) / horizontalComponent;
+            var farRoot = game.World.Box("Far corner laser target", start + direction * acrossCity, Vector3.one * 3, game.World.ShotMaterial);
+            var far = farRoot.AddComponent<DestructibleBlock>(); far.Initialize(game);
+            var beyondRoot = game.World.Box("Outside laser range", start + direction * (game.Settings.megaBeamLength + game.Settings.megaBeamRadius + 15), Vector3.one, game.World.ShotMaterial);
+            var beyond = beyondRoot.AddComponent<DestructibleBlock>(); beyond.Initialize(game);
+            Physics.SyncTransforms();
+            Assert.That(acrossCity, Is.GreaterThan(300), "This target must be across the field, well beyond the previous 105m beam");
+            game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
+            Assert.That(far.Detached, Is.True, "The opposite corner must be hit by the real weapon path");
+            Assert.That(beyond.Detached, Is.False, "The beam must retain its finite range");
+            foreach (var line in GameObject.Find("Mega beam").GetComponentsInChildren<LineRenderer>().Where(x => x.positionCount == 2))
+            {
+                Vector3 segment = line.GetPosition(1) - line.GetPosition(0);
+                Assert.That(segment.magnitude, Is.EqualTo(game.Settings.megaBeamLength).Within(.01f));
+                Assert.That(Vector3.ProjectOnPlane(segment, Vector3.up).magnitude, Is.GreaterThan(extent * 2 * Mathf.Sqrt(2)), "The visual must cover even a corner-to-corner shot");
+            }
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator LaserReachesWideDistantTargetsAndTurnsMoreSlowlyThanNormal()
         {
             IsolateTargets(); var body = game.Tank.GetComponent<Rigidbody>(); body.isKinematic = false; game.Tank.enabled = true;

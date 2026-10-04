@@ -80,7 +80,7 @@ namespace TankTown
         [Header("Special items")]
         [Range(.3f, .9f)] public float buildingRewardThreshold = .6f;
         [Min(.5f)] public float megaBeamSeconds = 2;
-        [Min(10)] public float megaBeamLength = 105;
+        [Min(10)] public float megaBeamLength = 400;
         [Min(1)] public float megaBeamRadius = 9;
         [Range(.05f, 1)] public float megaBeamTurnMultiplier = .18f;
         [Min(1)] public float missileSeconds = 6;
