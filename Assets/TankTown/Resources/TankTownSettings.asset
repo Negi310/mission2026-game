@@ -36,7 +36,7 @@ MonoBehaviour:
   fuelExplosionRadius: 24
   fuelImpulseMultiplier: 3
   fatalImpactSpeed: 5
-  maxDebris: 360
+  maxDebris: 720
   debrisLifetime: 3.6
   pressureThreshold: 0.55
   pressureRelease: 0.25

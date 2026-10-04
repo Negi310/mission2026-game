@@ -147,9 +147,12 @@ namespace TankTown
             yield return null; CaptureFuel("debris-01-cannon-target");
             game.Tank.Fire(0);
             yield return new WaitForSeconds(.2f); CaptureFuel("debris-02-cannon-impact");
+            int liveAtImpact = FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length;
             View(game, building.transform.position + new Vector3(25, 21, -28), building.transform.position + Vector3.up * 9);
             yield return new WaitForSeconds(.25f); CaptureFuel("debris-03-city-fragments");
+            int liveInFlight = FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length;
             yield return new WaitForSeconds(2.5f); CaptureFuel("debris-04-clear");
+            int liveLater = FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length;
             int cityBroken = game.BrokenBlocks, cityBursts = game.DebrisExplosions;
 
             // 分割数と実接触を安定して撮るための診断用配置。二次爆発は通常の衝突経路を使う。
@@ -172,8 +175,9 @@ namespace TankTown
             yield return new WaitForSeconds(.1f); CaptureFuel("debris-07-contact-explosion");
             yield return new WaitForSeconds(.25f); CaptureFuel("debris-08-new-fragments");
             int wallPieces = wall != null ? wall.DebrisBodies.Count : 0;
-            Debug.Log($"DEBRIS SMOKE COMPLETE: floorPieces={pieces}, wallPieces={wallPieces}, contactBursts={game.DebrisExplosions - before}, cityBursts={cityBursts}, cityBroken={cityBroken}, totalBursts={game.DebrisExplosions}, impulse={game.Settings.blastImpulse}, fuelImpulse={game.Settings.blastImpulse * game.Settings.fuelImpulseMultiplier}, longestChain={game.LongestChain}");
-            Application.Quit(pieces > 1 && wallPieces > 1 && game.DebrisExplosions > before ? 0 : 1);
+            int sampledMaximum = Mathf.Max(liveAtImpact, Mathf.Max(liveInFlight, liveLater));
+            Debug.Log($"DEBRIS SMOKE COMPLETE: floorPieces={pieces}, wallPieces={wallPieces}, contactBursts={game.DebrisExplosions - before}, cityBursts={cityBursts}, cityBroken={cityBroken}, totalBursts={game.DebrisExplosions}, impulse={game.Settings.blastImpulse}, fuelImpulse={game.Settings.blastImpulse * game.Settings.fuelImpulseMultiplier}, longestChain={game.LongestChain}, debrisLimit={game.Settings.maxDebris}, liveAtImpact={liveAtImpact}, liveInFlight={liveInFlight}, liveLater={liveLater}, sampledMaximum={sampledMaximum}");
+            Application.Quit(pieces > 1 && wallPieces > 1 && game.DebrisExplosions > before && sampledMaximum <= game.Settings.maxDebris ? 0 : 1);
         }
         private static DestructibleBlock SmokePart(TankTownGame game, string name, Vector3 position, Vector3 size, BuildingPart kind)
         {
