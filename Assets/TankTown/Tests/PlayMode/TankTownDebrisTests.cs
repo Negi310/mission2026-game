@@ -226,13 +226,14 @@ namespace TankTown.Tests
             Physics.SyncTransforms();
             for (int i = 0; i < 8; i++) yield return new WaitForFixedUpdate();
             Assert.That(game.DebrisExplosions, Is.InRange(1, 3), "A simultaneous impact burst must be bounded");
-            foreach (var building in game.World.Buildings.GetRange(0, 5))
+            // 大きな設定上限でも実際に超過させ、消去が働くところまで確認する。
+            foreach (var building in game.World.Buildings)
             {
                 foreach (var support in building.Blocks.FindAll(x => x != null && x.Foundation && x.Column < 2)) support.Break(support.transform.position, 0);
                 building.ReleaseUnsupported(building.transform.position, 0);
             }
             yield return null;
-            Assert.That(Object.FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length, Is.LessThanOrEqualTo(game.Settings.maxDebris));
+            Assert.That(Object.FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length, Is.EqualTo(game.Settings.maxDebris));
             Assert.That(game.World.Buildings.Take(5).All(x => x.DestroyedFraction >= game.Settings.buildingRewardThreshold), Is.True);
             Assert.That(game.BrokenBlocks, Is.LessThanOrEqualTo(game.TotalBlocks));
         }

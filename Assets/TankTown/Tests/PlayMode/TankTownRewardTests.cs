@@ -132,18 +132,26 @@ namespace TankTown.Tests
         [UnityTest]
         public IEnumerator DestroyedBuildingProgressSurvivesDebrisCleanupAndFullSlotsLeaveTheReward()
         {
-            StartIsolated(); var first = game.World.Buildings[0]; var reward = first.Reward;
-            reward.gameObject.SetActive(true);
-            foreach (var building in game.World.Buildings.GetRange(0, 5)) Collapse(building);
-            yield return new WaitForFixedUpdate(); yield return null;
-            Assert.That(first.DestroyedFraction, Is.GreaterThanOrEqualTo(game.Settings.buildingRewardThreshold));
-            Assert.That(first.Blocks.Exists(x => x == null), Is.True, "Old debris must actually have been evicted");
-            Assert.That(reward.Available, Is.True);
-            Assert.That(game.Items.Receive(ItemKind.Missiles), Is.True);
-            Assert.That(reward.Collect(), Is.False); Assert.That(reward.Collected, Is.False);
-            Assert.That(reward.gameObject.activeSelf, Is.True);
-            game.Items.UseHeld();
-            Assert.That(reward.Collect(), Is.True);
+            StartIsolated();
+            int originalLimit = game.Settings.maxDebris;
+            // この検証は消去後の報酬に焦点を当て、既定の個数に依存しない。
+            game.Settings.maxDebris = 128;
+            try
+            {
+                var first = game.World.Buildings[0]; var reward = first.Reward;
+                reward.gameObject.SetActive(true);
+                foreach (var building in game.World.Buildings.GetRange(0, 5)) Collapse(building);
+                yield return new WaitForFixedUpdate(); yield return null;
+                Assert.That(first.DestroyedFraction, Is.GreaterThanOrEqualTo(game.Settings.buildingRewardThreshold));
+                Assert.That(first.Blocks.Exists(x => x == null), Is.True, "Old debris must actually have been evicted");
+                Assert.That(reward.Available, Is.True);
+                Assert.That(game.Items.Receive(ItemKind.Missiles), Is.True);
+                Assert.That(reward.Collect(), Is.False); Assert.That(reward.Collected, Is.False);
+                Assert.That(reward.gameObject.activeSelf, Is.True);
+                game.Items.UseHeld();
+                Assert.That(reward.Collect(), Is.True);
+            }
+            finally { game.Settings.maxDebris = originalLimit; }
         }
 
         [UnityTest]
@@ -173,13 +181,20 @@ namespace TankTown.Tests
         public IEnumerator DebrisEvictionCannotCancelAnAlreadyPrimedChain()
         {
             StartIsolated();
-            for (int i = 0; i < 4; i++) game.World.Explosives[i].gameObject.SetActive(true);
-            var first = game.World.Explosives[0]; game.Blast(first.transform.position, .8f, 0);
-            foreach (var building in game.World.Buildings.GetRange(0, 5)) Collapse(building);
-            yield return null;
-            Assert.That(first != null && first.Primed, Is.True, "A primed barrel must survive the normal debris eviction budget until it detonates");
-            yield return new WaitForSeconds(.9f);
-            Assert.That(game.ChainExplosions, Is.GreaterThanOrEqualTo(3));
+            int originalLimit = game.Settings.maxDebris;
+            game.Settings.maxDebris = 128;
+            try
+            {
+                for (int i = 0; i < 4; i++) game.World.Explosives[i].gameObject.SetActive(true);
+                var first = game.World.Explosives[0]; game.Blast(first.transform.position, .8f, 0);
+                foreach (var building in game.World.Buildings.GetRange(0, 5)) Collapse(building);
+                yield return null;
+                Assert.That(game.World.Buildings[0].Blocks.Exists(x => x == null), Is.True, "The fixture must actually evict old debris");
+                Assert.That(first != null && first.Primed, Is.True, "A primed barrel must survive the normal debris eviction budget until it detonates");
+                yield return new WaitForSeconds(.9f);
+                Assert.That(game.ChainExplosions, Is.GreaterThanOrEqualTo(3));
+            }
+            finally { game.Settings.maxDebris = originalLimit; }
         }
 
         [UnityTest]
