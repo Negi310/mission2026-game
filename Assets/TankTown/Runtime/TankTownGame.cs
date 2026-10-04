@@ -255,11 +255,11 @@ namespace TankTown
             finally { ExplosionGeneration = previous; }
         }
 
-        public void Blast(Vector3 point, float radius, float impulse)
+        public void Blast(Vector3 point, float radius, float impulse, DestructibleBlock directHit = null)
         {
             if (!IsPlaying) return;
             Damage(Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore),
-                point, impulse, radius * 2, true, Mathf.Max(radius, Settings.structureBlastRadius));
+                point, impulse, radius * 2, true, directHit, distanceFalloff: true);
             Effects.Impact(point, radius);
             Sound.Impact(point);
         }
@@ -288,36 +288,39 @@ namespace TankTown
             return count;
         }
 
-        private int Damage(Collider[] colliders, Vector3 point, float impulse, float forceRadius, bool isExplosion, float structureRadius = 0)
+        private int Damage(Collider[] colliders, Vector3 point, float impulse, float forceRadius, bool isExplosion, DestructibleBlock directHit = null, bool distanceFalloff = false)
         {
             if (!IsPlaying) return 0;
             var buildings = new HashSet<BlockBuilding>();
-            var visited = new HashSet<DestructibleBlock>();
+            var distances = new Dictionary<DestructibleBlock, float>();
             float blastDamage = Mathf.Max(0, impulse) / Mathf.Max(.1f, Settings.blastImpulse);
-            int count = 0;
+            // 複合Colliderは最も近い表面までの距離で一度だけ判定する。分離前に距離を確定する。
             foreach (var collider in colliders)
             {
                 var block = collider.GetComponentInParent<DestructibleBlock>();
-                if (block == null || block.Detached || !visited.Add(block)) continue;
+                if (block == null || block.Detached) continue;
+                float distance = Vector3.Distance(point, collider.ClosestPoint(point));
+                if (!distances.TryGetValue(block, out float previous) || distance < previous) distances[block] = distance;
+            }
+            if (directHit != null && !directHit.Detached) distances[directHit] = 0;
+            int count = 0;
+            foreach (var target in distances)
+            {
+                var block = target.Key;
+                if (block == null || block.Detached) continue;
                 var explosive = block.GetComponent<ChainExplosive>();
                 // A large damage radius must not bypass the tank's smaller ignition range.
                 if (isExplosion && explosive != null && !explosive.IgniteFromBlast(point)) continue;
-                if (isExplosion && block.Building != null)
+                if (isExplosion && block.Building != null && block != directHit)
                 {
-                    if (block.DamageFromBlast(point, blastDamage, impulse, forceRadius)) count++;
+                    // 燃料の誘爆・ギガント爆弾の範囲威力は維持し、通常の着弾だけを局所化する。
+                    float falloff = distanceFalloff ? 1 - Mathf.Clamp01(target.Value / Mathf.Max(.01f, forceRadius * .5f)) : 1;
+                    if (block.DamageFromBlast(point, blastDamage * falloff, impulse * falloff, forceRadius)) count++;
                 }
                 else { block.Break(point, impulse, forceRadius); count++; }
                 if (block.Building != null) buildings.Add(block.Building);
             }
-            // 砲撃が当たった建物の骨組みにだけ衝撃を伝える。隣の建物や車へ範囲を広げない。
-            if (isExplosion && structureRadius > 0 && buildings.Count > 0 && blastDamage > 0)
-                foreach (var collider in Physics.OverlapSphere(point, structureRadius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
-                {
-                    var block = collider.GetComponentInParent<DestructibleBlock>();
-                    if (block == null || block.Detached || block.Building == null || !buildings.Contains(block.Building) ||
-                        block.Kind == BuildingPart.Wall || block.Kind == BuildingPart.Prop || !visited.Add(block)) continue;
-                    if (block.DamageFromBlast(point, blastDamage, impulse, structureRadius * 2)) count++;
-                }
+            // 直撃と周囲の損傷をまとめてから支持を調べ、失われた部分だけを倒壊させる。
             foreach (var building in buildings) building.ReleaseUnsupported(point, impulse);
             return count;
         }

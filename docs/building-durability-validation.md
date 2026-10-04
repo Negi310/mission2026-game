@@ -1,5 +1,7 @@
 # 連射を前提にした建物の耐久力
 
+この記録は一律3発の旧調整です。現行仕様は、直撃1発と周辺の距離減衰による[局所破壊](local-blast-validation.md)へ変更しました。
+
 2026-10-05。関連: [Issue #5](https://github.com/Negi310/mission2026-game/issues/5)。Unity 6000.3.19f1 / URP 17.3.0。
 
 ## 変更

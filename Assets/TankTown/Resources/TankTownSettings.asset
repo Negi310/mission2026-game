@@ -29,7 +29,6 @@ MonoBehaviour:
   blastRadius: 4
   blastImpulse: 12
   buildingDurability: 3
-  structureBlastRadius: 10
   fragmentSize: 3
   debrisImpactSpeed: 12
   debrisBlastRadius: 3.5

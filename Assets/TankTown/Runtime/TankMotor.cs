@@ -295,7 +295,7 @@ namespace TankTown
             float distance = 52 * Time.deltaTime;
             if (Physics.SphereCast(transform.position, 0.25f, direction, out RaycastHit hit, distance, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
             {
-                game.Blast(hit.point, radius, impulse);
+                game.Blast(hit.point, radius, impulse, hit.collider.GetComponentInParent<DestructibleBlock>());
                 Destroy(gameObject);
                 return;
             }

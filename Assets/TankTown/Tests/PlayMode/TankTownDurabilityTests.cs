@@ -34,35 +34,26 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator ThreeRealCannonShotsCollapseApartmentTowerAndShopFromTheirBases()
+        public IEnumerator RealCannonShotsRemoveLocalPartsWhileAllThreeBuildingStylesStayStanding()
         {
             foreach (string name in new[] { "Apartment frame", "Tower frame", "Shop frame" })
             {
                 var building = game.World.Buildings.First(x => x.name == name);
                 PlaceForLowFacadeShot(game, building);
                 yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate(); yield return null;
-                var front = building.Blocks.Where(x => x.Foundation && x.Column < 2).ToArray();
                 for (int shot = 1; shot <= 3; shot++)
                 {
+                    int detached = building.DetachedParts;
                     int before = game.Sound.PlayedCount(TownSound.Cannon);
                     game.Tank.Fire(shot % 2);
                     Assert.That(game.Sound.PlayedCount(TownSound.Cannon), Is.EqualTo(before + 1));
                     yield return new WaitForSeconds(.5f);
-                    if (shot < 3)
-                    {
-                        Assert.That(building.Collapsed, Is.False, name + " must stand after " + shot + " shots");
-                        Assert.That(building.DetachedParts, Is.Zero, "The first two hits must not secretly score a destroyed structure");
-                        foreach (var support in front)
-                            Assert.That(support.Durability01, Is.EqualTo(1 - shot / 3f).Within(.001f), "Both front supports must receive each real shot");
-                        Assert.That(building.Reward.Available, Is.False);
-                    }
-                    else
-                    {
-                        Assert.That(building.CollapsedFromLevel, Is.Zero, name + " must collapse from the base on the third shot");
-                        Assert.That(building.DestroyedFraction, Is.EqualTo(1));
-                        Assert.That(building.Blocks.All(x => x == null || x.Detached), Is.True);
-                        Assert.That(building.Reward.Available, Is.True);
-                    }
+                    Assert.That(building.DetachedParts, Is.GreaterThan(detached), "The shell must break its directly hit part immediately");
+                    Assert.That(building.DestroyedFraction, Is.LessThan(.3f), name + " must be destroyed locally");
+                    Assert.That(building.Collapsed, Is.False, name + " must not lose its remote supports to a facade hit");
+                    Assert.That(building.Blocks.Any(x => !x.Detached && x.Durability01 < 1), Is.True, "Surrounding parts receive cracks");
+                    Assert.That(building.Blocks.Where(x => x.Foundation).All(x => !x.Detached), Is.True);
+                    Assert.That(building.Reward.Available, Is.False);
                 }
             }
         }
@@ -84,22 +75,58 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator DamageFeedbackKeepsCameraOcclusionAndPowerUpgradesReduceRequiredShots()
+        public IEnumerator BlastFalloffKeepsRemoteSupportsAndCameraOcclusionWhilePowerIncreasesDamage()
         {
             var building = game.World.Buildings[0];
-            var point = building.transform.position + new Vector3(0, 2, -building.Width / 2);
             var pillar = building.Blocks.First(x => x.Foundation);
+            var point = pillar.transform.position;
+            var remote = building.Blocks.Last(x => x.Foundation);
             var renderer = pillar.GetComponent<Renderer>();
             var properties = new MaterialPropertyBlock(); properties.SetFloat("_CameraVisibility", .4f); renderer.SetPropertyBlock(properties);
             game.Blast(point);
             renderer.GetPropertyBlock(properties);
             Assert.That(properties.GetFloat("_StructuralDamage"), Is.GreaterThan(.3f));
             Assert.That(properties.GetFloat("_CameraVisibility"), Is.EqualTo(.4f).Within(.001f));
+            Assert.That(remote.Durability01, Is.EqualTo(1));
+            var nearby = building.Blocks.Where(x => !x.Detached && x.Durability01 < 1 && x != pillar).ToArray();
+            Assert.That(nearby.Length, Is.GreaterThan(0));
+            Assert.That(nearby.Any(x => x.Durability01 > pillar.Durability01 + .01f), Is.True, "Damage fades toward the blast edge");
             var upgraded = game.World.Buildings[1];
             for (int i = 0; i < 6; i++) game.Stats.Upgrade(UpgradeKind.Power);
-            var target = upgraded.transform.position + new Vector3(0, 2, -upgraded.Width / 2);
-            game.Blast(target); Assert.That(upgraded.Collapsed, Is.False);
-            game.Blast(target); Assert.That(upgraded.DestroyedFraction, Is.EqualTo(1));
+            var upgradedPillar = upgraded.Blocks.First(x => x.Foundation);
+            var target = upgradedPillar.transform.position;
+            game.Blast(target); Assert.That(upgradedPillar.Durability01, Is.LessThan(pillar.Durability01));
+            game.Blast(target); Assert.That(upgradedPillar.Detached, Is.True);
+            Assert.That(upgraded.DestroyedFraction, Is.LessThan(1));
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ADirectPillarHitBreaksOnceAndTheNextSupportLossCanCollapseTheBuilding()
+        {
+            foreach (string name in new[] { "Apartment frame", "Tower frame", "Shop frame" })
+            {
+                var building = game.World.Buildings.First(x => x.name == name);
+                var front = building.Blocks.Where(x => x.Foundation && x.Column < 2).ToArray();
+                game.Blast(front[0].transform.position, game.Stats.BlastRadius, game.Stats.BlastImpulse, front[0]);
+                Assert.That(front[0].Detached, Is.True);
+                Assert.That(front[1].Durability01, Is.EqualTo(1), "A direct hit must not send full damage across the facade");
+                Assert.That(building.Collapsed, Is.False, "Three intact supports can carry the building");
+                Assert.That(building.DestroyedFraction, Is.LessThan(.15f));
+                game.Blast(front[1].transform.position, game.Stats.BlastRadius, game.Stats.BlastImpulse, front[1]);
+                Assert.That(building.CollapsedFromLevel, Is.Zero, "Losing both supports on one side still causes a physical collapse");
+                Assert.That(building.DestroyedFraction, Is.EqualTo(1));
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator FuelChainRetainsItsLargeScaleBuildingDestruction()
+        {
+            var building = game.World.Buildings.First(x => x.name == "Shop frame");
+            game.ChainBlast(building.transform.position + Vector3.up * 2, game.Settings.fuelExplosionRadius, 1, true);
+            Assert.That(game.ChainExplosions, Is.EqualTo(1));
+            Assert.That(building.DestroyedFraction, Is.EqualTo(1), "A fuel explosion remains a large-scale exception to ordinary shell damage");
             yield return null;
         }
 
@@ -116,7 +143,7 @@ namespace TankTown.Tests
             Assert.That(source.GetComponent<FlyingDebris>().ImpactSpent, Is.True);
             Assert.That(game.DebrisExplosions, Is.EqualTo(1));
             Assert.That(pillar.Detached, Is.False);
-            Assert.That(pillar.Durability01, Is.EqualTo(5f / 6).Within(.001f));
+            Assert.That(pillar.Durability01, Is.InRange(5f / 6, .999f));
             yield return new WaitForSeconds(.25f);
             Assert.That(game.DebrisExplosions, Is.EqualTo(1), "One fragment cannot repeatedly chip the building on each bounce");
         }
