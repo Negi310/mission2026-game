@@ -12,6 +12,7 @@ Shader "TankTown/Saturated Toon"
         _GroundDetail("Road grain", Range(0,1)) = 0
         _CameraVisibility("Camera visibility", Range(0,1)) = 1
         _DebrisVisibility("Debris visibility", Range(0,1)) = 1
+        _StructuralDamage("Structural damage", Range(0,1)) = 0
     }
     SubShader
     {
@@ -30,6 +31,7 @@ Shader "TankTown/Saturated Toon"
         half _GroundDetail;
         half _CameraVisibility;
         half _DebrisVisibility;
+        half _StructuralDamage;
         CBUFFER_END
         struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
         struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; float3 surfacePosition : TEXCOORD2; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
@@ -60,6 +62,22 @@ Shader "TankTown/Saturated Toon"
             f = f * f * (3 - 2 * f);
             return lerp(lerp(GrainHash(cell), GrainHash(cell + float2(1,0)), f.x),
                 lerp(GrainHash(cell + float2(0,1)), GrainHash(cell + 1), f.x), f.y);
+        }
+        float FractureEdge(float2 p)
+        {
+            float2 cell = floor(p), f = frac(p);
+            float nearest = 10, second = 10;
+            for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++)
+            {
+                float2 offset = float2(x, y);
+                float2 seed = cell + offset;
+                float2 site = .2 + .6 * float2(GrainHash(seed), GrainHash(seed + float2(13, 71)));
+                float2 d = offset + site - f;
+                float distanceSquared = dot(d, d);
+                if (distanceSquared < nearest) { second = nearest; nearest = distanceSquared; }
+                else second = min(second, distanceSquared);
+            }
+            return second - nearest;
         }
         void CoverageClip(float visibility, float2 pixel)
         {
@@ -98,6 +116,15 @@ Shader "TankTown/Saturated Toon"
             if (_Brushed > 0)
                 grain = lerp(grain, SurfaceGrain(grainPoint * float2(1.8, .055)), _Brushed);
             lit *= 1 + (grain - .5) * (_SurfaceDetail + _GroundDetail * .025) * detailFade;
+            if (_StructuralDamage > .01)
+            {
+                float2 crackPoint = float2(p.x + p.z * .37, p.y + p.z * .73) * 1.15;
+                float ridge = FractureEdge(crackPoint);
+                float edge = max(.008, min(.04, fwidth(ridge)));
+                float crack = 1 - smoothstep(.006, .006 + edge, ridge);
+                float fade = 1 - smoothstep(20, 55, distance(input.positionWS, _WorldSpaceCameraPos));
+                lit *= 1 - _StructuralDamage * (.08 + crack * .55 * fade);
+            }
             // Compute fog per fragment: the ocean is one large quad, whose corner
             // fog values would otherwise wash out even water beside the player.
             half fog = ComputeFogFactor(TransformWorldToHClip(input.positionWS).z);

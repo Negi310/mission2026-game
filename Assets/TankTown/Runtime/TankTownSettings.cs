@@ -24,6 +24,9 @@ namespace TankTown
         [Min(0)] public float shotCooldown = 0.35f;
         [Min(1)] public float blastRadius = 4;
         [Min(0)] public float blastImpulse = 12;
+        [Header("Building durability")]
+        [Min(1)] public float buildingDurability = 3;
+        [Min(1)] public float structureBlastRadius = 10;
         [Header("Debris destruction")]
         [Min(1)] public float fragmentSize = 3;
         [Min(1)] public float debrisImpactSpeed = 12;

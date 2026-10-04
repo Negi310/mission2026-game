@@ -124,7 +124,8 @@ namespace TankTown.Tests
             yield return new WaitForFixedUpdate();
             game.Tank.Fire(0);
             yield return new WaitForSeconds(.25f);
-            Assert.That(game.BrokenBlocks, Is.GreaterThan(0), "A swept cannonball must hit and destroy the building ahead");
+            Assert.That(building.Blocks.Exists(x => x != null && x.Durability01 < 1), Is.True, "A swept cannonball must damage the real building ahead");
+            Assert.That(building.Collapsed, Is.False, "The first real shot must leave the building standing");
             var crate = System.Array.Find(Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None), x => x.name == "Crushable crate");
             Assert.That(crate, Is.Not.Null);
             body.position = game.World.GroundPoint(new Vector3(crate.transform.position.x, 0, crate.transform.position.z - 3), game.Settings.rideHeight);
@@ -298,14 +299,15 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator ThickerPillarsAndLargerBlastHelpHitFacadeSupports()
+        public IEnumerator FacadeShotsDamageTheThickSupportsBeforeBreakingThem()
         {
             Assert.That(game.World.RoadWidth, Is.EqualTo(16));
             var building = game.World.Buildings[0];
             var pillar = building.Blocks.Find(x => x.Foundation && x.Column == 0);
             Assert.That(pillar.transform.localScale.x, Is.EqualTo(1.8f).Within(.01f));
             game.Blast(building.transform.position + new Vector3(-4.6f, 1.72f, -building.Width / 2));
-            Assert.That(pillar.Detached, Is.True, "Hitting a facade panel must reach its nearby supporting post");
+            Assert.That(pillar.Detached, Is.False, "One facade hit must leave the supporting post standing");
+            Assert.That(pillar.Durability01, Is.EqualTo(2f / 3).Within(.001f), "The facade shot must still reach its nearby support");
             yield return null;
         }
 

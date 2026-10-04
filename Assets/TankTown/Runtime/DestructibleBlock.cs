@@ -13,10 +13,15 @@ namespace TankTown
         public int Level { get; set; }
         public BuildingPart Kind { get; set; }
         public bool Foundation { get; set; }
+        public float Durability01 => Detached ? 0 : Mathf.Clamp01(1 - accumulatedDamage / MaxDurability);
         public readonly List<DestructibleBlock> Links = new List<DestructibleBlock>();
         public IReadOnlyList<Rigidbody> DebrisBodies => looseBodies;
         private readonly List<Rigidbody> looseBodies = new List<Rigidbody>();
         private TankTownGame game;
+        private float accumulatedDamage;
+        private MaterialPropertyBlock damageProperties;
+        private float MaxDurability => Building != null && game != null ? Mathf.Max(1, game.Settings.buildingDurability) : 1;
+        private static readonly int StructuralDamageId = Shader.PropertyToID("_StructuralDamage");
 
         public void Initialize(TankTownGame owner)
         {
@@ -34,6 +39,25 @@ namespace TankTown
             game.ScoreBlock();
             SplitLargePart(explosive, origin, impulse, forceRadius);
             ConfigureDebris(gameObject, explosive, origin, impulse, forceRadius);
+        }
+
+        internal bool DamageFromBlast(Vector3 origin, float damage, float impulse, float forceRadius)
+        {
+            if (Detached || game == null || !game.IsPlaying || damage <= 0) return false;
+            accumulatedDamage += damage;
+            if (accumulatedDamage + .0001f >= MaxDurability) Break(origin, impulse, forceRadius);
+            else
+            {
+                if (damageProperties == null) damageProperties = new MaterialPropertyBlock();
+                foreach (var renderer in GetComponentsInChildren<Renderer>())
+                {
+                    if (renderer.sharedMaterial == null || !renderer.sharedMaterial.HasProperty(StructuralDamageId)) continue;
+                    renderer.GetPropertyBlock(damageProperties);
+                    damageProperties.SetFloat(StructuralDamageId, 1 - Durability01);
+                    renderer.SetPropertyBlock(damageProperties);
+                }
+            }
+            return true;
         }
 
         private void SplitLargePart(ChainExplosive explosive, Vector3 origin, float impulse, float forceRadius)

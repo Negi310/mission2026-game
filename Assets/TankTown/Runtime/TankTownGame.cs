@@ -223,8 +223,8 @@ namespace TankTown
             ExplosionGeneration = generation;
             try
             {
-                int broken = DamageSphere(point, Settings.debrisBlastRadius, Stats.BlastImpulse * Settings.debrisImpulseMultiplier);
-                if (broken == 0) return false;
+                int affected = DamageSphere(point, Settings.debrisBlastRadius, Stats.BlastImpulse * Settings.debrisImpulseMultiplier);
+                if (affected == 0) return false;
                 debrisBurstsInWindow++; DebrisExplosions++;
                 LongestChain = Mathf.Max(LongestChain, generation);
                 ChainBurst?.Invoke(generation);
@@ -258,7 +258,8 @@ namespace TankTown
         public void Blast(Vector3 point, float radius, float impulse)
         {
             if (!IsPlaying) return;
-            DamageSphere(point, radius, impulse);
+            Damage(Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore),
+                point, impulse, radius * 2, true, Mathf.Max(radius, Settings.structureBlastRadius));
             Effects.Impact(point, radius);
             Sound.Impact(point);
         }
@@ -287,21 +288,36 @@ namespace TankTown
             return count;
         }
 
-        private int Damage(Collider[] colliders, Vector3 point, float impulse, float forceRadius, bool isExplosion)
+        private int Damage(Collider[] colliders, Vector3 point, float impulse, float forceRadius, bool isExplosion, float structureRadius = 0)
         {
             if (!IsPlaying) return 0;
             var buildings = new HashSet<BlockBuilding>();
+            var visited = new HashSet<DestructibleBlock>();
+            float blastDamage = Mathf.Max(0, impulse) / Mathf.Max(.1f, Settings.blastImpulse);
             int count = 0;
             foreach (var collider in colliders)
             {
                 var block = collider.GetComponentInParent<DestructibleBlock>();
-                if (block == null || block.Detached) continue;
+                if (block == null || block.Detached || !visited.Add(block)) continue;
                 var explosive = block.GetComponent<ChainExplosive>();
                 // A large damage radius must not bypass the tank's smaller ignition range.
                 if (isExplosion && explosive != null && !explosive.IgniteFromBlast(point)) continue;
-                block.Break(point, impulse, forceRadius); count++;
+                if (isExplosion && block.Building != null)
+                {
+                    if (block.DamageFromBlast(point, blastDamage, impulse, forceRadius)) count++;
+                }
+                else { block.Break(point, impulse, forceRadius); count++; }
                 if (block.Building != null) buildings.Add(block.Building);
             }
+            // 砲撃が当たった建物の骨組みにだけ衝撃を伝える。隣の建物や車へ範囲を広げない。
+            if (isExplosion && structureRadius > 0 && buildings.Count > 0 && blastDamage > 0)
+                foreach (var collider in Physics.OverlapSphere(point, structureRadius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
+                {
+                    var block = collider.GetComponentInParent<DestructibleBlock>();
+                    if (block == null || block.Detached || block.Building == null || !buildings.Contains(block.Building) ||
+                        block.Kind == BuildingPart.Wall || block.Kind == BuildingPart.Prop || !visited.Add(block)) continue;
+                    if (block.DamageFromBlast(point, blastDamage, impulse, structureRadius * 2)) count++;
+                }
             foreach (var building in buildings) building.ReleaseUnsupported(point, impulse);
             return count;
         }
