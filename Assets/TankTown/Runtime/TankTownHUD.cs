@@ -15,6 +15,8 @@ namespace TankTown
         private GameObject gameplay, titleScreen;
         private TankTownTitleScreen titleView;
         internal TankTownResultsScreen ResultsView { get; private set; }
+        internal TankTownMinimap Minimap { get; private set; }
+        private Text liveRank, livePoints, nextRecord;
         private Text countdown;
         private CanvasGroup countdownGroup;
         private Text timer, score, notice, noticeCaption, cardTitle, cardBody, buttonText;
@@ -83,6 +85,15 @@ namespace TankTown
             score.fontStyle = FontStyle.Bold;
             var track = Panel("Progress track", progress.transform, new Vector2(16, -61), new Vector2(278, 14), new Color(.76f, .8f, .68f));
             fill = Panel("Progress fill", track.transform, Vector2.zero, new Vector2(0, 14), new Color(.59f, .9f, .06f)).GetComponent<Image>();
+            var ranking = Panel("Live ranking", hud, new Vector2(28, -193), new Vector2(310, 105), ink);
+            ranking.GetComponent<Image>().raycastTarget = false;
+            style.Card(ranking, yellow);
+            Label(ranking.transform, "この端末のランキング", new Vector2(12, -6), new Vector2(286, 24), 15, yellow);
+            liveRank = Label(ranking.transform, "", new Vector2(12, -32), new Vector2(110, 40), 25, Color.white);
+            livePoints = Label(ranking.transform, "", new Vector2(120, -33), new Vector2(178, 38), 23, Color.white);
+            livePoints.alignment = TextAnchor.MiddleRight;
+            nextRecord = Label(ranking.transform, "", new Vector2(12, -77), new Vector2(286, 23), 14, new Color(.64f, .88f, 1));
+            Minimap = new TankTownMinimap(game, hud, font, style);
             var stats = new GameObject("Upgrades", typeof(RectTransform)); stats.transform.SetParent(hud, false);
             var statsRect = stats.GetComponent<RectTransform>();
             statsRect.anchorMin = statsRect.anchorMax = statsRect.pivot = new Vector2(0, 0);
@@ -100,7 +111,7 @@ namespace TankTown
                 statRows[i].alignment = TextAnchor.MiddleCenter;
                 statRows[i].fontStyle = FontStyle.Bold;
             }
-            pickupPanel = Panel("Pickup notice", hud, new Vector2(28, -195), new Vector2(310, 44), ink);
+            pickupPanel = Panel("Pickup notice", hud, new Vector2(28, -313), new Vector2(310, 44), ink);
             pickupText = Label(pickupPanel.transform, "", new Vector2(10, -3), new Vector2(290, 37), 20, Color.white);
             pickupText.alignment = TextAnchor.MiddleCenter;
             game.Stats.Changed += ShowUpgrade;
@@ -247,6 +258,11 @@ namespace TankTown
             timer.text = $"{seconds / 60:00}:{seconds % 60:00}";
             timer.color = seconds <= 20 ? new Color(1, .55f, .35f) : Color.white;
             score.text = $"{game.Destruction:0.0}%";
+            int place = game.CurrentRank;
+            liveRank.text = place == 0 ? "順位 —" : place > TankTownRanking.Capacity ? "圏外" : $"{place}位";
+            livePoints.text = $"{game.RoundScore:N0} 点";
+            nextRecord.text = place > 1 ? $"次の順位まで  {game.Ranking.Records[Mathf.Min(place - 2, game.Ranking.Records.Count - 1)].Score - game.RoundScore + 1:N0} 点"
+                : place == 1 ? "このまま1位をめざそう！" : game.Ranking.Records.Count == 0 ? "街をこわして最初の記録を作ろう！" : $"BEST  {game.BestScore:N0} 点";
             fill.rectTransform.sizeDelta = new Vector2(278 * game.Destruction / 100, 14);
             bool edge = Mathf.Abs(game.Tank.transform.position.x) > game.World.HalfExtent - 13 && game.Tank.transform.position.x * game.Tank.transform.forward.x > 0
                 || Mathf.Abs(game.Tank.transform.position.z) > game.World.HalfExtent - 13 && game.Tank.transform.position.z * game.Tank.transform.forward.z > 0;
@@ -306,9 +322,11 @@ namespace TankTown
             if (font != null) Destroy(font);
             if (displayFont != null) Destroy(displayFont);
             style?.Dispose();
+            Minimap?.Dispose();
         }
         private void LateUpdate()
         {
+            Minimap.Tick();
             viewFade.color = new Color(.02f, .065f, .10f, Mathf.Max(game.CameraRig.FadeOpacity, game.Presentation.CoverOpacity));
             aim.enabled = game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
             // Project the actual muzzle direction after the comfort camera has moved.

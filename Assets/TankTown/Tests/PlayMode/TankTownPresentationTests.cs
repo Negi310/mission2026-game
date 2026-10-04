@@ -34,7 +34,7 @@ namespace TankTown.Tests
             var root = (RectTransform)GameObject.Find("Gameplay HUD").transform;
             Rect screen = Bounds(root);
             Rect drivingView = new Rect(screen.x + screen.width * .34f, screen.y + screen.height * .25f, screen.width * .32f, screen.height * .5f);
-            foreach (string name in new[] { "Destruction", "Clock", "Upgrades", "Special items", "Controls" })
+            foreach (string name in new[] { "Destruction", "Clock", "Upgrades", "Special items", "Controls", "Live ranking", "Minimap" })
             {
                 Rect panel = Bounds((RectTransform)GameObject.Find(name).transform);
                 Assert.That(screen.Contains(panel.min) && screen.Contains(panel.max), Is.True, name + " must fit on screen");

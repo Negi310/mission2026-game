@@ -16,6 +16,7 @@ namespace TankTown
         internal static int? GenerationSeedOverride;
         internal static bool SkipIntroForTests;
         internal static bool DisableRecordSavingForTests;
+        internal static string RankingStorageOverrideForTests;
         internal TankTownRoundFlow Presentation { get; private set; }
         public bool HowToOpen { get; private set; }
         public TankInput Input { get; private set; }
@@ -44,6 +45,10 @@ namespace TankTown
         public int RoundScore => Mathf.RoundToInt(Mathf.Clamp(Destruction, 0, 100) * 1000);
         public int BestScore { get; private set; }
         public bool NewBest { get; private set; }
+        public TankTownRanking Ranking { get; private set; }
+        public int CurrentRank => Ranking.PredictRank(RoundScore);
+        public int FinalRank { get; private set; }
+        public TownScoreRecord RoundRecord { get; private set; }
         private const string BestScoreKey = "TankTown.BestScore.v1";
         private readonly List<FlyingDebris> debris = new List<FlyingDebris>();
         private System.Random debrisRandom;
@@ -68,6 +73,9 @@ namespace TankTown
             debrisRandom = new System.Random(unchecked(CitySeed ^ 0x5D3B17));
             Remaining = Settings.roundSeconds;
             BestScore = DisableRecordSavingForTests ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(BestScoreKey, 0), 0, 100000);
+            Ranking = new TankTownRanking(!DisableRecordSavingForTests || !string.IsNullOrEmpty(RankingStorageOverrideForTests), BestScore,
+                RankingStorageOverrideForTests ?? TankTownRanking.StorageKey);
+            BestScore = Mathf.Max(BestScore, Ranking.BestScore);
             Stats = new TankStats(Settings);
             Effects = gameObject.AddComponent<TankTownEffects>();
             var soundRoot = new GameObject("Sound effects");
@@ -251,6 +259,8 @@ namespace TankTown
                 Items.FinishRound(); Sound.StopAll(); speaker.Stop(); Time.timeScale = 0;
                 NewBest = RoundScore > BestScore;
                 BestScore = Mathf.Max(BestScore, RoundScore);
+                RoundRecord = Ranking.Submit(RoundScore, CitySeed, out int finalRank);
+                FinalRank = finalRank;
                 if (NewBest && !DisableRecordSavingForTests) { PlayerPrefs.SetInt(BestScoreKey, BestScore); PlayerPrefs.Save(); }
             }
         }
