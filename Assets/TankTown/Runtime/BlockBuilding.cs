@@ -15,6 +15,7 @@ namespace TankTown
         public int DetachedParts { get; private set; }
         public float DestroyedFraction => Blocks.Count == 0 ? 0 : (float)DetachedParts / Blocks.Count;
         public ItemPickup Reward { get; set; }
+        internal TownBuildingVisual Presentation;
         public int CollapsedFromLevel { get; private set; } = int.MaxValue;
         private TankTownGame game;
         public void Initialize(TankTownGame owner) => game = owner;

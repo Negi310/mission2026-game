@@ -143,8 +143,7 @@ namespace TankTown
         internal void InheritOcclusion(Renderer source, Renderer fragment)
         {
             float value = visibility.TryGetValue(source, out var current) ? current : 1;
-            SetVisibility(fragment, value);
-            if (value < 1) visibility[fragment] = value;
+            if (value < 1) { SetVisibility(fragment, value); visibility[fragment] = value; }
         }
 
         private void SetVisibility(Renderer renderer, float value)

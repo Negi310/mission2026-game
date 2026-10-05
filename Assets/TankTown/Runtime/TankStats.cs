@@ -36,8 +36,9 @@ namespace TankTown
         public const int RewardLayer = 9;
         public const int GroundLayer = 10;
         public const int PedestrianLayer = 11;
+        public const int MapLayer = 12;
         public const int GroundMask = 1 << GroundLayer;
         public const int PedestrianMask = 1 << PedestrianLayer;
-        public const int StructureMask = ~((1 << TankLayer) | (1 << DebrisLayer) | (1 << RewardLayer));
+        public const int StructureMask = ~((1 << TankLayer) | (1 << DebrisLayer) | (1 << RewardLayer) | (1 << MapLayer));
     }
 }

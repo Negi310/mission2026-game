@@ -7,6 +7,7 @@ namespace TankTown
         public float CruiseSpeed { get; private set; }
         public float Speed { get; private set; }
         public bool IsDriving => isActiveAndEnabled && block != null && !block.Detached;
+        internal Vector3 PhysicsPosition => body.position;
         public Vector3 Motion => body == null ? Vector3.zero : body.rotation * Vector3.forward * Speed;
         private TankTownGame game;
         private Rigidbody body;
@@ -38,16 +39,7 @@ namespace TankTown
         {
             if (!game.IsPlaying || block.Detached) return;
             Sample(distance, out _, out var forward);
-            bool stop = false;
-            foreach (var signal in game.World.Signals)
-                if (signal != null && signal.ShouldStop(body.position, forward)) { stop = true; break; }
-            foreach (var car in game.World.TrafficCars)
-            {
-                if (car == null || car == this || !car.isActiveAndEnabled || car.block.Detached) continue;
-                var delta = Vector3.ProjectOnPlane(car.body.position - body.position, Vector3.up);
-                float ahead = Vector3.Dot(delta, forward);
-                if (ahead > 0 && ahead < 8 && Mathf.Abs(Vector3.Dot(delta, Vector3.Cross(Vector3.up, forward))) < 2) { stop = true; break; }
-            }
+            bool stop = game.World.TrafficShouldStop(this, body.position, forward);
             Speed = Mathf.MoveTowards(Speed, stop ? 0 : CruiseSpeed, Time.fixedDeltaTime * 12);
             distance = Mathf.Repeat(distance + Speed * Time.fixedDeltaTime, total);
             Sample(distance, out var point, out forward);

@@ -34,6 +34,9 @@ namespace TankTown
             if (Detached || game == null || !game.IsPlaying) return;
             Detached = true;
             Building?.RegisterDetached();
+            // Restore real renderers before splitting so detached pieces remain visible.
+            if (Building?.Presentation != null)
+                foreach (var renderer in GetComponentsInChildren<Renderer>()) renderer.enabled = true;
             var explosive = GetComponent<ChainExplosive>();
             explosive?.Ignite();
             game.ScoreBlock();
@@ -133,7 +136,9 @@ namespace TankTown
             body.isKinematic = false;
             body.constraints = RigidbodyConstraints.None;
             body.maxAngularVelocity = 12;
-            body.collisionDetectionMode = explosive != null ? CollisionDetectionMode.ContinuousSpeculative : CollisionDetectionMode.ContinuousDynamic;
+            // Speculative continuous collision handles flying slabs without the costly CCD sweep for every shard.
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            if (explosive == null) { body.solverIterations = 2; body.solverVelocityIterations = 1; body.sleepThreshold = .05f; }
             body.AddExplosionForce(impulse, origin, forceRadius > 0 ? forceRadius : game.Stats.BlastRadius * 2, 2.8f, ForceMode.Impulse);
             body.AddTorque(Random.insideUnitSphere * impulse * 0.3f, ForceMode.Impulse);
             // A primed car/tank must finish its short fuse even when a huge collapse

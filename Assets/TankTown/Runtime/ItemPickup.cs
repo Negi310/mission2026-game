@@ -21,6 +21,7 @@ namespace TankTown
         private bool unlockShown;
         private bool attracted;
         private float attractUntil;
+        private Renderer visual;
         public void Initialize(TankTownGame owner, ItemKind kind, Material material, BlockBuilding building = null, DestructibleBlock floor = null)
         {
             game = owner; Kind = kind; SourceBuilding = building; SupportingFloor = floor;
@@ -41,10 +42,12 @@ namespace TankTown
             quad.layer = TownPhysics.RewardLayer;
             quad.GetComponent<Collider>().enabled = false; Destroy(quad.GetComponent<Collider>());
             quad.transform.SetParent(transform, false);
+            quad.transform.localPosition = Vector3.up * (building == null ? 2 : 1.2f);
             quad.transform.localScale = Vector3.one * 3.6f;
             quad.GetComponent<Renderer>().sharedMaterial = material;
             quad.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             quad.GetComponent<Renderer>().receiveShadows = false;
+            visual = quad.GetComponent<Renderer>();
             icon = quad.transform;
         }
         private void Start()
@@ -69,9 +72,13 @@ namespace TankTown
         }
         private void LateUpdate()
         {
-            if (Collected || Camera.main == null) return;
-            icon.localPosition = Vector3.up * ((SourceBuilding == null ? 2 : 1.2f) + Mathf.Sin(Time.time * 2.5f + transform.position.x) * .2f);
-            icon.rotation = Camera.main.transform.rotation;
+            var camera = game.CameraRig;
+            if (Collected || camera == null) return;
+            if (visual.isVisible)
+            {
+                icon.localPosition = Vector3.up * ((SourceBuilding == null ? 2 : 1.2f) + Mathf.Sin(Time.time * 2.5f + transform.position.x) * .2f);
+            }
+            icon.rotation = camera.transform.rotation;
             if (!unlockShown && SourceBuilding != null && Available)
             {
                 unlockShown = true;

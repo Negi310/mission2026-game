@@ -76,6 +76,7 @@ namespace TankTown
         private Transform icon;
         private Vector3 rest;
         private float phase;
+        private Renderer visual;
         public void Initialize(TankTownGame owner, UpgradeKind kind, Material material)
         {
             game = owner; Kind = kind;
@@ -93,16 +94,18 @@ namespace TankTown
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+            visual = renderer;
             icon = quad.transform;
             rest = icon.localPosition;
             phase = transform.position.x * .3f + transform.position.z * .1f;
         }
         private void LateUpdate()
         {
-            if (Collected || Camera.main == null) return;
-            icon.localPosition = rest + Vector3.up * Mathf.Sin(Time.time * 2.4f + phase) * .28f;
+            var camera = game.CameraRig;
+            if (Collected || camera == null) return;
+            if (visual.isVisible) icon.localPosition = rest + Vector3.up * Mathf.Sin(Time.time * 2.4f + phase) * .28f;
             // Camera-aligned quad is a true billboard; it remains readable from every approach.
-            icon.rotation = Camera.main.transform.rotation;
+            icon.rotation = camera.transform.rotation;
         }
         private void OnTriggerEnter(Collider other)
         {

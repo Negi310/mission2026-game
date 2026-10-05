@@ -19,6 +19,7 @@ namespace TankTown
         internal int RenderCount { get; private set; }
         internal float MapHalfExtent { get; }
         internal RenderTexture Texture => texture;
+        internal bool SkipRenderingForDiagnostics;
 
         internal TankTownMinimap(TankTownGame owner, Transform parent, Font font, ToyHudStyle style)
         {
@@ -53,7 +54,7 @@ namespace TankTown
             View.orthographic = true; View.orthographicSize = MapHalfExtent; View.aspect = 1;
             View.nearClipPlane = .1f; View.farClipPlane = roof + 40;
             View.clearFlags = CameraClearFlags.SolidColor; View.backgroundColor = new Color(.21f, .67f, .84f);
-            View.cullingMask = ~((1 << 5) | (1 << TownPhysics.DebrisLayer) | (1 << TownPhysics.RewardLayer) | (1 << TownPhysics.PedestrianLayer));
+            View.cullingMask = (1 << TownPhysics.MapLayer) | TownPhysics.GroundMask;
             View.allowHDR = false; View.allowMSAA = false;
             var data = View.GetUniversalAdditionalCameraData(); data.renderPostProcessing = false; data.renderShadows = false;
             if (SystemInfo.graphicsDeviceType != GraphicsDeviceType.Null)
@@ -81,6 +82,8 @@ namespace TankTown
         }
         internal void RenderNow()
         {
+            if (SkipRenderingForDiagnostics) return;
+            game.World.RefreshMapMeshes();
             if (texture == null || !texture.IsCreated()) return;
             var request = new RenderPipeline.StandardRequest { destination = texture };
             if (RenderPipeline.SupportsRenderRequest(View, request)) { RenderPipeline.SubmitRenderRequest(View, request); RenderCount++; }

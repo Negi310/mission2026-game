@@ -167,11 +167,11 @@ namespace TankTown
             var rockets = FindObjectsByType<ItemMissile>(FindObjectsSortMode.None);
             if (!automatic || rockets.Length != 5 || game.Items.Held != ItemKind.MegaBeam || game.Items.Weapon != ItemKind.None)
             { Fail("automatic missile pickup displaced the held laser"); yield break; }
-            Vector3 launch = rockets[0].transform.position;
-            yield return new WaitForSecondsRealtime(.2f); Capture("stages-05-auto-missiles");
-            bool flying = rockets[0].transform.position.y > launch.y + 3;
+            float launchHeight = rockets.Min(x => x.transform.position.y);
+            yield return new WaitForSeconds(.25f); Capture("stages-05-auto-missiles");
+            bool flying = rockets.Any(x => x.transform.position.y > launchHeight + 3);
             yield return Press(keyboard, Key.Space);
-            if (!flying || !game.Items.StopsForward || !game.Items.MissilesActive) { Fail("missiles did not fly independently with the laser"); yield break; }
+            if (!flying || !game.Items.StopsForward || !game.Items.MissilesActive) { Fail($"missiles did not fly independently with the laser: flying={flying}, beam={game.Items.StopsForward}, missileTime={game.Items.Remaining(ItemKind.Missiles)}, state={game.State}"); yield break; }
             yield return new WaitForSecondsRealtime(.1f); Capture("stages-06-missiles-laser");
             yield return new WaitForSeconds(game.Settings.megaBeamSeconds + .1f);
             if (!game.Items.MissilesActive || FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Length != 5) { Fail("laser completion removed missiles"); yield break; }

@@ -31,6 +31,21 @@ namespace TankTown
         private readonly Dictionary<Color, Material> carPaints = new Dictionary<Color, Material>();
         private readonly ToyGeometry geometry = new ToyGeometry();
         private TankTownGame game;
+        private TownTrafficGrid trafficGrid;
+        private Mesh proxyCube;
+        private float presentAt;
+        internal void UpdatePresentation(Vector3 view)
+        {
+            if (Time.unscaledTime < presentAt) return;
+            presentAt = Time.unscaledTime + .10f;
+            foreach (var building in Buildings) building.Presentation?.Tick(view);
+        }
+        internal void RefreshMapMeshes()
+        {
+            foreach (var building in Buildings) building.Presentation?.RefreshMapMesh();
+        }
+        internal bool TrafficShouldStop(TownTrafficCar car, Vector3 position, Vector3 heading)
+            => (trafficGrid ?? (trafficGrid = new TownTrafficGrid(this))).ShouldStop(car, position, heading);
         private Material road, cream, dark, glass, lime, grass, frame, rubber, wood, cannonPaint;
         private readonly Color[] palette = { new Color(1, .26f, .18f), new Color(.04f, .78f, 1), new Color(1, .68f, .04f), new Color(.62f, .27f, 1), new Color(1, .27f, .62f) };
 
@@ -139,6 +154,26 @@ namespace TankTown
             var scenery = gameObject.AddComponent<TownScenery>();
             SkyMaterial = scenery.Build(this, game);
             materials.Add(SkyMaterial);
+            // The readable primitive is shared by all distant building combinations.
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            proxyCube = Instantiate(source.GetComponent<MeshFilter>().sharedMesh); proxyCube.name = "Proxy cube";
+            source.SetActive(false); Destroy(source);
+            foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube);
+            foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
+            {
+                if (renderer.gameObject.name != "Town paving" && renderer.gameObject.name != "North south ramp avenue" && renderer.gameObject.name != "East west ramp avenue") continue;
+                var copy = new GameObject("Minimap " + renderer.name, typeof(MeshFilter), typeof(MeshRenderer)); copy.transform.SetParent(transform, false);
+                copy.layer = TownPhysics.MapLayer;
+                copy.GetComponent<MeshFilter>().sharedMesh = renderer.GetComponent<MeshFilter>().sharedMesh;
+                var picture = copy.GetComponent<MeshRenderer>(); picture.sharedMaterial = renderer.sharedMaterial;
+                picture.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; picture.receiveShadows = false;
+            }
+            foreach (var plot in Layout.Plots)
+                if (plot.Park)
+                {
+                    var park = Box("Minimap park", GroundPoint(plot.Center, .09f), new Vector3(BuildingWidth, .1f, BuildingWidth), grass, solid: false);
+                    park.layer = TownPhysics.MapLayer;
+                }
         }
 
         private void CreateTraffic()
@@ -521,6 +556,8 @@ namespace TankTown
 
         private void OnDestroy()
         {
+            foreach (var building in Buildings) building.Presentation?.Dispose();
+            if (proxyCube != null) Destroy(proxyCube);
             Terrain?.Dispose();
             geometry.Dispose();
             foreach (var material in materials) if (material != null) Destroy(material);

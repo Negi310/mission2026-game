@@ -12,6 +12,7 @@ namespace TankTown
         internal int RegistryIndex { get; set; } = -1;
         private TankTownGame game;
         private Rigidbody body;
+        private float lowSpeedSince = -1;
 
         public void Initialize(TankTownGame owner, DestructibleBlock source)
         {
@@ -22,9 +23,22 @@ namespace TankTown
 
         private void FixedUpdate()
         {
+            if (!game.IsPlaying || body.IsSleeping()) return;
             // 大爆発や強化射撃でも高速衝突を解決できる範囲に収める。
-            if (game.IsPlaying && body.linearVelocity.sqrMagnitude > 3600)
+            float speed = body.linearVelocity.sqrMagnitude;
+            if (speed > 3600)
                 body.linearVelocity = Vector3.ClampMagnitude(body.linearVelocity, 60);
+            if (speed > 144)
+            {
+                lowSpeedSince = -1;
+                if (body.collisionDetectionMode != CollisionDetectionMode.ContinuousSpeculative) body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            }
+            else if (speed < 64)
+            {
+                if (lowSpeedSince < 0) lowSpeedSince = Time.time;
+                if (Time.time - lowSpeedSince > .15f && body.collisionDetectionMode != CollisionDetectionMode.Discrete) body.collisionDetectionMode = CollisionDetectionMode.Discrete;
+            }
+            else lowSpeedSince = -1;
         }
 
         private void OnDestroy()
@@ -37,15 +51,18 @@ namespace TankTown
             if (ImpactSpent || !game.IsPlaying || Generation >= game.Settings.debrisChainLimit) return;
             var target = hit.collider.GetComponentInParent<DestructibleBlock>();
             if (target == null || target.Detached) return;
-            float closingSpeed = 0; Vector3 point = Vector3.zero;
+            float closingSpeed = 0; Vector3 point = Vector3.zero; int contacts = 0;
             for (int i = 0; i < hit.contactCount; i++)
             {
                 var contact = hit.GetContact(i);
                 float speed = Mathf.Abs(Vector3.Dot(hit.relativeVelocity, contact.normal));
-                if (speed > closingSpeed) { closingSpeed = speed; point = contact.point; }
+                if (speed > closingSpeed + .01f) { closingSpeed = speed; point = contact.point; contacts = 1; }
+                else if (Mathf.Abs(speed - closingSpeed) <= .01f) { point += contact.point; contacts++; }
             }
             // 速い横滑り、床・戦車への接触、ゆっくりした落下では炸裂しない。
             if (closingSpeed < game.Settings.debrisImpactSpeed) return;
+            // A contact face can contain four corners; use its centre rather than an arbitrary corner.
+            point /= Mathf.Max(1, contacts);
             if (game.TryDebrisBlast(point, Generation + 1)) ImpactSpent = true;
         }
     }

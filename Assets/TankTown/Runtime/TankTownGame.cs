@@ -68,16 +68,21 @@ namespace TankTown
         private static bool playAfterReload;
         private float debrisBurstWindow;
         private int debrisBurstsInWindow;
+        private float previousFixedStep, previousMaximumStep;
+        private double clockAt;
 
         private void Awake()
         {
             Time.timeScale = 1;
+            previousFixedStep = Time.fixedDeltaTime; previousMaximumStep = Time.maximumDeltaTime;
             var sourceSettings = Resources.Load<TankTownSettings>("TankTownSettings");
             Settings = sourceSettings != null ? Instantiate(sourceSettings) : ScriptableObject.CreateInstance<TankTownSettings>();
             ownedSettings = true;
             Stage = SelectedStage == TownStage.BigCity ? TownStage.BigCity : TownStage.Town;
             if (Stage == TownStage.BigCity)
             {
+                Time.fixedDeltaTime = Mathf.Max(previousFixedStep, 1f / 30);
+                Time.maximumDeltaTime = Mathf.Min(previousMaximumStep, .1f);
                 Settings.cityHalfBlocks *= 2;
                 Settings.cityParks *= 4;
                 Settings.megaBeamLength *= 2;
@@ -175,6 +180,7 @@ namespace TankTown
             camera.nearClipPlane = .12f;
             camera.farClipPlane = PlayCameraFarClip;
             camera.clearFlags = CameraClearFlags.Skybox;
+            camera.cullingMask &= ~(1 << TownPhysics.MapLayer);
             camera.backgroundColor = new Color(.5f, .86f, 1);
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Offset = Settings.cameraOffset;
@@ -233,6 +239,7 @@ namespace TankTown
         {
             Presentation.UsePlayCamera();
             State = RoundState.Playing;
+            clockAt = Time.realtimeSinceStartupAsDouble;
             CameraRig.Paused = false;
             Time.timeScale = 1;
         }
@@ -264,16 +271,24 @@ namespace TankTown
         {
             if (State == RoundState.Ready && HowToOpen) { HowToOpen = false; return; }
             if (State == RoundState.Playing) { State = RoundState.Paused; CameraRig.Paused = true; Sound.SetPaused(true); speaker.Pause(); Time.timeScale = 0; }
-            else if (State == RoundState.Paused) { State = RoundState.Playing; CameraRig.Paused = false; Sound.SetPaused(false); speaker.UnPause(); Time.timeScale = 1; }
+            else if (State == RoundState.Paused) { State = RoundState.Playing; clockAt = Time.realtimeSinceStartupAsDouble; CameraRig.Paused = false; Sound.SetPaused(false); speaker.UnPause(); Time.timeScale = 1; }
         }
 
         private void OnApplicationFocus(bool focus) { if (!focus && IsPlaying) TogglePause(); }
         private void Update()
         {
             Presentation.Tick(Time.unscaledDeltaTime);
-            if (IsPlaying) AdvanceTime(Time.deltaTime);
+            if (IsPlaying)
+            {
+                double now = Time.realtimeSinceStartupAsDouble;
+                AdvanceTime((float)(now - clockAt)); clockAt = now;
+            }
         }
-        private void LateUpdate() => Presentation.MoveOverview(Time.unscaledDeltaTime);
+        private void LateUpdate()
+        {
+            Presentation.MoveOverview(Time.unscaledDeltaTime);
+            World.UpdatePresentation(CameraRig.transform.position);
+        }
         public void AdvanceTime(float seconds)
         {
             if (!IsPlaying) return;
@@ -490,6 +505,7 @@ namespace TankTown
         private void OnDestroy()
         {
             Time.timeScale = 1;
+            Time.fixedDeltaTime = previousFixedStep; Time.maximumDeltaTime = previousMaximumStep;
             Physics.IgnoreLayerCollision(TownPhysics.DebrisLayer, TownPhysics.DebrisLayer, oldDebrisIgnore);
             Physics.IgnoreLayerCollision(TownPhysics.TankLayer, TownPhysics.DebrisLayer, oldTankIgnore);
             Physics.IgnoreLayerCollision(TownPhysics.RewardLayer, TownPhysics.DebrisLayer, oldRewardIgnore);
