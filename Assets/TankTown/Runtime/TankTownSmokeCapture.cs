@@ -329,7 +329,7 @@ namespace TankTown
             int beamHits = game.Items.BeamHits;
 
             ItemFixture(game, 3, 16);
-            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(1);
+            game.Items.Receive(ItemKind.Missiles);
             DiagnosticView(game, body.position + new Vector3(-23, 27, -25), game.World.Buildings[3].transform.position + Vector3.up * 8);
             yield return new WaitForSeconds(.35f);
             int missileCount = FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Length;

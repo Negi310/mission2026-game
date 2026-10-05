@@ -11,6 +11,7 @@ namespace TankTown
         public event Action StartPressed;
         public event Action PausePressed;
         public event Action HelpPressed;
+        public event Action<TownStage> StagePressed;
         public float Steering { get; private set; }
         public bool useHardware;
         public TankTownSettings settings;
@@ -41,6 +42,8 @@ namespace TankTown
             Steering = useHardware ? wheel : Gamepad.current?.leftStick.x.ReadValue() ?? 0;
             if (keyboard != null)
             {
+                if (keyboard.digit1Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.Town);
+                if (keyboard.digit2Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.BigCity);
                 if (!useHardware)
                 {
                     if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) Steering = -1;

@@ -148,7 +148,7 @@ namespace TankTown.Tests
                 Assert.That(first.DestroyedFraction, Is.GreaterThanOrEqualTo(game.Settings.buildingRewardThreshold));
                 Assert.That(first.Blocks.Exists(x => x == null), Is.True, "Old debris must actually have been evicted");
                 Assert.That(reward.Available, Is.True);
-                Assert.That(game.Items.Receive(ItemKind.Missiles), Is.True);
+                Assert.That(game.Items.Receive(ItemKind.GigantBomb), Is.True);
                 Assert.That(reward.Collect(), Is.False); Assert.That(reward.Collected, Is.False);
                 Assert.That(reward.gameObject.activeSelf, Is.True);
                 game.Items.UseHeld();

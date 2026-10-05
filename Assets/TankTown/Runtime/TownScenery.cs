@@ -9,10 +9,12 @@ namespace TankTown
         private Mesh coastMesh;
         private Material previousSky;
         private Material sky;
+        private float cloudWrap;
 
         public Material Build(TankTownWorld world, TankTownGame game)
         {
             previousSky = RenderSettings.skybox;
+            cloudWrap = 330 * game.StageScale;
             sky = new Material(Shader.Find("TankTown/Sky Gradient"));
             sky.SetColor("_Horizon", new Color(.5f, .86f, 1));
             sky.SetColor("_Zenith", new Color(.12f, .56f, 1));
@@ -44,7 +46,7 @@ namespace TankTown
             for (int i = 0; i < 10; i++)
             {
                 float angle = i * Mathf.PI * 2 / 10;
-                var position = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * (240 + i % 3 * 32);
+                var position = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * (Mathf.Max(240, edge * Mathf.Sqrt(2) + 50) + i % 3 * 32);
                 var island = GameObject.CreatePrimitive(PrimitiveType.Sphere); island.name = "Distant island"; island.transform.SetParent(transform);
                 island.transform.position = position + Vector3.up * (-6 + i % 3 * 3);
                 island.transform.localScale = new Vector3(48 + i % 3 * 16, 26 + i % 3 * 16, 52);
@@ -55,7 +57,7 @@ namespace TankTown
             {
                 float angle = (i + .3f) * Mathf.PI * 2 / 16;
                 var cloud = new GameObject("Soft toy cloud"); cloud.transform.SetParent(transform);
-                cloud.transform.position = new Vector3(Mathf.Cos(angle) * (150 + i % 4 * 31), 48 + i % 5 * 4, Mathf.Sin(angle) * (150 + i % 4 * 31));
+                cloud.transform.position = new Vector3(Mathf.Cos(angle) * (150 + i % 4 * 31) * game.StageScale, 48 + i % 5 * 4, Mathf.Sin(angle) * (150 + i % 4 * 31) * game.StageScale);
                 for (int lobe = 0; lobe < 5; lobe++)
                 {
                     var puff = GameObject.CreatePrimitive(PrimitiveType.Sphere); puff.transform.SetParent(cloud.transform, false);
@@ -101,7 +103,7 @@ namespace TankTown
             foreach (var cloud in clouds)
             {
                 cloud.position += Vector3.right * (.45f * Time.deltaTime);
-                if (cloud.position.x > 330) cloud.position += Vector3.left * 660;
+                if (cloud.position.x > cloudWrap) cloud.position += Vector3.left * cloudWrap * 2;
             }
         }
 

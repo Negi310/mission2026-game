@@ -13,7 +13,32 @@ namespace TankTown.Tests
     {
         private string testKey;
         [SetUp] public void SetUp() => testKey = "TankTown.Tests.Ranking." + Guid.NewGuid().ToString("N");
-        [TearDown] public void TearDown() { PlayerPrefs.DeleteKey(testKey); PlayerPrefs.Save(); Time.timeScale = 1; }
+        [TearDown] public void TearDown() { PlayerPrefs.DeleteKey(testKey); PlayerPrefs.DeleteKey(testKey + ".BigCity"); PlayerPrefs.Save(); Time.timeScale = 1; }
+
+        [UnityTest]
+        public IEnumerator StageRankingsRemainSeparateWhenReturningToTheOriginalTown()
+        {
+            string previous = TankTownGame.RankingStorageOverrideForTests;
+            TownStage previousStage = TankTownGame.SelectedStage;
+            try
+            {
+                TankTownGame.RankingStorageOverrideForTests = testKey; TankTownGame.SelectedStage = TownStage.Town;
+                SceneManager.LoadScene("TankTown"); yield return null;
+                var game = UnityEngine.Object.FindFirstObjectByType<TankTownGame>();
+                game.Ranking.Submit(30000, 2026, out _);
+                game.SelectStage(TownStage.BigCity); yield return null; yield return null;
+                game = UnityEngine.Object.FindFirstObjectByType<TankTownGame>();
+                Assert.That(game.Ranking.Records, Is.Empty);
+                game.Ranking.Submit(18000, 2026, out _);
+                var map = game.GetComponent<TankTownHUD>().Minimap;
+                Assert.That(map.MapHalfExtent, Is.EqualTo(game.World.HalfExtent + 3));
+                game.SelectStage(TownStage.Town); yield return null; yield return null;
+                game = UnityEngine.Object.FindFirstObjectByType<TankTownGame>();
+                Assert.That(game.Ranking.Records.Select(x => x.Score), Is.EqualTo(new[] { 30000 }));
+                Assert.That(new TankTownRanking(true, 0, testKey + ".BigCity").Records.Select(x => x.Score), Is.EqualTo(new[] { 18000 }));
+            }
+            finally { TankTownGame.RankingStorageOverrideForTests = previous; TankTownGame.SelectedStage = previousStage; }
+        }
 
         [Test]
         public void TopTenSortsPersistsAndRetainsOlderTies()

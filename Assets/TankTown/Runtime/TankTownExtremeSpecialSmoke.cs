@@ -4,6 +4,8 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 
 namespace TankTown
 {
@@ -14,7 +16,10 @@ namespace TankTown
         private static void Configure()
         {
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-extreme-specials-smoke") < 0) return;
-            TankTownGame.GenerationSeedOverride = 2026; TankTownGame.SkipIntroForTests = true; TankTownGame.DisableRecordSavingForTests = true;
+            TankTownGame.GenerationSeedOverride = 2026;
+            TankTownGame.SelectedStage = TownStage.Town;
+            TankTownGame.SkipIntroForTests = Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-stages-check") < 0;
+            TankTownGame.DisableRecordSavingForTests = true;
         }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
@@ -27,7 +32,13 @@ namespace TankTown
             Application.runInBackground = true;
             output = Path.Combine(Application.dataPath, "..", "Captures"); Directory.CreateDirectory(output);
             yield return new WaitForSecondsRealtime(.6f);
-            var game = FindFirstObjectByType<TankTownGame>(); game.StartOrRestart(); Isolate(game);
+            var game = FindFirstObjectByType<TankTownGame>();
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-stages-check") >= 0)
+            {
+                yield return StagesCheck(game);
+                yield break;
+            }
+            game.StartOrRestart(); Isolate(game);
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-bomb-structure-check") >= 0)
             {
                 yield return BombStructureCheck(game);
@@ -58,7 +69,7 @@ namespace TankTown
             var car = game.World.TrafficCars[0]; car.gameObject.SetActive(true);
             var carExplosive = car.GetComponent<ChainExplosive>();
             car.SetCircuit(new[] { origin + Vector3.forward * 42, origin + Vector3.forward * 74 }, 0);
-            Physics.SyncTransforms(); game.CameraRig.Snap(); game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            Physics.SyncTransforms(); game.CameraRig.Snap(); game.Items.Receive(ItemKind.Missiles);
             if (!FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Any(x => x.TrackingTarget == fuel.GetComponent<TownMovingTarget>())) { Fail("missiles did not acquire the fuel tank in front"); yield break; }
             yield return new WaitForSecondsRealtime(.23f); Capture("specials-03-missile-targets");
             float until = Time.realtimeSinceStartup + 4;
@@ -123,6 +134,75 @@ namespace TankTown
             TankTownSmokeCapture.Capture(Path.Combine(output, "bomb-structure-explosion.png"), true, 1920, 1080);
             Debug.Log($"BOMB STRUCTURE SMOKE COMPLETE: impactSeconds={impactSeconds:0.000}, kind={wall.Kind}, groundImpact={groundImpact}, structureImpact={structureImpact}, contacts={contacts}, radius={game.Settings.gigantBombRadius}, impulse={game.Settings.gigantBombImpulseMultiplier}, broken={game.BrokenBlocks}, state={game.State}");
             Application.Quit(0);
+        }
+        private IEnumerator StagesCheck(TankTownGame game)
+        {
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsInDynamicUpdate;
+            var keyboard = InputSystem.AddDevice<Keyboard>(); InputSystem.EnableDevice(keyboard); keyboard.MakeCurrent();
+            float classicExtent = game.World.HalfExtent; int classicBuildings = game.World.Buildings.Count;
+            Capture("stages-01-classic-title");
+            yield return Press(keyboard, Key.Digit2);
+            game = FindFirstObjectByType<TankTownGame>();
+            if (game.Stage != TownStage.BigCity || game.World.HalfExtent != classicExtent * 2 || game.World.Buildings.Count != classicBuildings * 4)
+            { Fail("large title selection, field area or building count"); yield break; }
+            yield return null; Capture("stages-02-large-title");
+            Camera.main.transform.position = new Vector3(0, game.World.HalfExtent * 2.35f, -game.World.HalfExtent * .55f);
+            Camera.main.transform.LookAt(Vector3.zero);
+            TankTownSmokeCapture.Capture(Path.Combine(output, "stages-03-large-overview.png"), false, 1920, 1080);
+            yield return Press(keyboard, Key.Space);
+            float until = Time.realtimeSinceStartup + 5;
+            while (!game.IsPlaying && Time.realtimeSinceStartup < until) yield return null;
+            if (!game.IsPlaying) { Fail("space did not start the selected stage"); yield break; }
+            game.Input.useHardware = true;
+            yield return new WaitForSecondsRealtime(.2f); Capture("stages-04-large-play");
+            int cars = game.World.TrafficCars.Count, people = game.World.Pedestrians.Count;
+            Isolate(game);
+            game.Tank.Warp(new Pose(game.World.SpawnPosition, Quaternion.identity)); Freeze(game); game.CameraRig.Snap();
+            game.Items.Receive(ItemKind.MegaBeam);
+            var rewardRoot = new GameObject("Stage smoke auto missile pickup"); rewardRoot.transform.SetParent(game.World.transform);
+            rewardRoot.transform.position = game.Tank.transform.position;
+            var reward = rewardRoot.AddComponent<ItemPickup>(); reward.Initialize(game, ItemKind.Missiles, game.World.SpecialIcons.Material(ItemKind.Missiles));
+            bool automatic = reward.Collect();
+            var rockets = FindObjectsByType<ItemMissile>(FindObjectsSortMode.None);
+            if (!automatic || rockets.Length != 5 || game.Items.Held != ItemKind.MegaBeam || game.Items.Weapon != ItemKind.None)
+            { Fail("automatic missile pickup displaced the held laser"); yield break; }
+            Vector3 launch = rockets[0].transform.position;
+            yield return new WaitForSecondsRealtime(.2f); Capture("stages-05-auto-missiles");
+            bool flying = rockets[0].transform.position.y > launch.y + 3;
+            yield return Press(keyboard, Key.Space);
+            if (!flying || !game.Items.StopsForward || !game.Items.MissilesActive) { Fail("missiles did not fly independently with the laser"); yield break; }
+            yield return new WaitForSecondsRealtime(.1f); Capture("stages-06-missiles-laser");
+            yield return new WaitForSeconds(game.Settings.megaBeamSeconds + .1f);
+            if (!game.Items.MissilesActive || FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Length != 5) { Fail("laser completion removed missiles"); yield break; }
+            game.Items.Receive(ItemKind.Missiles); game.Items.Receive(ItemKind.GigantBomb);
+            yield return Press(keyboard, Key.Space);
+            var bomb = FindFirstObjectByType<GigantBomb>();
+            if (bomb == null || !game.Items.MissilesActive) { Fail("bomb and automatic missiles did not coexist"); yield break; }
+            yield return new WaitForSecondsRealtime(.1f); Capture("stages-07-missiles-bomb");
+            until = Time.realtimeSinceStartup + 6;
+            while (bomb != null && !bomb.Detonated && Time.realtimeSinceStartup < until) yield return null;
+            if (!bomb.Detonated || !game.Items.MissilesActive) { Fail("bomb detonation stopped the missile timer"); yield break; }
+            yield return new WaitForSecondsRealtime(.1f); Capture("stages-08-bomb-explosion");
+            game.AdvanceTime(1000); yield return new WaitForSecondsRealtime(1.1f); Capture("stages-09-large-results");
+            if (game.Items.MissilesActive || FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Length > 0) { Fail("round end did not clear missiles"); yield break; }
+            yield return Press(keyboard, Key.Space);
+            game = FindFirstObjectByType<TankTownGame>(); until = Time.realtimeSinceStartup + 5;
+            while (!game.IsPlaying && Time.realtimeSinceStartup < until) { game = FindFirstObjectByType<TankTownGame>(); yield return null; }
+            if (!game.IsPlaying || game.Stage != TownStage.BigCity) { Fail("replay lost the selected stage"); yield break; }
+            game.TogglePause(); game.ReturnToTitle(); yield return null; yield return null;
+            yield return Press(keyboard, Key.Digit1);
+            game = FindFirstObjectByType<TankTownGame>(); yield return null;
+            TankTownSmokeCapture.Capture(Path.Combine(output, "stages-10-classic-restored-720.png"), true, 1280, 720);
+            if (game.Stage != TownStage.Town || game.World.HalfExtent != classicExtent || game.World.Buildings.Count != classicBuildings)
+            { Fail("original stage was not restored"); yield break; }
+            Debug.Log($"STAGES SMOKE COMPLETE: classicExtent={classicExtent}, largeExtent={classicExtent * 2}, areaMultiplier=4, classicBuildings={classicBuildings}, largeBuildings={classicBuildings * 4}, largeCars={cars}, largePeople={people}, autoMissiles=5, laserCoexists=true, bombCoexists=true, replayPreserved=true, classicRestored=true, sourceHalfBlocks={Resources.Load<TankTownSettings>("TankTownSettings").cityHalfBlocks}");
+            InputSystem.RemoveDevice(keyboard); Application.Quit(0);
+        }
+        private static IEnumerator Press(Keyboard keyboard, Key key)
+        {
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState(key)); yield return null; yield return null;
+            InputSystem.QueueStateEvent(keyboard, new KeyboardState()); yield return null;
         }
         private static IEnumerator FreshCity(TankTownGame game) { game.TogglePause(); game.ReturnToTitle(); yield return null; game = FindFirstObjectByType<TankTownGame>(); game.StartOrRestart(); yield return null; }
         private static void Isolate(TankTownGame game)

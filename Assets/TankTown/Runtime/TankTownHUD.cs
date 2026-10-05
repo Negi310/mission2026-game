@@ -88,7 +88,7 @@ namespace TankTown
             var ranking = Panel("Live ranking", hud, new Vector2(28, -193), new Vector2(310, 105), ink);
             ranking.GetComponent<Image>().raycastTarget = false;
             style.Card(ranking, yellow);
-            Label(ranking.transform, "この端末のランキング", new Vector2(12, -6), new Vector2(286, 24), 15, yellow);
+            Label(ranking.transform, game.StageLabel + "・ランキング", new Vector2(12, -6), new Vector2(286, 24), 15, yellow);
             liveRank = Label(ranking.transform, "", new Vector2(12, -32), new Vector2(110, 40), 25, Color.white);
             livePoints = Label(ranking.transform, "", new Vector2(120, -33), new Vector2(178, 38), 23, Color.white);
             livePoints.alignment = TextAnchor.MiddleRight;

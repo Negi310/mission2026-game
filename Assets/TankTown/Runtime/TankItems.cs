@@ -8,6 +8,7 @@ namespace TankTown
     {
         public ItemKind Held { get; private set; } = ItemKind.None;
         public ItemKind Weapon { get; private set; } = ItemKind.None;
+        public bool MissilesActive => missileTime > 0;
         public bool StopsForward => Weapon == ItemKind.MegaBeam;
         public bool Invincible => bulldozer > 0 || highSpeed > 0;
         public float SpeedMultiplier => (highSpeed > 0 ? game.Settings.highSpeedMultiplier : 1) * (bulldozer > 0 ? .85f : 1);
@@ -22,14 +23,15 @@ namespace TankTown
             int count = 0; foreach (var missile in missiles) if (missile != null && missile.TrackingTarget == target) count++; return count;
         }
         public int BeamHits { get; private set; }
-        public ItemKind Active => Weapon != ItemKind.None ? Weapon : bulldozer > 0 ? ItemKind.Bulldozer : highSpeed > 0 ? ItemKind.HighSpeed : magnet > 0 ? ItemKind.Magnet : ItemKind.None;
-        public float Remaining(ItemKind kind) => kind == Weapon ? weaponTime : kind == ItemKind.Magnet ? magnet : kind == ItemKind.Bulldozer ? bulldozer : kind == ItemKind.HighSpeed ? highSpeed : 0;
+        public ItemKind Active => Weapon != ItemKind.None ? Weapon : MissilesActive ? ItemKind.Missiles : bulldozer > 0 ? ItemKind.Bulldozer : highSpeed > 0 ? ItemKind.HighSpeed : magnet > 0 ? ItemKind.Magnet : ItemKind.None;
+        public float Remaining(ItemKind kind) => kind == ItemKind.Missiles ? missileTime : kind == Weapon ? weaponTime : kind == ItemKind.Magnet ? magnet : kind == ItemKind.Bulldozer ? bulldozer : kind == ItemKind.HighSpeed ? highSpeed : 0;
         public string ActiveSummary
         {
             get
             {
                 var lines = new List<string>(4);
                 if (Weapon != ItemKind.None) lines.Add($"{ItemIcons.Label(Weapon)}  {weaponTime:0.0}秒");
+                if (MissilesActive) lines.Add($"追尾ミサイル  {missileTime:0.0}秒");
                 if (magnet > 0) lines.Add($"マグネット  {magnet:0.0}秒");
                 if (bulldozer > 0) lines.Add($"ブルドーザー  {bulldozer:0.0}秒");
                 if (highSpeed > 0) lines.Add($"ハイスピード  {highSpeed:0.0}秒");
@@ -37,7 +39,7 @@ namespace TankTown
             }
         }
         private TankTownGame game;
-        private float weaponTime, magnet, bulldozer, highSpeed, nextBeamHit, nextRam, nextRamEffect;
+        private float weaponTime, missileTime, magnet, bulldozer, highSpeed, nextBeamHit, nextRam, nextRamEffect;
         private GameObject beamRoot, bladeRoot, magnetRing, shield;
         private readonly List<ItemMissile> missiles = new List<ItemMissile>();
         private LineRenderer[] beam, beamRings;
@@ -100,6 +102,16 @@ namespace TankTown
                 if (Held != ItemKind.None) return false;
                 Held = kind; return true;
             }
+            if (kind == ItemKind.Missiles)
+            {
+                missileTime = Duration(kind);
+                if (missiles.Count == 0)
+                    for (int i = 0; i < 5; i++)
+                    {
+                        var root = new GameObject("Homing missile " + (i + 1)); root.transform.SetParent(game.World.transform);
+                        var missile = root.AddComponent<ItemMissile>(); missile.Initialize(game, this, i); missiles.Add(missile);
+                    }
+            }
             if (kind == ItemKind.Magnet) { magnet = Duration(kind); magnetRing.SetActive(true); }
             if (kind == ItemKind.Bulldozer)
             {
@@ -145,14 +157,6 @@ namespace TankTown
                 }
                 nextBeamHit = 0; UpdateBeam();
             }
-            if (Weapon == ItemKind.Missiles)
-            {
-                for (int i = 0; i < 5; i++)
-                {
-                    var root = new GameObject("Homing missile " + (i + 1)); root.transform.SetParent(game.World.transform);
-                    var missile = root.AddComponent<ItemMissile>(); missile.Initialize(game, this, i); missiles.Add(missile);
-                }
-            }
             if (Weapon == ItemKind.GigantBomb)
             {
                 var root = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -194,6 +198,11 @@ namespace TankTown
                 weaponTime = Mathf.Max(0, weaponTime - dt);
                 if (StopsForward) UpdateBeam();
                 if (weaponTime <= 0) EndWeapon(true);
+            }
+            if (MissilesActive)
+            {
+                missileTime = Mathf.Max(0, missileTime - dt);
+                if (missileTime <= 0) EndMissiles();
             }
             bool wasBulldozer = bulldozer > 0;
             magnet = Mathf.Max(0, magnet - dt); bulldozer = Mathf.Max(0, bulldozer - dt); highSpeed = Mathf.Max(0, highSpeed - dt);
@@ -268,10 +277,14 @@ namespace TankTown
         {
             Weapon = ItemKind.None; weaponTime = 0;
             if (beamRoot != null) Destroy(beamRoot); beamRoot = null; beam = beamRings = null;
-            foreach (var missile in missiles) if (missile != null) Destroy(missile.gameObject);
-            missiles.Clear();
             if (bomb != null) { if (detonate) bomb.Detonate(); else Destroy(bomb.gameObject); }
             bomb = null;
+        }
+        private void EndMissiles()
+        {
+            missileTime = 0;
+            foreach (var missile in missiles) if (missile != null) Destroy(missile.gameObject);
+            missiles.Clear();
         }
         private void ResetBulldozer()
         {
@@ -288,7 +301,7 @@ namespace TankTown
             if (bulldozer > 0) ResetBulldozer();
             foreach (var trail in dashTrails) { trail.emitting = false; trail.Clear(); }
         }
-        public void FinishRound() { EndWeapon(false); ClearPersonalEffects(); Held = ItemKind.None; }
+        public void FinishRound() { EndWeapon(false); EndMissiles(); ClearPersonalEffects(); Held = ItemKind.None; }
         private void OnDestroy() { if (energy != null) Destroy(energy); }
     }
 }

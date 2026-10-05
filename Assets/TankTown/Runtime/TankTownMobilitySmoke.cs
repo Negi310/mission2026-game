@@ -83,7 +83,7 @@ namespace TankTown
             second.SetCircuit(new[] { new Vector3(0, 0, -38), new Vector3(0, 0, -10) }, 0);
             Place(game, new Vector3(0, 0, -112));
             yield return new WaitForFixedUpdate(); yield return new WaitForFixedUpdate();
-            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            game.Items.Receive(ItemKind.Missiles);
             ItemMissile rocket = null;
             foreach (var missile in FindObjectsByType<ItemMissile>(FindObjectsSortMode.None))
                 if (missile.TrackingTarget == first.GetComponent<TownMovingTarget>()) { rocket = missile; break; }
@@ -97,7 +97,7 @@ namespace TankTown
             for (int i = 0; i < 180 && game.Items.MissileTrackedStrikes == 0; i++) yield return new WaitForFixedUpdate();
             if (!follows || !retarget || game.Items.MissileTrackedStrikes == 0) { Fail("real homing/retarget/contact failed"); yield break; }
             Capture("mobility-04-tracked-impact", true);
-            while (game.Items.Weapon != ItemKind.None) yield return null;
+            while (game.Items.MissilesActive) yield return null;
             var carA = game.World.TrafficCars.Find(x => x != null && !x.GetComponent<DestructibleBlock>().Detached);
             var carB = game.World.TrafficCars.Find(x => x != null && x != carA && !x.GetComponent<DestructibleBlock>().Detached);
             carA.gameObject.SetActive(true); carB.gameObject.SetActive(true);

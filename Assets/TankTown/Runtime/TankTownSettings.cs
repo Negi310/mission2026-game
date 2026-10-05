@@ -47,7 +47,8 @@ namespace TankTown
         public int citySeed = 2026;
         public bool randomizeCitySeed = true;
         [Header("City")]
-        [Range(2, 5)] public int cityHalfBlocks = 3;
+        [Range(2, 10)] public int cityHalfBlocks = 3;
+        [Min(0)] public int cityParks = 3;
         [Min(24)] public float blockSpacing = 40;
         [Min(10)] public float buildingWidth = 20;
         [Min(8)] public float roadWidth = 16;

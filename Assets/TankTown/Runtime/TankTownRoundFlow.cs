@@ -47,7 +47,7 @@ namespace TankTown
             if (cameraChanged) return;
             cameraChanged = true;
             camera.fieldOfView = game.Settings.cameraFieldOfView;
-            camera.farClipPlane = 500;
+            camera.farClipPlane = game.PlayCameraFarClip;
             game.SetOverviewShadows(false);
             game.CameraRig.CancelTransition();
             game.CameraRig.Snap();

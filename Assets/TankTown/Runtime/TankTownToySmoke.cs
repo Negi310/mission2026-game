@@ -72,7 +72,7 @@ namespace TankTown
             yield return Capture("toy-10-collapse", 1920, 1080);
             yield return new WaitForSeconds(1.5f);
             yield return Capture("toy-11-debris", 1920, 1080);
-            game.Items.Receive(ItemKind.Missiles); game.Items.UseHeld(); yield return new WaitForSeconds(.45f);
+            game.Items.Receive(ItemKind.Missiles); yield return new WaitForSeconds(.45f);
             yield return Capture("toy-05-missiles", 1920, 1080);
             game.Items.Receive(ItemKind.Magnet); game.Items.Receive(ItemKind.HighSpeed); game.Items.Receive(ItemKind.Bulldozer);
             yield return new WaitForSeconds(.4f);

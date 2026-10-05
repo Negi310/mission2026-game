@@ -13,6 +13,12 @@ namespace TankTown
     {
         public TankTownSettings Settings { get; private set; }
         public int CitySeed { get; private set; }
+        internal static TownStage SelectedStage;
+        public TownStage Stage { get; private set; }
+        public int StageScale => Stage == TownStage.BigCity ? 2 : 1;
+        public string StageLabel => Stage == TownStage.BigCity ? "大きな街" : "いつもの街";
+        internal string StageStorageSuffix => Stage == TownStage.BigCity ? ".BigCity" : "";
+        internal float PlayCameraFarClip => Mathf.Max(500, World.HalfExtent * 3.2f);
         internal static int? GenerationSeedOverride;
         internal static bool SkipIntroForTests;
         internal static bool DisableRecordSavingForTests;
@@ -66,16 +72,24 @@ namespace TankTown
         private void Awake()
         {
             Time.timeScale = 1;
-            Settings = Resources.Load<TankTownSettings>("TankTownSettings");
-            if (Settings == null) { Settings = ScriptableObject.CreateInstance<TankTownSettings>(); ownedSettings = true; }
+            var sourceSettings = Resources.Load<TankTownSettings>("TankTownSettings");
+            Settings = sourceSettings != null ? Instantiate(sourceSettings) : ScriptableObject.CreateInstance<TankTownSettings>();
+            ownedSettings = true;
+            Stage = SelectedStage == TownStage.BigCity ? TownStage.BigCity : TownStage.Town;
+            if (Stage == TownStage.BigCity)
+            {
+                Settings.cityHalfBlocks *= 2;
+                Settings.cityParks *= 4;
+                Settings.megaBeamLength *= 2;
+            }
             CitySeed = ResolveCitySeed();
-            Debug.Log($"TOWN GENERATED: seed={CitySeed}, seconds={Settings.roundSeconds}");
+            Debug.Log($"TOWN GENERATED: stage={Stage}, seed={CitySeed}, seconds={Settings.roundSeconds}");
             // 消去の乱数を物理演出のUnityEngine.Randomから独立させる。
             debrisRandom = new System.Random(unchecked(CitySeed ^ 0x5D3B17));
             Remaining = Settings.roundSeconds;
-            BestScore = DisableRecordSavingForTests ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(BestScoreKey, 0), 0, 100000);
+            BestScore = DisableRecordSavingForTests ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(BestScoreKey + StageStorageSuffix, 0), 0, 100000);
             Ranking = new TankTownRanking(!DisableRecordSavingForTests || !string.IsNullOrEmpty(RankingStorageOverrideForTests), BestScore,
-                RankingStorageOverrideForTests ?? TankTownRanking.StorageKey);
+                (RankingStorageOverrideForTests ?? TankTownRanking.StorageKey) + StageStorageSuffix);
             BestScore = Mathf.Max(BestScore, Ranking.BestScore);
             Stats = new TankStats(Settings);
             Effects = gameObject.AddComponent<TankTownEffects>();
@@ -105,6 +119,7 @@ namespace TankTown
             Input.StartPressed += StartOrRestart;
             Input.PausePressed += TogglePause;
             Input.HelpPressed += ToggleHowTo;
+            Input.StagePressed += SelectStage;
             SetupView();
             speaker = gameObject.AddComponent<AudioSource>();
             speaker.spatialBlend = 0;
@@ -158,7 +173,7 @@ namespace TankTown
             }
             camera.fieldOfView = Settings.cameraFieldOfView;
             camera.nearClipPlane = .12f;
-            camera.farClipPlane = 500;
+            camera.farClipPlane = PlayCameraFarClip;
             camera.clearFlags = CameraClearFlags.Skybox;
             camera.backgroundColor = new Color(.5f, .86f, 1);
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
@@ -205,6 +220,15 @@ namespace TankTown
             }
         }
 
+        public void SelectStage(TownStage stage)
+        {
+            if (State != RoundState.Ready || stage == Stage || (stage != TownStage.Town && stage != TownStage.BigCity)) return;
+            SelectedStage = stage;
+            playAfterReload = false;
+            Time.timeScale = 1;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
         internal void FinishIntro()
         {
             Presentation.UsePlayCamera();
@@ -221,9 +245,9 @@ namespace TankTown
 
         internal void SetOverviewShadows(bool overview)
         {
-            if (toyPipeline != null) toyPipeline.shadowDistance = overview ? 430 : 95;
-            RenderSettings.fogStartDistance = overview ? 430 : 160;
-            RenderSettings.fogEndDistance = overview ? 700 : 410;
+            if (toyPipeline != null) toyPipeline.shadowDistance = overview ? Mathf.Max(430, World.HalfExtent * 2.4f) : 95;
+            RenderSettings.fogStartDistance = overview ? Mathf.Max(430, World.HalfExtent * 3.2f) : 160;
+            RenderSettings.fogEndDistance = overview ? Mathf.Max(700, World.HalfExtent * 5.2f) : 410;
         }
 
         public void ToggleHowTo() { if (State == RoundState.Ready) HowToOpen = !HowToOpen; }
@@ -262,7 +286,7 @@ namespace TankTown
                 BestScore = Mathf.Max(BestScore, RoundScore);
                 RoundRecord = Ranking.Submit(RoundScore, CitySeed, out int finalRank);
                 FinalRank = finalRank;
-                if (NewBest && !DisableRecordSavingForTests) { PlayerPrefs.SetInt(BestScoreKey, BestScore); PlayerPrefs.Save(); }
+                if (NewBest && !DisableRecordSavingForTests) { PlayerPrefs.SetInt(BestScoreKey + StageStorageSuffix, BestScore); PlayerPrefs.Save(); }
             }
         }
         public void RegisterBlock() => TotalBlocks++;

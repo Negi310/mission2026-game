@@ -78,7 +78,7 @@ namespace TankTown
         public void Build(TankTownGame owner)
         {
             game = owner;
-            HalfExtent = game.Settings.cityHalfBlocks * game.Settings.blockSpacing + 14;
+            HalfExtent = game.Settings.cityHalfBlocks * game.Settings.blockSpacing + 14 * game.StageScale;
             road = MakeMaterial(new Color(.13f, .2f, .32f), ToySurface.Concrete);
             road.SetFloat("_GroundDetail", 1);
             road.SetFloat("_Gloss", .035f);

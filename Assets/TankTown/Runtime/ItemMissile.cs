@@ -76,7 +76,7 @@ namespace TankTown
         }
         private void Update()
         {
-            if (!game.IsPlaying || owner.Weapon != ItemKind.Missiles) return;
+            if (!game.IsPlaying || !owner.MissilesActive) return;
             age += Time.deltaTime;
             if (TrackingTarget != null && !TrackingTarget.Available) TrackingTarget = null;
             if (TrackingTarget == null) AcquireTarget(Vector3.ProjectOnPlane(game.Tank.Muzzle.forward, Vector3.up).normalized);

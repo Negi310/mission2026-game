@@ -52,7 +52,7 @@ namespace TankTown
             front.SetCircuit(new[] { origin + Vector3.forward * 20, origin + Vector3.forward * 50 }, 0);
             rear.SetCircuit(new[] { origin - Vector3.forward * 8, origin - Vector3.forward * 13 }, 0);
             Physics.SyncTransforms();
-            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            game.Items.Receive(ItemKind.Missiles);
             var rockets = FindObjectsByType<ItemMissile>(FindObjectsSortMode.None);
             if (rockets.Length != 5 || rockets.Any(m => m.TrackingTarget != front.GetComponent<TownMovingTarget>())) { Fail("missiles selected a hidden or rear target"); yield break; }
             yield return new WaitForSeconds(.32f); Capture("generated-03-forward-missiles", 1920, 1080);

@@ -48,6 +48,7 @@ MonoBehaviour:
   citySeed: 2026
   randomizeCitySeed: 1
   cityHalfBlocks: 3
+  cityParks: 3
   blockSpacing: 40
   buildingWidth: 20
   roadWidth: 16

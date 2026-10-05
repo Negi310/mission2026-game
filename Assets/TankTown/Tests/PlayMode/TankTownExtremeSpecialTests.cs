@@ -97,7 +97,7 @@ namespace TankTown.Tests
             building.ReleaseUnsupported(building.transform.position, 0); yield return new WaitForFixedUpdate();
             Assert.That(reward.Available, Is.True);
             reward.DropBody.position = game.Tank.transform.position + Vector3.right * 30 + Vector3.up * 12;
-            game.Items.Receive(ItemKind.Missiles); game.Items.Receive(ItemKind.Magnet);
+            game.Items.Receive(ItemKind.GigantBomb); game.Items.Receive(ItemKind.Magnet);
             yield return new WaitForSeconds(.4f);
             Assert.That(reward.Collected, Is.False, "A full slot must not discard the reward");
             Assert.That(reward.DropBody.isKinematic, Is.True);
@@ -113,7 +113,7 @@ namespace TankTown.Tests
             var explosive = Explosive(game, game.World.GroundPoint(point, 1.5f), fuel: true, radius: 24);
             var behind = Explosive(game, game.Tank.transform.position - Vector3.forward * 12);
             Physics.SyncTransforms(); game.CameraRig.Snap();
-            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            game.Items.Receive(ItemKind.Missiles);
             var missiles = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None);
             Assert.That(missiles.All(x => x.TrackingTarget == explosive.GetComponent<TownMovingTarget>()), Is.True);
             for (int i = 0; i < 140 && !explosive.Primed; i++) yield return new WaitForFixedUpdate();

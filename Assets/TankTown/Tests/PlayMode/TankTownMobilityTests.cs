@@ -61,7 +61,7 @@ namespace TankTown.Tests
             game.Tank.GetComponent<Rigidbody>().isKinematic = true;
             var first = Car(game, new Vector3(0, 0, -86), new Vector3(0, 0, -50));
             var second = Car(game, new Vector3(0, 0, -38), new Vector3(0, 0, -10)); Physics.SyncTransforms();
-            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            game.Items.Receive(ItemKind.Missiles);
             var rocket = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).First(x => x.TrackingTarget == first.GetComponent<TownMovingTarget>());
             Vector3 aim = rocket.AimPoint;
             yield return new WaitForSeconds(.3f);

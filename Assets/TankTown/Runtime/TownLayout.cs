@@ -3,6 +3,8 @@ using UnityEngine;
 
 namespace TankTown
 {
+    public enum TownStage { Town, BigCity }
+
     // Streets stay connected; only occupied plots and their content are shuffled.
     public sealed class TownLayout
     {
@@ -30,7 +32,8 @@ namespace TankTown
             var parkRandom = new System.Random(unchecked(seed ^ 0x6F218));
             // Keep the entry corner occupied, so the first avenue always has a landmark.
             int parkCount = 0;
-            while (parkCount < 3) { int index = parkRandom.Next(1, count); if (!parks[index]) { parks[index] = true; parkCount++; } }
+            int desiredParks = Mathf.Clamp(settings.cityParks, 0, count - 6);
+            while (parkCount < desiredParks) { int index = parkRandom.Next(1, count); if (!parks[index]) { parks[index] = true; parkCount++; } }
             var rewards = new ItemKind[count - parkCount];
             for (int i = 0; i < rewards.Length; i++) rewards[i] = (ItemKind)(i % 6);
             var rewardRandom = new System.Random(unchecked(seed ^ 0x1B023));

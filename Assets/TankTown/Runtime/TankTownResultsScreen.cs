@@ -47,7 +47,7 @@ namespace TankTown
             style.Card(panel, Ink); card = (RectTransform)panel.transform;
             cardGroup = panel.AddComponent<CanvasGroup>();
             menu.Label(card, "Result time up", "TIME UP!", new Vector2(40, -20), new Vector2(716, 80), 52, Ink, displayFont);
-            menu.Label(card, "Result round label", "1 MINUTE / こわした街の記録", new Vector2(44, -101), new Vector2(734, 30), 20, new Color(.18f, .48f, .48f));
+            menu.Label(card, "Result round label", "1 MINUTE / " + game.StageLabel + "の記録", new Vector2(44, -101), new Vector2(734, 30), 20, new Color(.18f, .48f, .48f));
             menu.Label(card, "Score caption", "TOTAL SCORE", new Vector2(44, -157), new Vector2(700, 31), 22, new Color(.16f, .40f, .44f), displayFont);
             score = menu.Label(card, "Result score", "0", new Vector2(38, -190), new Vector2(726, 125), 92, Ink, displayFont);
             var badge = menu.Panel(card, "Result rank badge", new Vector2(786, -30), new Vector2(328, 85), Lime);

@@ -125,7 +125,7 @@ namespace TankTown
         private readonly Sprite[] sprites = new Sprite[6];
         public Material Material(ItemKind kind) => materials[(int)kind];
         public Sprite Sprite(ItemKind kind) => sprites[(int)kind];
-        public static bool Automatic(ItemKind kind) => kind == ItemKind.Magnet || kind == ItemKind.Bulldozer || kind == ItemKind.HighSpeed;
+        public static bool Automatic(ItemKind kind) => kind == ItemKind.Missiles || kind == ItemKind.Magnet || kind == ItemKind.Bulldozer || kind == ItemKind.HighSpeed;
         public static string Label(ItemKind kind)
         {
             switch (kind)

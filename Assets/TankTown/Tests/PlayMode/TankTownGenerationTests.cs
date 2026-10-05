@@ -12,16 +12,19 @@ namespace TankTown.Tests
     public sealed class TownGenerationTestSeed
     {
         private int? previous;
+        private TownStage previousStage;
         private bool previousIntro, previousRecords;
         [OneTimeSetUp] public void SetSeed()
         {
             previous = TankTownGame.GenerationSeedOverride; TankTownGame.GenerationSeedOverride = 2026;
+            previousStage = TankTownGame.SelectedStage; TankTownGame.SelectedStage = TownStage.Town;
             previousIntro = TankTownGame.SkipIntroForTests; TankTownGame.SkipIntroForTests = true;
             previousRecords = TankTownGame.DisableRecordSavingForTests; TankTownGame.DisableRecordSavingForTests = true;
         }
         [OneTimeTearDown] public void RestoreSeed()
         {
             TankTownGame.GenerationSeedOverride = previous;
+            TankTownGame.SelectedStage = previousStage;
             TankTownGame.SkipIntroForTests = previousIntro; TankTownGame.DisableRecordSavingForTests = previousRecords;
         }
     }
@@ -38,7 +41,34 @@ namespace TankTown.Tests
             game = Object.FindFirstObjectByType<TankTownGame>(); game.Input.useHardware = true;
         }
         [UnityTearDown]
-        public IEnumerator TearDown() { Time.timeScale = 1; Time.captureDeltaTime = captureStep; yield return null; }
+        public IEnumerator TearDown() { Time.timeScale = 1; Time.captureDeltaTime = captureStep; TankTownGame.SelectedStage = TownStage.Town; yield return null; }
+
+        [UnityTest]
+        public IEnumerator TitleSelectionCreatesFourTimesTheAreaAndPreservesBothStagesAcrossReplay()
+        {
+            float classicExtent = game.World.HalfExtent;
+            int classicBuildings = game.World.Buildings.Count, classicParks = game.World.ParkCount;
+            var source = Resources.Load<TankTownSettings>("TankTownSettings");
+            int half = source.cityHalfBlocks;
+            var button = GameObject.Find("Large stage button").GetComponent<Button>(); button.onClick.Invoke();
+            yield return null; yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>();
+            Assert.That(game.State, Is.EqualTo(RoundState.Ready)); Assert.That(game.Stage, Is.EqualTo(TownStage.BigCity));
+            Assert.That(game.World.HalfExtent, Is.EqualTo(classicExtent * 2));
+            Assert.That(game.World.Buildings.Count, Is.EqualTo(classicBuildings * 4)); Assert.That(game.World.ParkCount, Is.EqualTo(classicParks * 4));
+            Assert.That(source.cityHalfBlocks, Is.EqualTo(half), "Stage configuration must not modify the shared resource");
+            Assert.That(game.World.ItemPickups.Select(p => p.Kind).Distinct().Count(), Is.EqualTo(6));
+            Assert.That(game.Settings.roundSeconds, Is.EqualTo(60)); Assert.That(game.Settings.megaBeamLength, Is.EqualTo(source.megaBeamLength * 2));
+            game.StartOrRestart(); game.AdvanceTime(1000); game.StartOrRestart(); yield return null; yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>();
+            Assert.That(game.Stage, Is.EqualTo(TownStage.BigCity)); Assert.That(game.IsPlaying, Is.True);
+            game.TogglePause(); game.ReturnToTitle(); yield return null; yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>();
+            GameObject.Find("Town stage button").GetComponent<Button>().onClick.Invoke(); yield return null; yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>();
+            Assert.That(game.Stage, Is.EqualTo(TownStage.Town)); Assert.That(game.World.HalfExtent, Is.EqualTo(classicExtent));
+            Assert.That(game.World.Buildings.Count, Is.EqualTo(classicBuildings)); game.StartOrRestart(); Assert.That(game.IsPlaying, Is.True);
+        }
 
         [UnityTest]
         public IEnumerator LayoutsRepeatBySeedAndManySeedsKeepFlatPadsAndAllRewards()
@@ -130,7 +160,7 @@ namespace TankTown.Tests
             Assert.That(ItemMissile.VisibleAhead(game, behind.GetComponent<TownMovingTarget>(), Vector3.forward), Is.False);
             Assert.That(ItemMissile.VisibleAhead(game, side.GetComponent<TownMovingTarget>(), Vector3.forward), Is.False);
             Assert.That(ItemMissile.VisibleAhead(game, blocked.GetComponent<TownMovingTarget>(), Vector3.forward), Is.False);
-            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            game.Items.Receive(ItemKind.Missiles);
             var rockets = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None);
             Assert.That(rockets.All(r => r.TrackingTarget == front.GetComponent<TownMovingTarget>()), Is.True);
             front.gameObject.SetActive(false); behind.gameObject.SetActive(false); blocked.gameObject.SetActive(false); wall.SetActive(false);

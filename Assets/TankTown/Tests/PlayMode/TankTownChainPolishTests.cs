@@ -50,7 +50,7 @@ namespace TankTown.Tests
             game.World.Pedestrians.Add(person);
             var body = game.Tank.GetComponent<Rigidbody>(); body.isKinematic = false;
             game.Tank.Warp(new Pose(person.transform.position - Vector3.forward * 26, Quaternion.identity)); body.isKinematic = true;
-            Physics.SyncTransforms(); game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            Physics.SyncTransforms(); game.Items.Receive(ItemKind.Missiles);
             var missiles = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None);
             Assert.That(missiles.Length, Is.EqualTo(5));
             foreach (var missile in missiles) Assert.That(missile.TrackingTarget, Is.EqualTo(person.GetComponent<TownMovingTarget>()));

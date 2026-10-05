@@ -29,12 +29,15 @@ namespace TankTown
             menu.Label(card.transform, "Title town logo", "TOWN", new Vector2(24, -174), new Vector2(520, 133), 104, Cyan, displayFont);
             menu.Label(card.transform, "Title catchphrase", "まちを、バラバラに！", new Vector2(34, -325), new Vector2(506, 50), 33, Color.white);
             menu.Label(card.transform, "Title description", "走る！ 撃つ！ 街がくずれる！\n1分で、どこまでこわせる？", new Vector2(36, -387), new Vector2(500, 77), 23, new Color(.79f, .91f, .96f));
-            start = menu.Button(card.transform, "Title play button", "あそぶ    →    SPACE", new Vector2(34, -491), new Vector2(502, 78), Lime, game.StartOrRestart);
-            menu.Button(card.transform, "How to button", "あそびかた    H", new Vector2(34, -588), new Vector2(502, 61), new Color(.09f, .28f, .37f), game.ToggleHowTo);
-            menu.Label(card.transform, "Title input hint", "ENTER / SPACE / パッドでもスタート", new Vector2(34, -680), new Vector2(502, 28), 17, new Color(.69f, .82f, .89f)).alignment = TextAnchor.MiddleCenter;
+            menu.Label(card.transform, "Stage heading", "あそぶ街をえらぼう", new Vector2(34, -470), new Vector2(502, 26), 19, Cyan);
+            StageButton(card.transform, TownStage.Town, "Town stage button", 34, "いつもの街  [1]\n268 × 268");
+            StageButton(card.transform, TownStage.BigCity, "Large stage button", 293, "大きな街  [2]\n面積４倍 / 536 × 536");
+            start = menu.Button(card.transform, "Title play button", "あそぶ    →    SPACE", new Vector2(34, -579), new Vector2(502, 63), Lime, game.StartOrRestart);
+            menu.Button(card.transform, "How to button", "あそびかた    H", new Vector2(34, -658), new Vector2(502, 48), new Color(.09f, .28f, .37f), game.ToggleHowTo);
+            menu.Label(card.transform, "Title input hint", "1 / 2 で街選択・SPACE でスタート", new Vector2(34, -712), new Vector2(502, 24), 15, new Color(.69f, .82f, .89f)).alignment = TextAnchor.MiddleCenter;
             var city = menu.Panel(title.transform, "Overview caption", new Vector2(918, -48), new Vector2(464, 86), new Color(Ink.r, Ink.g, Ink.b, .82f));
             menu.Label(city.transform, "City caption heading", "つぎは、どこからこわす？", new Vector2(20, -12), new Vector2(424, 32), 24, Color.white).alignment = TextAnchor.MiddleCenter;
-            menu.Label(city.transform, "City caption detail", "あそぶたびに、新しい街！", new Vector2(20, -47), new Vector2(424, 27), 18, Lime).alignment = TextAnchor.MiddleCenter;
+            menu.Label(city.transform, "City caption detail", game.StageLabel + " / あそぶたびに、新しい街！", new Vector2(20, -47), new Vector2(424, 27), 18, Lime).alignment = TextAnchor.MiddleCenter;
             var legend = menu.Panel(title.transform, "Title item legend", new Vector2(692, -709), new Vector2(688, 154), new Color(Ink.r, Ink.g, Ink.b, .87f));
             menu.Label(legend.transform, "Color legend heading", "ビルの色が、スペシャルの目印！", new Vector2(20, -12), new Vector2(648, 30), 22, Color.white).alignment = TextAnchor.MiddleCenter;
             AddItems(legend.transform, 37, 54, 104, 56);
@@ -51,7 +54,7 @@ namespace TankTown
             var specials = menu.Panel(tutorial.transform, "Tutorial specials", new Vector2(42, -386), new Vector2(1096, 187), new Color(.08f, .22f, .29f));
             menu.Label(specials.transform, "Tutorial item heading", "スペシャルの使いかた", new Vector2(24, -13), new Vector2(1048, 34), 25, Color.white);
             AddItems(specials.transform, 104, 58, 164, 59);
-            menu.Label(specials.transform, "Tutorial weapon rules", "レーザー・ミサイル・爆弾 → 次の砲撃で発動   /   磁石・ブルドーザー・高速 → 拾うと発動", new Vector2(18, -144), new Vector2(1060, 30), 18, Lime).alignment = TextAnchor.MiddleCenter;
+            menu.Label(specials.transform, "Tutorial weapon rules", "レーザー・爆弾 → 次の砲撃で発動  /  ミサイル・磁石・ブルドーザー・高速 → 拾うと発動", new Vector2(18, -140), new Vector2(1060, 43), 17, Lime).alignment = TextAnchor.MiddleCenter;
             menu.Label(tutorial.transform, "Tutorial score rules", "破壊度が高いほど高スコア！  爆発したら安全な場所へ戻るよ（時間ペナルティ）。", new Vector2(42, -598), new Vector2(1096, 33), 20, Color.white).alignment = TextAnchor.MiddleCenter;
             menu.Button(tutorial.transform, "How to close button", "もどる    ESC", new Vector2(42, -654), new Vector2(326, 65), new Color(.10f, .28f, .37f), game.ToggleHowTo);
             tutorialPlay = menu.Button(tutorial.transform, "Tutorial play button", "あそぶ    →    SPACE", new Vector2(396, -654), new Vector2(742, 65), Lime, game.StartOrRestart);
@@ -70,6 +73,13 @@ namespace TankTown
         private static void Select(Button button)
         {
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(button.gameObject);
+        }
+
+        private void StageButton(Transform parent, TownStage stage, string name, float x, string label)
+        {
+            bool selected = game.Stage == stage;
+            var button = menu.Button(parent, name, (selected ? "✓ " : "") + label, new Vector2(x, -506), new Vector2(243, 60), selected ? Lime : new Color(.09f, .28f, .37f), () => game.SelectStage(stage));
+            button.GetComponentInChildren<Text>().fontSize = 18;
         }
 
         private void Step(Transform parent, float x, string number, string heading, string detail, Color color)

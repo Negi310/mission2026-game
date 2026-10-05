@@ -74,7 +74,7 @@ namespace TankTown.Tests
             var card = GameObject.Find("Special items");
             Assert.That(card.GetComponentsInChildren<Text>().Any(x => x.text == "追尾ミサイル"), Is.True);
             Assert.That(card.GetComponentsInChildren<Image>().Any(x => x.sprite == game.World.SpecialIcons.Sprite(ItemKind.Missiles)), Is.True);
-            Assert.That(game.Items.UseHeld(), Is.True); yield return null;
+            Assert.That(game.Items.MissilesActive, Is.True); Assert.That(game.Items.Held, Is.EqualTo(ItemKind.None)); yield return null;
             Assert.That(card.GetComponentsInChildren<Text>().Any(x => x.text == "発動中！"), Is.True);
             Assert.That(game.Items.Receive(ItemKind.Magnet), Is.True);
             Assert.That(game.Items.Receive(ItemKind.HighSpeed), Is.True);

@@ -110,7 +110,8 @@ namespace TankTown.Tests
             for (int i = 0; i < 15; i++) yield return new WaitForFixedUpdate();
             Assert.That(item.Collected, Is.True); Assert.That(game.Items.Held, Is.EqualTo(ItemKind.MegaBeam));
             Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.None));
-            Assert.That(game.Items.Receive(ItemKind.Missiles), Is.False, "A full weapon slot must leave the next weapon available");
+            Assert.That(game.Items.Receive(ItemKind.GigantBomb), Is.False, "A full weapon slot must leave the next weapon available");
+            Assert.That(game.Items.Receive(ItemKind.Missiles), Is.True, "Automatic missiles must coexist with a held weapon");
             Assert.That(game.Items.Receive(ItemKind.Magnet), Is.True, "Automatic items must not overwrite the held weapon");
             Assert.That(game.Items.Held, Is.EqualTo(ItemKind.MegaBeam));
             game.Input.PulsePad(1);
@@ -138,7 +139,7 @@ namespace TankTown.Tests
             Place(game.World.SpawnPosition);
             TankTownMobilityTests.Car(game, game.World.SpawnPosition + Vector3.forward * 22, game.World.SpawnPosition + Vector3.forward * 55);
             Physics.SyncTransforms(); var body = game.Tank.GetComponent<Rigidbody>(); var origin = body.position;
-            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            game.Items.Receive(ItemKind.Missiles);
             var rockets = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None); Assert.That(rockets.Length, Is.EqualTo(5));
             var launch = rockets[0].transform.position;
             Assert.That(System.Array.Exists(rockets, x => x.TrackingTarget != null), Is.True);
@@ -148,7 +149,36 @@ namespace TankTown.Tests
             Assert.That(game.Items.MissileStrikes, Is.GreaterThanOrEqualTo(5));
             Assert.That(game.BrokenBlocks, Is.GreaterThan(0));
             Assert.That(Vector3.Distance(body.position, origin), Is.GreaterThan(10));
-            Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.Missiles));
+            Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.None)); Assert.That(game.Items.MissilesActive, Is.True);
+        }
+        [UnityTest]
+        public IEnumerator AutomaticMissilesKeepFlyingThroughBeamEndAndBombDetonation()
+        {
+            FaceBuilding(12); game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            var root = new GameObject("Automatic missile pickup"); root.transform.SetParent(game.World.transform);
+            root.transform.position = game.Tank.transform.position;
+            var pickup = root.AddComponent<ItemPickup>(); pickup.Initialize(game, ItemKind.Missiles, game.World.SpecialIcons.Material(ItemKind.Missiles));
+            Assert.That(pickup.Collect(), Is.True); Assert.That(game.Items.Held, Is.EqualTo(ItemKind.None));
+            var rockets = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None); Assert.That(rockets.Length, Is.EqualTo(5));
+            Vector3 launch = rockets[0].transform.position;
+            game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
+            Assert.That(game.Items.StopsForward && game.Items.MissilesActive, Is.True);
+            yield return new WaitForSeconds(.3f);
+            Assert.That(rockets[0].transform.position.y, Is.GreaterThan(launch.y + 3));
+            Assert.That(game.Items.ActiveSummary, Does.Contain("メガビーム").And.Contain("追尾ミサイル"));
+            yield return new WaitForSeconds(game.Settings.megaBeamSeconds);
+            Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.None)); Assert.That(game.Items.MissilesActive, Is.True);
+            Assert.That(Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Length, Is.EqualTo(5));
+            Assert.That(game.Items.Receive(ItemKind.Missiles), Is.True, "Recollection must refresh the existing five missiles");
+            Assert.That(Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Length, Is.EqualTo(5));
+            game.Items.Receive(ItemKind.GigantBomb); game.Input.PulsePad(0);
+            var bomb = Object.FindFirstObjectByType<GigantBomb>(); Assert.That(bomb, Is.Not.Null);
+            var body = bomb.GetComponent<Rigidbody>(); body.position = game.World.GroundPoint(game.World.SpawnPosition, 5); body.linearVelocity = Vector3.down * 25;
+            Physics.SyncTransforms(); yield return new WaitForSeconds(.3f);
+            Assert.That(bomb.Detonated, Is.True); Assert.That(game.Items.MissilesActive, Is.True);
+            Assert.That(Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None).Length, Is.EqualTo(5));
+            yield return new WaitForSeconds(game.Items.Remaining(ItemKind.Missiles) + .05f);
+            Assert.That(game.Items.MissilesActive, Is.False); Assert.That(Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None), Is.Empty);
         }
         [UnityTest]
         public IEnumerator MagnetPullsAndCollectsNearbyUpgradesAndLeavesFarOnes()
@@ -229,7 +259,7 @@ namespace TankTown.Tests
         public IEnumerator PauseFreezesAllDurationsAndRoundEndCleansEveryEffect()
         {
             game.Items.Receive(ItemKind.Magnet); game.Items.Receive(ItemKind.Bulldozer); game.Items.Receive(ItemKind.HighSpeed);
-            game.Items.Receive(ItemKind.Missiles); game.Input.PulsePad(0);
+            game.Items.Receive(ItemKind.Missiles);
             float before = game.Items.Remaining(ItemKind.Missiles); game.TogglePause();
             yield return new WaitForSecondsRealtime(.2f);
             Assert.That(game.Items.Remaining(ItemKind.Missiles), Is.EqualTo(before)); Assert.That(game.Items.Invincible, Is.True);
