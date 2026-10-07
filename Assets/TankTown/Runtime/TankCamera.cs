@@ -9,7 +9,11 @@ namespace TankTown
         public Transform Target { get; set; }
         public Transform AimTarget { get; set; }
         public TownTerrain Terrain { get; set; }
+        public TankItems Items { get; set; }
         public Vector3 Offset { get; set; } = new Vector3(0, 3, -9);
+        public Vector3 BeamOffset { get; set; } = new Vector3(9, 10, -15);
+        public float BeamLookAhead { get; set; } = 40;
+        internal float BeamViewBlend => beamView;
         public float TurnSmoothTime { get; set; } = .3f;
         public float MaxTurnSpeed { get; set; } = 135;
         public float MaxTurnAcceleration { get; set; } = 240;
@@ -20,8 +24,9 @@ namespace TankTown
         private Vector3 anchor, anchorVelocity, previousDesired;
         private float yaw, yawVelocity, heightVelocity, scale = 1, scaleVelocity;
         private float fadeProgress, fadeTarget, fadeStartAt;
+        private float beamView, beamViewVelocity;
         private bool initialized;
-        private readonly Collider[] occlusionHits = new Collider[256];
+        private Collider[] occlusionHits = new Collider[256];
         private readonly HashSet<Renderer> occluded = new HashSet<Renderer>();
         private readonly Dictionary<Renderer, float> visibility = new Dictionary<Renderer, float>();
         private readonly Dictionary<DestructibleBlock, Renderer[]> blockRenderers = new Dictionary<DestructibleBlock, Renderer[]>();
@@ -61,6 +66,7 @@ namespace TankTown
             transform.position = previousDesired = position;
             anchorVelocity = Vector3.zero;
             yawVelocity = heightVelocity = scaleVelocity = 0;
+            beamView = beamViewVelocity = 0;
             initialized = true;
         }
 
@@ -87,16 +93,24 @@ namespace TankTown
                 yawVelocity = nextVelocity;
                 remaining -= step;
             }
-            // Keep the horizon level; terrain slope, body lean and recoil do not rotate the view.
-            transform.rotation = Quaternion.Euler(0, yaw, 0);
+            // Blend into a stable off-axis view; changes in the nearest hit never swing the camera.
+            beamView = Mathf.SmoothDamp(beamView, Items != null && Items.StopsForward ? 1 : 0,
+                ref beamViewVelocity, .4f, float.PositiveInfinity, dt);
+            var mount = Quaternion.Euler(0, yaw, 0);
+            var viewOffset = Vector3.Lerp(Offset, BeamOffset, beamView);
+            var beamDirection = new Vector3(-BeamOffset.x, 1.5f - BeamOffset.y, BeamLookAhead - BeamOffset.z);
+            float beamYaw = Mathf.Atan2(beamDirection.x, beamDirection.z) * Mathf.Rad2Deg;
+            float beamPitch = -Mathf.Atan2(beamDirection.y, new Vector2(beamDirection.x, beamDirection.z).magnitude) * Mathf.Rad2Deg;
+            // No roll, shake, FOV change or terrain-driven pitch in either view.
+            transform.rotation = mount * Quaternion.Euler(beamPitch * beamView, beamYaw * beamView, 0);
             anchor = Vector3.SmoothDamp(anchor, Target.position, ref anchorVelocity, .12f, float.PositiveInfinity, dt);
             float desiredScale = Target.GetComponent<TankMotor>()?.VehicleScale ?? 1;
             scale = Mathf.SmoothDamp(scale, desiredScale, ref scaleVelocity, .8f, 1.2f, dt);
-            var desired = anchor + transform.rotation * Offset * scale;
+            var desired = anchor + mount * viewOffset * scale;
             var prediction = desired - previousDesired;
             prediction.y = 0;
             var ahead = desired + Vector3.ClampMagnitude(prediction / dt * .35f, 10);
-            desired.y = Mathf.Max(Target.position.y + Offset.y * scale, Mathf.Max(GroundFloor(desired), GroundFloor(ahead)));
+            desired.y = Mathf.Max(Target.position.y + viewOffset.y * scale, Mathf.Max(GroundFloor(desired), GroundFloor(ahead)));
             float height = Mathf.SmoothDamp(transform.position.y, desired.y, ref heightVelocity, .4f, 10, dt);
             // Only terrain can require clearance. Buildings fade instead of pushing/zooming the camera.
             desired.y = Mathf.Max(height, GroundFloor(desired));
@@ -109,8 +123,20 @@ namespace TankTown
         {
             occluded.Clear();
             changedBuildings.Clear();
-            int count = Physics.OverlapCapsuleNonAlloc(transform.position, Target.position + Vector3.up * (.7f * scale), .8f * scale,
-                occlusionHits, (TownPhysics.StructureMask | 1 << TownPhysics.DebrisLayer) & ~TownPhysics.GroundMask, QueryTriggerInteraction.Ignore);
+            var tankPoint = Target.position + Vector3.up * (.7f * scale);
+            // The elevated view can see through a different storey than the line back to the tank.
+            // Clear the nearby foreground only, so buildings being burned ahead remain visible.
+            var viewPoint = transform.position + transform.forward * Vector3.Distance(transform.position, tankPoint);
+            var endpoint = Vector3.Lerp(tankPoint, viewPoint, beamView);
+            float radius = Mathf.Lerp(.8f, 5, beamView) * scale;
+            int count;
+            while (true)
+            {
+                count = Physics.OverlapCapsuleNonAlloc(transform.position, endpoint, radius, occlusionHits,
+                    (TownPhysics.StructureMask | 1 << TownPhysics.DebrisLayer) & ~TownPhysics.GroundMask, QueryTriggerInteraction.Ignore);
+                if (count < occlusionHits.Length) break;
+                System.Array.Resize(ref occlusionHits, occlusionHits.Length * 2);
+            }
             for (int i = 0; i < count; i++)
             {
                 Renderer[] renderers;

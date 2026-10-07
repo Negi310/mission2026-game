@@ -190,6 +190,9 @@ namespace TankTown
             camera.backgroundColor = new Color(.5f, .86f, 1);
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Offset = Settings.cameraOffset;
+            CameraRig.Items = Items;
+            CameraRig.BeamOffset = Settings.megaBeamCameraOffset;
+            CameraRig.BeamLookAhead = Settings.megaBeamCameraLookAhead;
             CameraRig.Terrain = World.Terrain;
             CameraRig.TurnSmoothTime = Settings.cameraTurnSmoothTime;
             CameraRig.MaxTurnSpeed = Settings.cameraMaxTurnSpeed;

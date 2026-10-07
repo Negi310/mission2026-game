@@ -116,7 +116,8 @@ namespace TankTown.Tests
         public IEnumerator GiantTankChangesCameraDistanceGraduallyInBothDirections()
         {
             game.Tank.Warp(new Pose(new Vector3(0, 0, -80), Quaternion.identity)); game.CameraRig.Snap();
-            game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
+            // Isolate size framing from the laser's separate camera movement.
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
             yield return new WaitForSeconds(.3f);
             float previous = HorizontalDistance();
             game.Items.Receive(ItemKind.Bulldozer);
@@ -140,6 +141,92 @@ namespace TankTown.Tests
 
         private float HorizontalDistance()
             => Vector3.ProjectOnPlane(game.CameraRig.transform.position - game.Tank.transform.position, Vector3.up).magnitude;
+
+        [UnityTest]
+        public IEnumerator LaserViewMovesAboveAndAsideSmoothlyAndReturnsAfterTheEffect()
+        {
+            Time.captureDeltaTime = 1f / 60;
+            game.Tank.Warp(new Pose(new Vector3(0, 0, -80), Quaternion.identity));
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            var camera = game.CameraRig; camera.Terrain = null; camera.Snap();
+            var normalPosition = camera.transform.position; var normalRotation = camera.transform.rotation;
+            float fov = Camera.main.fieldOfView;
+            game.Items.Receive(ItemKind.MegaBeam); game.Items.UseHeld();
+            Assert.That(Vector3.Distance(camera.transform.position, normalPosition), Is.LessThan(.001f), "Starting a laser must not cut to its view");
+            float maxStep = 0, maxAngle = 0; var previous = normalPosition; var previousRotation = normalRotation;
+            for (int i = 0; i < 66; i++)
+            {
+                yield return null;
+                maxStep = Mathf.Max(maxStep, Vector3.Distance(previous, camera.transform.position));
+                maxAngle = Mathf.Max(maxAngle, Quaternion.Angle(previousRotation, camera.transform.rotation));
+                previous = camera.transform.position; previousRotation = camera.transform.rotation;
+                Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, camera.transform.eulerAngles.z)), Is.LessThan(.01f));
+                Assert.That(Camera.main.fieldOfView, Is.EqualTo(fov));
+            }
+            Assert.That(camera.BeamViewBlend, Is.GreaterThan(.96f));
+            Assert.That(camera.transform.position.x - normalPosition.x, Is.GreaterThan(8));
+            Assert.That(camera.transform.position.y - normalPosition.y, Is.GreaterThan(4));
+            Assert.That(camera.transform.eulerAngles.x, Is.InRange(6, 10));
+            Assert.That(maxStep, Is.LessThan(.6f)); Assert.That(maxAngle, Is.LessThan(1));
+            game.TogglePause(); previous = camera.transform.position; previousRotation = camera.transform.rotation;
+            yield return new WaitForSecondsRealtime(.1f);
+            Assert.That(Vector3.Distance(previous, camera.transform.position), Is.LessThan(.001f));
+            Assert.That(Quaternion.Angle(previousRotation, camera.transform.rotation), Is.LessThan(.01f));
+            game.TogglePause();
+            yield return new WaitForSeconds(game.Items.Remaining(ItemKind.MegaBeam) + 2);
+            Assert.That(camera.BeamViewBlend, Is.LessThan(.005f));
+            Assert.That(Vector3.Distance(camera.transform.position, normalPosition), Is.LessThan(.15f));
+            Assert.That(Quaternion.Angle(camera.transform.rotation, normalRotation), Is.LessThan(.1f));
+        }
+
+        [UnityTest]
+        public IEnumerator LaserViewFadesUpperForegroundWallsWithoutMovingToAvoidThem()
+        {
+            Time.captureDeltaTime = 1f / 60;
+            game.Tank.Warp(new Pose(new Vector3(0, 0, -80), Quaternion.identity));
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            var camera = game.CameraRig; camera.Terrain = null; camera.Snap();
+            game.Items.Receive(ItemKind.MegaBeam); game.Items.UseHeld(); yield return new WaitForSeconds(1.2f);
+            var center = camera.transform.position + camera.transform.forward * 9 + Vector3.up * 2.3f;
+            var box = game.World.Box("Upper laser-view foreground witness", center, new Vector3(3, 3, 1), game.World.ShotMaterial);
+            var block = box.AddComponent<DestructibleBlock>(); block.Kind = BuildingPart.Wall; block.Initialize(game);
+            var renderer = box.GetComponent<Renderer>(); var properties = new MaterialPropertyBlock();
+            properties.SetFloat("_CameraVisibility", 1); renderer.SetPropertyBlock(properties);
+            Physics.SyncTransforms(); var previous = camera.transform.position;
+            for (int i = 0; i < 23; i++)
+            {
+                yield return null;
+                Assert.That(Vector3.Distance(camera.transform.position, previous), Is.LessThan(.1f), "An obstruction must not force the camera to jump");
+                previous = camera.transform.position;
+            }
+            renderer.GetPropertyBlock(properties);
+            Assert.That(properties.GetFloat("_CameraVisibility"), Is.Zero, "Foreground above the tank-to-camera ray must also clear the laser view");
+            Assert.That(block.Detached, Is.False, "Camera clearing must not destroy the obstruction");
+            Assert.That(renderer.sharedMaterial.GetFloat("_CameraVisibility"), Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator CancellingLaserAndRestartingDoNotLeaveTheSpecialViewActive()
+        {
+            game.Tank.Warp(new Pose(new Vector3(0, 0, -80), Quaternion.identity));
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            var camera = game.CameraRig; camera.Terrain = null; camera.Snap();
+            var normalPosition = camera.transform.position;
+            game.Items.Receive(ItemKind.MegaBeam); game.Items.UseHeld();
+            yield return new WaitForSeconds(.7f);
+            Assert.That(camera.BeamViewBlend, Is.GreaterThan(.8f));
+            var previous = camera.transform.position; game.Items.OnTankCrash(); yield return null;
+            Assert.That(Vector3.Distance(previous, camera.transform.position), Is.LessThan(.3f), "Cancelling must also blend back");
+            yield return new WaitForSeconds(2);
+            Assert.That(camera.BeamViewBlend, Is.LessThan(.005f));
+            Assert.That(Vector3.Distance(camera.transform.position, normalPosition), Is.LessThan(.15f));
+            game.Items.Receive(ItemKind.MegaBeam); game.Items.UseHeld(); yield return new WaitForSeconds(.7f);
+            game.AdvanceTime(1000); yield return null;
+            Assert.That(game.State, Is.EqualTo(RoundState.Results));
+            game.StartOrRestart(); yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>();
+            Assert.That(game.Items.StopsForward, Is.False); Assert.That(game.CameraRig.BeamViewBlend, Is.Zero);
+        }
 
         [UnityTest]
         public IEnumerator RealUphillAndDownhillTravelKeepsTheHorizonLevelAndTheCameraAboveGround()

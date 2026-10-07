@@ -11,7 +11,7 @@ namespace TankTown
         public bool MissilesActive => missileTime > 0;
         public bool StopsForward => Weapon == ItemKind.MegaBeam;
         public bool Invincible => bulldozer > 0 || highSpeed > 0;
-        public float SpeedMultiplier => (highSpeed > 0 ? game.Settings.highSpeedMultiplier : 1) * (bulldozer > 0 ? .85f : 1);
+        public float SpeedMultiplier => (highSpeed > 0 ? game.Settings.highSpeedMultiplier : 1) * (bulldozer > 0 ? game.Settings.bulldozerSpeedMultiplier : 1);
         public int MissileStrikes { get; private set; }
         public int MissileTrackedStrikes { get; private set; }
         internal float MagnetPullSpeed => Mathf.Max(game.Settings.magnetPullSpeed,

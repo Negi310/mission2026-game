@@ -81,6 +81,8 @@ MonoBehaviour:
   megaBeamLength: 400
   megaBeamRadius: 9
   megaBeamElevation: 1
+  megaBeamCameraOffset: {x: 9, y: 10, z: -15}
+  megaBeamCameraLookAhead: 40
   megaBeamTurnMultiplier: 0.18
   missileSeconds: 6
   missileTargetRange: 90
@@ -92,6 +94,7 @@ MonoBehaviour:
   magnetPullSpeed: 120
   bulldozerSeconds: 8
   bulldozerScale: 2.3
+  bulldozerSpeedMultiplier: 0.9
   gigantBombFuse: 6
   gigantBombThrowSpeed: 90
   gigantBombUpSpeed: 6

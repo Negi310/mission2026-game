@@ -86,6 +86,8 @@ namespace TankTown
         [Min(10)] public float megaBeamLength = 400;
         [Min(1)] public float megaBeamRadius = 9;
         [Range(0, 10)] public float megaBeamElevation = 1;
+        public Vector3 megaBeamCameraOffset = new Vector3(9, 10, -15);
+        [Min(10)] public float megaBeamCameraLookAhead = 40;
         [Range(.05f, 1)] public float megaBeamTurnMultiplier = .18f;
         [Min(1)] public float missileSeconds = 6;
         [Min(10)] public float missileTargetRange = 90;
@@ -97,6 +99,7 @@ namespace TankTown
         [Min(1)] public float magnetPullSpeed = 120;
         [Min(1)] public float bulldozerSeconds = 8;
         [Range(1.5f, 3)] public float bulldozerScale = 2.3f;
+        [Range(.5f, 1)] public float bulldozerSpeedMultiplier = .9f;
         [Min(.5f)] public float gigantBombFuse = 6;
         [Min(10)] public float gigantBombThrowSpeed = 90;
         [Min(0)] public float gigantBombUpSpeed = 6;

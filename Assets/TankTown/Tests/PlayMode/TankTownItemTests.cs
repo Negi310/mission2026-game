@@ -118,13 +118,12 @@ namespace TankTown.Tests
             Assert.That(game.Items.Held, Is.EqualTo(ItemKind.None)); Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.MegaBeam));
         }
         [UnityTest]
-        public IEnumerator MegaBeamLowersCannonWithoutTiltingCameraAndRestoresAfterEveryExit()
+        public IEnumerator MegaBeamLowersCannonAndRestoresAfterEveryExit()
         {
             Place(game.World.SpawnPosition);
             game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
             yield return null;
             var normalDirection = game.Tank.Muzzle.forward;
-            var cameraRotation = game.CameraRig.transform.rotation;
             Assert.That(game.Items.Receive(ItemKind.MegaBeam) && game.Items.UseHeld(), Is.True);
             var localDirection = game.Tank.Turret.InverseTransformDirection(game.Tank.Muzzle.forward);
             Assert.That(Mathf.Asin(localDirection.y) * Mathf.Rad2Deg, Is.EqualTo(game.Settings.megaBeamElevation).Within(.01f));
@@ -132,9 +131,8 @@ namespace TankTown.Tests
             var root = GameObject.Find("Mega beam");
             var line = root.transform.GetChild(0).GetComponent<LineRenderer>();
             Assert.That(Vector3.Distance(line.GetPosition(0), game.Tank.Muzzle.position), Is.LessThan(.001f));
-            Assert.That(Vector3.Angle(line.GetPosition(1) - line.GetPosition(0), game.Tank.Muzzle.forward), Is.LessThan(.01f), "The first damage tick and visible beam must use the lowered muzzle");
+            Assert.That(Vector3.Distance((line.GetPosition(1) - line.GetPosition(0)).normalized, game.Tank.Muzzle.forward), Is.LessThan(.00001f), "The first damage tick and visible beam must use the lowered muzzle");
             yield return null;
-            Assert.That(Quaternion.Angle(cameraRotation, game.CameraRig.transform.rotation), Is.LessThan(.01f));
             yield return new WaitForSeconds(game.Settings.megaBeamSeconds + .05f);
             Assert.That(game.Items.StopsForward, Is.False);
             Assert.That(Vector3.Angle(normalDirection, game.Tank.Muzzle.forward), Is.LessThan(.01f));
@@ -230,6 +228,7 @@ namespace TankTown.Tests
         public IEnumerator GiantBulldozerChangesItsColliderAndRamsWithoutExploding()
         {
             FaceBuilding(12); game.Items.Receive(ItemKind.Bulldozer);
+            Assert.That(game.Items.SpeedMultiplier, Is.EqualTo(.9f).Within(.001f));
             Assert.That(game.Tank.VehicleScale, Is.EqualTo(game.Settings.bulldozerScale));
             Assert.That(game.Tank.HullCollider.size.x, Is.GreaterThan(8));
             Assert.That(game.Tank.Visual.Find("Bulldozer blade and cabin").gameObject.activeSelf, Is.True);
@@ -272,6 +271,7 @@ namespace TankTown.Tests
         public IEnumerator AutomaticEffectsExpireIndependentlyAndBeamOverridesTheSpeedBoost()
         {
             game.Items.Receive(ItemKind.Magnet); game.Items.Receive(ItemKind.Bulldozer); game.Items.Receive(ItemKind.HighSpeed);
+            Assert.That(game.Items.SpeedMultiplier, Is.EqualTo(.9f * game.Settings.highSpeedMultiplier).Within(.001f));
             game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
             yield return new WaitForSeconds(.25f);
             Assert.That(game.Tank.ActualSpeed, Is.LessThan(.1f), "Beam must stop even a boosted giant tank");
