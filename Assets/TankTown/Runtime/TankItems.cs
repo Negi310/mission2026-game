@@ -133,6 +133,7 @@ namespace TankTown
             game.PlayTone(440, .25f, .2f);
             if (Weapon == ItemKind.MegaBeam)
             {
+                game.Tank.SetBeamElevation(true);
                 beamRoot = new GameObject("Mega beam"); beamRoot.transform.SetParent(game.Effects.transform, false);
                 beam = new LineRenderer[5];
                 float[] widths = { 2.7f, 1.65f, .3f, .055f, .055f };
@@ -275,6 +276,7 @@ namespace TankTown
         }
         private void EndWeapon(bool detonate)
         {
+            if (Weapon == ItemKind.MegaBeam) game.Tank.SetBeamElevation(false);
             Weapon = ItemKind.None; weaponTime = 0;
             if (beamRoot != null) Destroy(beamRoot); beamRoot = null; beam = beamRings = null;
             if (bomb != null) { if (detonate) bomb.Detonate(); else Destroy(bomb.gameObject); }

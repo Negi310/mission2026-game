@@ -118,6 +118,38 @@ namespace TankTown.Tests
             Assert.That(game.Items.Held, Is.EqualTo(ItemKind.None)); Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.MegaBeam));
         }
         [UnityTest]
+        public IEnumerator MegaBeamLowersCannonWithoutTiltingCameraAndRestoresAfterEveryExit()
+        {
+            Place(game.World.SpawnPosition);
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            yield return null;
+            var normalDirection = game.Tank.Muzzle.forward;
+            var cameraRotation = game.CameraRig.transform.rotation;
+            Assert.That(game.Items.Receive(ItemKind.MegaBeam) && game.Items.UseHeld(), Is.True);
+            var localDirection = game.Tank.Turret.InverseTransformDirection(game.Tank.Muzzle.forward);
+            Assert.That(Mathf.Asin(localDirection.y) * Mathf.Rad2Deg, Is.EqualTo(game.Settings.megaBeamElevation).Within(.01f));
+            Assert.That(Vector3.Angle(normalDirection, game.Tank.Muzzle.forward), Is.EqualTo(game.Settings.cannonElevation - game.Settings.megaBeamElevation).Within(.01f));
+            var root = GameObject.Find("Mega beam");
+            var line = root.transform.GetChild(0).GetComponent<LineRenderer>();
+            Assert.That(Vector3.Distance(line.GetPosition(0), game.Tank.Muzzle.position), Is.LessThan(.001f));
+            Assert.That(Vector3.Angle(line.GetPosition(1) - line.GetPosition(0), game.Tank.Muzzle.forward), Is.LessThan(.01f), "The first damage tick and visible beam must use the lowered muzzle");
+            yield return null;
+            Assert.That(Quaternion.Angle(cameraRotation, game.CameraRig.transform.rotation), Is.LessThan(.01f));
+            yield return new WaitForSeconds(game.Settings.megaBeamSeconds + .05f);
+            Assert.That(game.Items.StopsForward, Is.False);
+            Assert.That(Vector3.Angle(normalDirection, game.Tank.Muzzle.forward), Is.LessThan(.01f));
+            var shotOrigin = game.Tank.Muzzle.position; game.Input.PulsePad(0);
+            var shot = Object.FindFirstObjectByType<TankShell>(); Assert.That(shot, Is.Not.Null);
+            yield return null;
+            Assert.That(Vector3.Angle(shot.transform.position - shotOrigin, normalDirection), Is.LessThan(.1f));
+            Assert.That(game.Items.Receive(ItemKind.MegaBeam) && game.Items.UseHeld(), Is.True);
+            game.Items.OnTankCrash();
+            Assert.That(Vector3.Angle(normalDirection, game.Tank.Muzzle.forward), Is.LessThan(.01f));
+            Assert.That(game.Items.Receive(ItemKind.MegaBeam) && game.Items.UseHeld(), Is.True);
+            game.Items.FinishRound();
+            Assert.That(Vector3.Angle(normalDirection, game.Tank.Muzzle.forward), Is.LessThan(.01f));
+        }
+        [UnityTest]
         public IEnumerator MegaBeamBurnsStructuresWhileForwardMovementStopsAndThenResumes()
         {
             FaceBuilding(); var body = game.Tank.GetComponent<Rigidbody>(); var origin = body.position;

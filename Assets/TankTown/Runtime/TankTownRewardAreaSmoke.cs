@@ -81,6 +81,16 @@ namespace TankTown
             for (int i = 0; i < 30 && !pulled.Collected; i++) yield return null;
             if (!pulled.Collected || game.Items.Held != ItemKind.GigantBomb) { Fail("the extracted item could not be collected after freeing the slot"); yield break; }
             Capture("reward-area-09-magnet-collected");
+            game.CameraRig.Snap(); yield return null;
+            float laserElevation = Mathf.Asin(game.Tank.Turret.InverseTransformDirection(game.Tank.Muzzle.forward).y) * Mathf.Rad2Deg;
+            var laser = GameObject.Find("Mega beam").transform.GetChild(0).GetComponent<LineRenderer>();
+            if (Mathf.Abs(laserElevation - game.Settings.megaBeamElevation) > .01f || Vector3.Angle(laser.GetPosition(1) - laser.GetPosition(0), game.Tank.Muzzle.forward) > .01f)
+            { Fail("laser and cannon did not share the lower elevation"); yield break; }
+            Capture("reward-area-10-lower-laser");
+            yield return new WaitForSeconds(game.Settings.megaBeamSeconds + .1f);
+            float restoredElevation = Mathf.Asin(game.Tank.Turret.InverseTransformDirection(game.Tank.Muzzle.forward).y) * Mathf.Rad2Deg;
+            if (game.Items.StopsForward || Mathf.Abs(restoredElevation - game.Settings.cannonElevation) > .01f) { Fail("cannon elevation did not restore after the laser"); yield break; }
+            Debug.Log($"REWARD AREA VISUAL CHECK: lightHeight={game.Settings.specialAreaLightHeight:0.0}, laserElevation={laserElevation:0.0}, restoredElevation={restoredElevation:0.0}, beamAligned=true");
             Debug.Log($"REWARD AREA SMOKE COMPLETE: stage={game.Stage}, buildings={game.World.Buildings.Count}, fullDestructionOnly=true, plotCentre=true, radius={radius:0.00}, edgeEntry=true, fixedArea=true, magnetExit=true, fullSlotPreserved=true, extractedCollected=true, shaderSupported={game.Effects.RewardAreaLight.shader.isSupported}");
             Application.Quit(0);
         }

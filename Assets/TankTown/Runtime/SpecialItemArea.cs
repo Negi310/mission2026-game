@@ -26,13 +26,19 @@ namespace TankTown
             var triangles = new int[Segments * 6];
             var fillVertices = new Vector3[Segments + 2]; var fillUv = new Vector2[fillVertices.Length];
             var fillColors = new Color[fillVertices.Length]; var fillTriangles = new int[Segments * 3];
-            fillVertices[0] = Vector3.up * .13f; fillUv[0] = Vector2.one * .5f; fillColors[0] = new Color(color.r, color.g, color.b, .035f);
+            fillVertices[0] = Vector3.up * .13f; fillUv[0] = Vector2.one * .5f; fillColors[0] = new Color(color.r, color.g, color.b, .05f);
             var ringRoot = new GameObject("Reward area glowing rim"); ringRoot.layer = TownPhysics.RewardLayer; ringRoot.transform.SetParent(transform, false);
             var ring = ringRoot.AddComponent<LineRenderer>(); ring.sharedMaterial = game.Effects.Glow;
             ring.useWorldSpace = false; ring.loop = true; ring.positionCount = Segments;
-            ring.startWidth = ring.endWidth = .42f;
-            ring.startColor = ring.endColor = Color.Lerp(color, Color.white, .35f);
+            ring.startWidth = ring.endWidth = .72f;
+            ring.startColor = ring.endColor = Color.Lerp(color, Color.white, .55f) * 1.35f;
             ring.shadowCastingMode = ShadowCastingMode.Off; ring.receiveShadows = false;
+            var haloRoot = new GameObject("Reward area rim halo"); haloRoot.layer = TownPhysics.RewardLayer; haloRoot.transform.SetParent(transform, false);
+            var halo = haloRoot.AddComponent<LineRenderer>(); halo.sharedMaterial = game.Effects.Glow;
+            halo.useWorldSpace = false; halo.loop = true; halo.positionCount = Segments;
+            halo.startWidth = halo.endWidth = 2.1f;
+            halo.startColor = halo.endColor = new Color(color.r, color.g, color.b, .2f);
+            halo.shadowCastingMode = ShadowCastingMode.Off; halo.receiveShadows = false;
             for (int i = 0; i <= Segments; i++)
             {
                 float t = i / (float)Segments, angle = t * Mathf.PI * 2;
@@ -40,9 +46,9 @@ namespace TankTown
                 point.y = game.World.Terrain.HeightAt(Center + point) - Center.y + .14f;
                 vertices[i * 2] = point; vertices[i * 2 + 1] = point + Vector3.up * game.Settings.specialAreaLightHeight;
                 uv[i * 2] = new Vector2(t, 0); uv[i * 2 + 1] = new Vector2(t, 1);
-                fillVertices[i + 1] = point; fillUv[i + 1] = Vector2.one * .5f; fillColors[i + 1] = new Color(color.r, color.g, color.b, .10f);
+                fillVertices[i + 1] = point; fillUv[i + 1] = Vector2.one * .5f; fillColors[i + 1] = new Color(color.r, color.g, color.b, .15f);
                 if (i == Segments) continue;
-                ring.SetPosition(i, point);
+                ring.SetPosition(i, point); halo.SetPosition(i, point);
                 int n = i * 2, index = i * 6;
                 triangles[index] = n; triangles[index + 1] = n + 1; triangles[index + 2] = n + 2;
                 triangles[index + 3] = n + 2; triangles[index + 4] = n + 1; triangles[index + 5] = n + 3;

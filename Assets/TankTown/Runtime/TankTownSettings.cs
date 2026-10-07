@@ -81,10 +81,11 @@ namespace TankTown
         [Header("Special items")]
         [Min(4)] public float specialAreaMinRadius = 7;
         [Range(.4f, 1)] public float specialAreaWidthRatio = .65f;
-        [Min(1)] public float specialAreaLightHeight = 3.8f;
+        [Min(1)] public float specialAreaLightHeight = 5.5f;
         [Min(.5f)] public float megaBeamSeconds = 2;
         [Min(10)] public float megaBeamLength = 400;
         [Min(1)] public float megaBeamRadius = 9;
+        [Range(0, 10)] public float megaBeamElevation = 1;
         [Range(.05f, 1)] public float megaBeamTurnMultiplier = .18f;
         [Min(1)] public float missileSeconds = 6;
         [Min(10)] public float missileTargetRange = 90;

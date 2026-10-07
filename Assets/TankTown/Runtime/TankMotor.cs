@@ -48,6 +48,13 @@ namespace TankTown
             safe.Add(initial);
         }
 
+        internal void SetBeamElevation(bool active)
+        {
+            // Change the cannon pivot only: the camera still follows the horizontal turret heading.
+            float elevation = active ? game.Settings.megaBeamElevation : game.Settings.cannonElevation;
+            Muzzle.parent.localRotation = Quaternion.Euler(-elevation, 0, 0);
+        }
+
         public void Fire(int pad)
         {
             // Provisional: both pads fire the same cannon; pad identity stays available at the input boundary.

@@ -23,14 +23,14 @@ Shader "TankTown/Reward Area"
             half4 Frag(Varyings input) : SV_Target
             {
                 float height = saturate(input.uv.y);
-                float columns = pow(saturate(cos(input.uv.x * 48 * 6.2831853)), 8);
-                float rising = pow(saturate(1 - abs(frac(height * 1.8 - _Time.y * .85 + input.uv.x * 7) - .5) * 2), 4);
-                float fade = pow(1 - height, 1.7);
-                float alpha = fade * (.04 + columns * (.14 + rising * .75));
-                float rim = 1 - smoothstep(0, .08, height);
-                alpha += rim * .22;
-                half3 light = lerp(_Color.rgb, half3(1,1,1), rising * columns * .45);
-                return half4(light * 1.6, _Color.a * alpha);
+                float columns = pow(saturate(cos(input.uv.x * 36 * 6.2831853)), 4);
+                float rising = pow(saturate(1 - abs(frac(height * 1.8 - _Time.y * .9 + input.uv.x * 7) - .5) * 2), 2.5);
+                float fade = pow(1 - height, 1.25);
+                float alpha = fade * (.045 + columns * (.18 + rising * .75));
+                float rim = 1 - smoothstep(0, .12, height);
+                alpha += rim * .4;
+                half3 light = lerp(_Color.rgb, half3(1,1,1), rising * columns * .55);
+                return half4(light * 2.6, _Color.a * alpha);
             }
             ENDHLSL
         }
