@@ -26,6 +26,9 @@ namespace TankTown
         private readonly Dictionary<Renderer, float> visibility = new Dictionary<Renderer, float>();
         private readonly Dictionary<DestructibleBlock, Renderer[]> blockRenderers = new Dictionary<DestructibleBlock, Renderer[]>();
         private readonly List<Renderer> tracked = new List<Renderer>();
+        private readonly HashSet<DestructibleBlock> exposed = new HashSet<DestructibleBlock>();
+        private readonly List<DestructibleBlock> exposedSnapshot = new List<DestructibleBlock>();
+        private readonly HashSet<BlockBuilding> changedBuildings = new HashSet<BlockBuilding>();
         private MaterialPropertyBlock properties;
         private static readonly int VisibilityId = Shader.PropertyToID("_CameraVisibility");
 
@@ -105,6 +108,7 @@ namespace TankTown
         private void UpdateOcclusion(float dt)
         {
             occluded.Clear();
+            changedBuildings.Clear();
             int count = Physics.OverlapCapsuleNonAlloc(transform.position, Target.position + Vector3.up * (.7f * scale), .8f * scale,
                 occlusionHits, (TownPhysics.StructureMask | 1 << TownPhysics.DebrisLayer) & ~TownPhysics.GroundMask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < count; i++)
@@ -116,6 +120,10 @@ namespace TankTown
                 {
                     var block = occlusionHits[i].GetComponentInParent<DestructibleBlock>();
                     if (block == null) continue;
+                    if (block.Building != null && !block.Detached && exposed.Add(block))
+                    {
+                        block.ExposeForCamera(true); changedBuildings.Add(block.Building);
+                    }
                     if (!blockRenderers.TryGetValue(block, out renderers))
                     {
                         renderers = block.GetComponentsInChildren<Renderer>();
@@ -138,6 +146,18 @@ namespace TankTown
                 SetVisibility(renderer, value);
                 if (value >= 1) visibility.Remove(renderer); else visibility[renderer] = value;
             }
+            exposedSnapshot.Clear(); exposedSnapshot.AddRange(exposed);
+            foreach (var block in exposedSnapshot)
+            {
+                if (block == null) { exposed.Remove(block); continue; }
+                bool fading = false;
+                if (blockRenderers.TryGetValue(block, out var renderers))
+                    foreach (var renderer in renderers) if (renderer != null && visibility.ContainsKey(renderer)) { fading = true; break; }
+                if (fading) continue;
+                block.ExposeForCamera(false); exposed.Remove(block);
+                if (block.Building != null) changedBuildings.Add(block.Building);
+            }
+            foreach (var building in changedBuildings) building.Presentation?.Tick(transform.position);
         }
 
         internal void InheritOcclusion(Renderer source, Renderer fragment)
@@ -157,6 +177,8 @@ namespace TankTown
         {
             foreach (var pair in visibility) if (pair.Key != null) SetVisibility(pair.Key, 1);
             visibility.Clear();
+            foreach (var block in exposed) if (block != null) block.ExposeForCamera(false);
+            exposed.Clear();
             blockRenderers.Clear();
         }
     }

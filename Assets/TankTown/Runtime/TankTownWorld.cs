@@ -33,12 +33,14 @@ namespace TankTown
         private TankTownGame game;
         private TownTrafficGrid trafficGrid;
         private Mesh proxyCube;
+        private readonly List<Mesh> vehicleMeshes = new List<Mesh>();
         private float presentAt;
         internal void UpdatePresentation(Vector3 view)
         {
-            if (Time.unscaledTime < presentAt) return;
-            presentAt = Time.unscaledTime + .10f;
-            foreach (var building in Buildings) building.Presentation?.Tick(view);
+            bool updateLod = Time.unscaledTime >= presentAt;
+            if (updateLod) presentAt = Time.unscaledTime + .10f;
+            foreach (var building in Buildings)
+                if (updateLod || building.Presentation?.NeedsDetailRefresh == true) building.Presentation?.Tick(view);
         }
         internal void RefreshMapMeshes()
         {
@@ -174,6 +176,7 @@ namespace TankTown
                     var park = Box("Minimap park", GroundPoint(plot.Center, .09f), new Vector3(BuildingWidth, .1f, BuildingWidth), grass, solid: false);
                     park.layer = TownPhysics.MapLayer;
                 }
+            BatchStaticSurfaces();
         }
 
         private void CreateTraffic()
@@ -271,6 +274,22 @@ namespace TankTown
             }
         }
 
+        private void BatchStaticSurfaces()
+        {
+            var fixedObjects = new List<GameObject>();
+            foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
+            {
+                if (renderer.name == "Lane dash") renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                if (renderer.gameObject.layer == TownPhysics.MapLayer || renderer.GetComponentInParent<DestructibleBlock>() != null ||
+                    renderer.GetComponentInParent<BlockBuilding>() != null || renderer.GetComponentInParent<TankPickup>() != null ||
+                    renderer.GetComponentInParent<ItemPickup>() != null || renderer.GetComponentInParent<TownPedestrian>() != null ||
+                    renderer.name == "Distant island" || renderer.transform.parent?.name == "Soft toy cloud") continue;
+                var filter = renderer.GetComponent<MeshFilter>();
+                if (filter != null && filter.sharedMesh != null && filter.sharedMesh.isReadable) fixedObjects.Add(renderer.gameObject);
+            }
+            StaticBatchingUtility.Combine(fixedObjects.ToArray(), gameObject);
+        }
+
         private void CreateCar(Vector3[] route, float phase, float speed, Color color)
         {
             var root = new GameObject("Explosive city car"); root.transform.SetParent(transform);
@@ -296,6 +315,18 @@ namespace TankTown
             AddBlock(root, true);
             var explosive = root.AddComponent<ChainExplosive>(); explosive.Initialize(game, game.Settings.carExplosionRadius, vehicle: true); Explosives.Add(explosive);
             var traffic = root.AddComponent<TownTrafficCar>(); traffic.Initialize(game, route, phase, speed); TrafficCars.Add(traffic);
+            // Only the car root moves, so retain the complete model in a material batch.
+            var groups = new Dictionary<Material, List<UnityEngine.CombineInstance>>();
+            foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>())
+            {
+                var filter = renderer.GetComponent<MeshFilter>();
+                if (!groups.TryGetValue(renderer.sharedMaterial, out var list)) groups[renderer.sharedMaterial] = list = new List<UnityEngine.CombineInstance>();
+                list.Add(new UnityEngine.CombineInstance { mesh = filter.sharedMesh, transform = root.transform.worldToLocalMatrix * renderer.transform.localToWorldMatrix });
+                renderer.enabled = false;
+            }
+            var mesh = TownBuildingVisual.Combine(groups, "Batched traffic car", out var paints); vehicleMeshes.Add(mesh);
+            var visual = new GameObject("Batched traffic car", typeof(MeshFilter), typeof(MeshRenderer)); visual.transform.SetParent(root.transform, false);
+            visual.GetComponent<MeshFilter>().sharedMesh = mesh; visual.GetComponent<MeshRenderer>().sharedMaterials = paints;
         }
 
         private void SurfaceBox(string label, Vector3 p, Vector3 size, Material material)
@@ -558,6 +589,7 @@ namespace TankTown
         {
             foreach (var building in Buildings) building.Presentation?.Dispose();
             if (proxyCube != null) Destroy(proxyCube);
+            foreach (var mesh in vehicleMeshes) if (mesh != null) Destroy(mesh);
             Terrain?.Dispose();
             geometry.Dispose();
             foreach (var material in materials) if (material != null) Destroy(material);

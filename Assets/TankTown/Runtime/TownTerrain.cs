@@ -40,16 +40,16 @@ namespace TankTown
             float dz = HeightAt(p + Vector3.forward * step) - HeightAt(p - Vector3.forward * step);
             return new Vector3(-dx, step * 2, -dz).normalized;
         }
-        public void Surface(string label, Vector2 minimum, Vector2 size, float lift, Material material, bool solid = false)
+        public void Surface(string label, Vector2 minimum, Vector2 size, float lift, Material material, bool solid = false, float sampleSpacing = 2)
         {
             // Small static collision bounds keep each flying piece near a local ground mesh.
             if (solid && (size.x > 80 || size.y > 80))
             {
                 for (float x = 0; x < size.x; x += 64) for (float z = 0; z < size.y; z += 64)
-                    Surface(label, minimum + new Vector2(x, z), new Vector2(Mathf.Min(64, size.x - x), Mathf.Min(64, size.y - z)), lift, material, true);
+                    Surface(label, minimum + new Vector2(x, z), new Vector2(Mathf.Min(64, size.x - x), Mathf.Min(64, size.y - z)), lift, material, true, sampleSpacing);
                 return;
             }
-            int nx = Mathf.CeilToInt(size.x / 2), nz = Mathf.CeilToInt(size.y / 2);
+            int nx = Mathf.CeilToInt(size.x / sampleSpacing), nz = Mathf.CeilToInt(size.y / sampleSpacing);
             var vertices = new Vector3[(nx + 1) * (nz + 1)];
             var uv = new Vector2[vertices.Length];
             var triangles = new int[nx * nz * 6];

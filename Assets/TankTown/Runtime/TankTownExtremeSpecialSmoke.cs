@@ -141,19 +141,21 @@ namespace TankTown
             InputSystem.settings.updateMode = InputSettings.UpdateMode.ProcessEventsInDynamicUpdate;
             var keyboard = InputSystem.AddDevice<Keyboard>(); InputSystem.EnableDevice(keyboard); keyboard.MakeCurrent();
             float classicExtent = game.World.HalfExtent; int classicBuildings = game.World.Buildings.Count;
+            var titleGame = game; var preview = game.TitlePreview; int titleSeed = game.CitySeed;
             Capture("stages-01-classic-title");
             yield return Press(keyboard, Key.Digit2);
             game = FindFirstObjectByType<TankTownGame>();
-            if (game.Stage != TownStage.BigCity || game.World.HalfExtent != classicExtent * 2 || game.World.Buildings.Count != classicBuildings * 4)
-            { Fail("large title selection, field area or building count"); yield break; }
+            if (game != titleGame || game.TitlePreview != preview || game.CitySeed != titleSeed || game.State != RoundState.Ready || game.Stage != TownStage.BigCity || preview.HalfExtent != classicExtent * 2)
+            { Fail("title selection reloaded or changed the fixed large-town preview"); yield break; }
             yield return null; Capture("stages-02-large-title");
-            Camera.main.transform.position = new Vector3(0, game.World.HalfExtent * 2.35f, -game.World.HalfExtent * .55f);
+            Camera.main.transform.position = new Vector3(0, preview.HalfExtent * 2.35f, -preview.HalfExtent * .55f);
             Camera.main.transform.LookAt(Vector3.zero);
             TankTownSmokeCapture.Capture(Path.Combine(output, "stages-03-large-overview.png"), false, 1920, 1080);
             yield return Press(keyboard, Key.Space);
             float until = Time.realtimeSinceStartup + 5;
-            while (!game.IsPlaying && Time.realtimeSinceStartup < until) yield return null;
+            while (!game.IsPlaying && Time.realtimeSinceStartup < until) { game = FindFirstObjectByType<TankTownGame>(); yield return null; }
             if (!game.IsPlaying) { Fail("space did not start the selected stage"); yield break; }
+            if (game.World.HalfExtent != classicExtent * 2 || game.World.Buildings.Count != classicBuildings * 4) { Fail("chosen large play field was not generated"); yield break; }
             game.Input.useHardware = true;
             yield return new WaitForSecondsRealtime(.2f); Capture("stages-04-large-play");
             int cars = game.World.TrafficCars.Count, people = game.World.Pedestrians.Count;
@@ -194,7 +196,10 @@ namespace TankTown
             yield return Press(keyboard, Key.Digit1);
             game = FindFirstObjectByType<TankTownGame>(); yield return null;
             TankTownSmokeCapture.Capture(Path.Combine(output, "stages-10-classic-restored-720.png"), true, 1280, 720);
-            if (game.Stage != TownStage.Town || game.World.HalfExtent != classicExtent || game.World.Buildings.Count != classicBuildings)
+            if (game.TitlePreview.HalfExtent != classicExtent * 2) { Fail("classic selection changed the title backdrop"); yield break; }
+            yield return Press(keyboard, Key.Space); until = Time.realtimeSinceStartup + 5;
+            while (!game.IsPlaying && Time.realtimeSinceStartup < until) { game = FindFirstObjectByType<TankTownGame>(); yield return null; }
+            if (!game.IsPlaying || game.Stage != TownStage.Town || game.World.HalfExtent != classicExtent || game.World.Buildings.Count != classicBuildings)
             { Fail("original stage was not restored"); yield break; }
             Debug.Log($"STAGES SMOKE COMPLETE: classicExtent={classicExtent}, largeExtent={classicExtent * 2}, areaMultiplier=4, classicBuildings={classicBuildings}, largeBuildings={classicBuildings * 4}, largeCars={cars}, largePeople={people}, autoMissiles=5, laserCoexists=true, bombCoexists=true, replayPreserved=true, classicRestored=true, sourceHalfBlocks={Resources.Load<TankTownSettings>("TankTownSettings").cityHalfBlocks}");
             InputSystem.RemoveDevice(keyboard); Application.Quit(0);

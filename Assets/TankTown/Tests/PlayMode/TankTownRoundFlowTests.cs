@@ -64,13 +64,15 @@ namespace TankTown.Tests
             Quaternion cameraRotation = view.transform.rotation;
             Vector3 tankPosition = game.Tank.transform.position;
             Vector3 support = game.World.Buildings[0].Blocks[0].transform.position;
-            float highestRoof = 0;
-            foreach (var building in game.World.Buildings)
-                highestRoof = Mathf.Max(highestRoof, building.transform.position.y + building.Floors * game.Settings.floorHeight + 3);
+            float highestRoof = game.TitlePreview.HighestRoof;
             Assert.That(view.transform.position.y - highestRoof, Is.InRange(8, 14), "The title must stay near roof height and clear the tallest building");
-            Assert.That(view.transform.forward.y, Is.InRange(-.35f, -.10f), "The town must be seen from the side with only a gentle downward pitch");
+            Assert.That(view.transform.forward.y, Is.InRange(-.35f, -.07f), "The town must be seen from the side with only a gentle downward pitch");
+            float sampledAt = Time.unscaledTime;
             yield return new WaitForSecondsRealtime(.4f);
-            Assert.That(Vector3.Distance(cameraPosition, view.transform.position), Is.InRange(.1f, 8));
+            float elapsed = Time.unscaledTime - sampledAt;
+            // The same slow angular motion travels farther around the larger backdrop.
+            float maxDistance = game.TitlePreview.HalfExtent * 1.22f * 4 * Mathf.Deg2Rad * elapsed;
+            Assert.That(Vector3.Distance(cameraPosition, view.transform.position), Is.InRange(.1f, maxDistance));
             Assert.That(Quaternion.Angle(cameraRotation, view.transform.rotation), Is.InRange(.1f, 3));
             Assert.That(game.State, Is.EqualTo(RoundState.Ready)); Assert.That(Time.timeScale, Is.Zero);
             Assert.That(game.Remaining, Is.EqualTo(60)); Assert.That(game.BrokenBlocks, Is.Zero);

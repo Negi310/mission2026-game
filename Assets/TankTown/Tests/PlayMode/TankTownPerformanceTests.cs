@@ -30,7 +30,30 @@ namespace TankTown.Tests
             Assert.That(wall.Detached, Is.True); Assert.That(visual.MapMesh.vertexCount, Is.LessThan(originalVertices));
             Assert.That(wall.GetComponentsInChildren<Renderer>().All(x => x.enabled), Is.True);
             visual.Tick(building.transform.position + Vector3.up * 5); Assert.That(visual.Detailed, Is.True);
-            Assert.That(building.Blocks.Where(x => !x.Detached).All(x => x.GetComponent<Renderer>().enabled), Is.True);
+            Assert.That(building.Blocks.Where(x => !x.Detached).All(x => !x.GetComponent<Renderer>().enabled), Is.True);
+            Assert.That(building.transform.Find("Batched building mesh").GetComponent<Renderer>().enabled, Is.True);
+            yield return null;
+        }
+        [UnityTest] public IEnumerator NearBatchSeparatesCrackedAndCameraOccludingPartsAndRemovesBrokenGeometry()
+        {
+            var building = game.World.Buildings[0]; var visual = building.Presentation;
+            visual.Tick(building.transform.position);
+            var wall = building.Blocks.First(x => x.Kind == BuildingPart.Wall);
+            int intactVertices = visual.DetailMesh.vertexCount;
+            wall.DamageFromBlast(wall.transform.position, .3f, 0, 1); visual.Tick(building.transform.position);
+            Assert.That(wall.Detached, Is.False); Assert.That(wall.GetComponent<Renderer>().enabled, Is.True);
+            Assert.That(visual.DetailMesh.vertexCount, Is.LessThan(intactVertices));
+            var pillar = building.Blocks.First(x => x.Kind == BuildingPart.Pillar);
+            int crackedVertices = visual.DetailMesh.vertexCount;
+            pillar.ExposeForCamera(true); visual.Tick(building.transform.position);
+            Assert.That(pillar.GetComponent<Renderer>().enabled, Is.True);
+            Assert.That(visual.DetailMesh.vertexCount, Is.LessThan(crackedVertices));
+            pillar.ExposeForCamera(false); visual.Tick(building.transform.position);
+            Assert.That(pillar.GetComponent<Renderer>().enabled, Is.False);
+            Assert.That(visual.DetailMesh.vertexCount, Is.EqualTo(crackedVertices));
+            pillar.Break(pillar.transform.position, 0); visual.Tick(building.transform.position);
+            Assert.That(pillar.GetComponent<Renderer>().enabled, Is.True);
+            Assert.That(visual.DetailMesh.vertexCount, Is.LessThan(crackedVertices));
             yield return null;
         }
         [UnityTest] public IEnumerator MapUsesLightweightMeshesAndKeepsThemUntilTheCityChanges()
@@ -48,6 +71,23 @@ namespace TankTown.Tests
             building.Blocks.First(x => x.Kind == BuildingPart.Wall).Break(building.transform.position, 0);
             Assert.That(building.Presentation.MapMesh, Is.SameAs(mesh), "A nearby building should rebuild only when the map needs it");
             map.RenderNow(); Assert.That(building.Presentation.MapMesh, Is.Not.SameAs(mesh));
+            yield return null;
+        }
+        [UnityTest] public IEnumerator LargeDamageQueriesGrowWithoutDroppingTargetsAndClearUsedReferences()
+        {
+            for (int i = 0; i < 1100; i++)
+            {
+                var item = game.World.Box("Overlap buffer target", new Vector3(500 + i % 40 * .15f, 15, i / 40 * .15f), Vector3.one * .1f, game.World.ShotMaterial);
+                item.AddComponent<DestructibleBlock>().Initialize(game);
+            }
+            Physics.SyncTransforms();
+            var query = new TownDamageQuery(); query.Sphere(new Vector3(503, 15, 2), 10);
+            Assert.That(query.Count, Is.EqualTo(1100)); Assert.That(query.Hits.Length, Is.GreaterThan(1024));
+            query.Clear(); Assert.That(query.Hits.All(x => x == null), Is.True);
+            int before = game.BrokenBlocks;
+            Assert.That(game.DamageSphere(new Vector3(503, 15, 2), 10, 0), Is.EqualTo(1100));
+            Assert.That(game.BrokenBlocks - before, Is.EqualTo(1100));
+            Assert.That(game.DamageSphere(new Vector3(503, 15, 2), 10, 0), Is.Zero);
             yield return null;
         }
         [UnityTest] public IEnumerator CarSearchFindsAQueueAcrossGridBoundariesAndIgnoresAnInactiveLeader()

@@ -112,17 +112,25 @@ Shader "TankTown/Saturated Toon"
             // Smooth noise fades before it becomes subpixel; distant surfaces stay calm.
             float footprint = max(length(ddx(grainPoint)), length(ddy(grainPoint)));
             half detailFade = (1 - smoothstep(.45, 1.4, footprint)) * (1 - smoothstep(12, 40, distance(input.positionWS, _WorldSpaceCameraPos)));
-            float grain = SurfaceGrain(grainPoint);
-            if (_Brushed > 0)
-                grain = lerp(grain, SurfaceGrain(grainPoint * float2(1.8, .055)), _Brushed);
-            lit *= 1 + (grain - .5) * (_SurfaceDetail + _GroundDetail * .025) * detailFade;
+            // Distant grain already fades out; skip the noise work once it contributes nothing.
+            if (detailFade > 0)
+            {
+                float grain = SurfaceGrain(grainPoint);
+                if (_Brushed > 0)
+                    grain = lerp(grain, SurfaceGrain(grainPoint * float2(1.8, .055)), _Brushed);
+                lit *= 1 + (grain - .5) * (_SurfaceDetail + _GroundDetail * .025) * detailFade;
+            }
             if (_StructuralDamage > .01)
             {
-                float2 crackPoint = float2(p.x + p.z * .37, p.y + p.z * .73) * 1.15;
-                float ridge = FractureEdge(crackPoint);
-                float edge = max(.008, min(.04, fwidth(ridge)));
-                float crack = 1 - smoothstep(.006, .006 + edge, ridge);
                 float fade = 1 - smoothstep(20, 55, distance(input.positionWS, _WorldSpaceCameraPos));
+                float crack = 0;
+                if (fade > 0)
+                {
+                    float2 crackPoint = float2(p.x + p.z * .37, p.y + p.z * .73) * 1.15;
+                    float ridge = FractureEdge(crackPoint);
+                    float edge = max(.008, min(.04, fwidth(ridge)));
+                    crack = 1 - smoothstep(.006, .006 + edge, ridge);
+                }
                 lit *= 1 - _StructuralDamage * (.08 + crack * .55 * fade);
             }
             // Compute fog per fragment: the ocean is one large quad, whose corner

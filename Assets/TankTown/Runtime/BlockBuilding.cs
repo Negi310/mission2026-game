@@ -13,19 +13,25 @@ namespace TankTown
         public Color FacadeColor { get; internal set; }
         public ItemKind RewardKind { get; internal set; }
         public int DetachedParts { get; private set; }
+        internal int DamageRevision { get; private set; }
         public float DestroyedFraction => Blocks.Count == 0 ? 0 : (float)DetachedParts / Blocks.Count;
         public ItemPickup Reward { get; set; }
         internal TownBuildingVisual Presentation;
         public int CollapsedFromLevel { get; private set; } = int.MaxValue;
         private TankTownGame game;
+        private int supportDetached = -1;
+        private readonly HashSet<DestructibleBlock> supported = new HashSet<DestructibleBlock>();
+        private readonly Queue<DestructibleBlock> queue = new Queue<DestructibleBlock>();
+        private readonly List<Vector2> feet = new List<Vector2>(), hull = new List<Vector2>();
         public void Initialize(TankTownGame owner) => game = owner;
         internal void RegisterDetached() => DetachedParts++;
+        internal void RegisterDamage() => DamageRevision++;
 
         public void ReleaseUnsupported(Vector3 origin, float impulse)
         {
             if (game == null || !game.IsPlaying) return;
-            var supported = new HashSet<DestructibleBlock>();
-            var queue = new Queue<DestructibleBlock>();
+            if (supportDetached == DetachedParts) return;
+            supported.Clear(); queue.Clear();
             int topLevel = 0;
             foreach (var block in Blocks)
             {
@@ -59,7 +65,7 @@ namespace TankTown
             // centre of mass of everything still standing above that storey.
             for (int level = 0; level <= topLevel; level++)
             {
-                var feet = new List<Vector2>();
+                feet.Clear();
                 Vector2 weightSum = Vector2.zero, supportSum = Vector2.zero;
                 float totalWeight = 0;
                 int columns = 0;
@@ -81,7 +87,7 @@ namespace TankTown
                 }
                 if (totalWeight <= 0) continue;
                 Vector2 centerOfMass = weightSum / totalWeight;
-                var hull = ConvexHull(feet);
+                ConvexHull(feet);
                 if (Inside(hull, centerOfMass, game.Settings.stabilityMargin)) continue;
                 Vector2 tip = columns > 0 ? centerOfMass - supportSum / columns : centerOfMass;
                 if (tip.sqrMagnitude < .01f) tip = Vector2.down;
@@ -95,6 +101,7 @@ namespace TankTown
                 MarkCollapse(level);
                 break;
             }
+            supportDetached = DetachedParts;
         }
 
         private void MarkCollapse(int level)
@@ -105,10 +112,10 @@ namespace TankTown
             game.Effects.Collapse(transform.position + Vector3.up * (level * game.Settings.floorHeight + .5f), game.World.BuildingWidth);
         }
         private static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
-        private static List<Vector2> ConvexHull(List<Vector2> points)
+        private void ConvexHull(List<Vector2> points)
         {
             points.Sort((a, b) => a.x == b.x ? a.y.CompareTo(b.y) : a.x.CompareTo(b.x));
-            var hull = new List<Vector2>();
+            hull.Clear();
             foreach (var p in points)
             {
                 while (hull.Count >= 2 && Cross(hull[hull.Count - 1] - hull[hull.Count - 2], p - hull[hull.Count - 1]) <= 0) hull.RemoveAt(hull.Count - 1);
@@ -122,7 +129,6 @@ namespace TankTown
                 hull.Add(p);
             }
             if (hull.Count > 1) hull.RemoveAt(hull.Count - 1);
-            return hull;
         }
         private static bool Inside(List<Vector2> hull, Vector2 point, float margin)
         {

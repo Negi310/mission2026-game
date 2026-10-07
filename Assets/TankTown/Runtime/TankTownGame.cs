@@ -15,6 +15,8 @@ namespace TankTown
         public int CitySeed { get; private set; }
         internal static TownStage SelectedStage;
         public TownStage Stage { get; private set; }
+        internal TownStage BuiltStage { get; private set; }
+        internal TownTitlePreview TitlePreview { get; private set; }
         public int StageScale => Stage == TownStage.BigCity ? 2 : 1;
         public string StageLabel => Stage == TownStage.BigCity ? "大きな街" : "いつもの街";
         internal string StageStorageSuffix => Stage == TownStage.BigCity ? ".BigCity" : "";
@@ -58,6 +60,9 @@ namespace TankTown
         public TownScoreRecord RoundRecord { get; private set; }
         private const string BestScoreKey = "TankTown.BestScore.v1";
         private readonly List<FlyingDebris> debris = new List<FlyingDebris>();
+        private readonly Stack<TownDamageQuery> damageQueries = new Stack<TownDamageQuery>();
+        private TownDamageQuery RentDamageQuery() => damageQueries.Count > 0 ? damageQueries.Pop() : new TownDamageQuery();
+        private void ReturnDamageQuery(TownDamageQuery query) { query.Clear(); damageQueries.Push(query); }
         private System.Random debrisRandom;
         internal int ActiveDebrisCount => debris.Count;
         private readonly List<AudioClip> clips = new List<AudioClip>();
@@ -66,6 +71,7 @@ namespace TankTown
         private UniversalRenderPipelineAsset toyPipeline;
         private RenderPipelineAsset previousPipeline;
         private static bool playAfterReload;
+        private static int? seedAfterStageSelection;
         private float debrisBurstWindow;
         private int debrisBurstsInWindow;
         private float previousFixedStep, previousMaximumStep;
@@ -79,6 +85,7 @@ namespace TankTown
             Settings = sourceSettings != null ? Instantiate(sourceSettings) : ScriptableObject.CreateInstance<TankTownSettings>();
             ownedSettings = true;
             Stage = SelectedStage == TownStage.BigCity ? TownStage.BigCity : TownStage.Town;
+            BuiltStage = Stage;
             if (Stage == TownStage.BigCity)
             {
                 Time.fixedDeltaTime = Mathf.Max(previousFixedStep, 1f / 30);
@@ -92,10 +99,7 @@ namespace TankTown
             // 消去の乱数を物理演出のUnityEngine.Randomから独立させる。
             debrisRandom = new System.Random(unchecked(CitySeed ^ 0x5D3B17));
             Remaining = Settings.roundSeconds;
-            BestScore = DisableRecordSavingForTests ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(BestScoreKey + StageStorageSuffix, 0), 0, 100000);
-            Ranking = new TankTownRanking(!DisableRecordSavingForTests || !string.IsNullOrEmpty(RankingStorageOverrideForTests), BestScore,
-                (RankingStorageOverrideForTests ?? TankTownRanking.StorageKey) + StageStorageSuffix);
-            BestScore = Mathf.Max(BestScore, Ranking.BestScore);
+            LoadStageRanking();
             Stats = new TankStats(Settings);
             Effects = gameObject.AddComponent<TankTownEffects>();
             var soundRoot = new GameObject("Sound effects");
@@ -126,6 +130,7 @@ namespace TankTown
             Input.HelpPressed += ToggleHowTo;
             Input.StagePressed += SelectStage;
             SetupView();
+            if (!playAfterReload) TitlePreview = new TownTitlePreview(this);
             speaker = gameObject.AddComponent<AudioSource>();
             speaker.spatialBlend = 0;
             speaker.playOnAwake = false;
@@ -144,6 +149,7 @@ namespace TankTown
 
         private int ResolveCitySeed()
         {
+            if (seedAfterStageSelection.HasValue) { int seed = seedAfterStageSelection.Value; seedAfterStageSelection = null; return seed; }
             if (GenerationSeedOverride.HasValue) return GenerationSeedOverride.Value;
             foreach (var argument in Environment.GetCommandLineArgs())
                 if (argument.StartsWith("--tank-town-seed=", StringComparison.Ordinal) && int.TryParse(argument.Substring(17), out int seed)) return seed;
@@ -180,7 +186,7 @@ namespace TankTown
             camera.nearClipPlane = .12f;
             camera.farClipPlane = PlayCameraFarClip;
             camera.clearFlags = CameraClearFlags.Skybox;
-            camera.cullingMask &= ~(1 << TownPhysics.MapLayer);
+            camera.cullingMask &= ~((1 << TownPhysics.MapLayer) | (1 << TownTitlePreview.Layer));
             camera.backgroundColor = new Color(.5f, .86f, 1);
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Offset = Settings.cameraOffset;
@@ -215,7 +221,7 @@ namespace TankTown
                 HowToOpen = false;
                 State = RoundState.Starting;
                 Presentation.BeginStart(false);
-                if (SkipIntroForTests) FinishIntro();
+                if (SkipIntroForTests && PrepareSelectedStage()) FinishIntro();
             }
             else if (State == RoundState.Paused) TogglePause();
             else if (State == RoundState.Results)
@@ -230,9 +236,28 @@ namespace TankTown
         {
             if (State != RoundState.Ready || stage == Stage || (stage != TownStage.Town && stage != TownStage.BigCity)) return;
             SelectedStage = stage;
-            playAfterReload = false;
-            Time.timeScale = 1;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            Stage = stage;
+            LoadStageRanking();
+        }
+
+        private void LoadStageRanking()
+        {
+            BestScore = DisableRecordSavingForTests ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(BestScoreKey + StageStorageSuffix, 0), 0, 100000);
+            Ranking = new TankTownRanking(!DisableRecordSavingForTests || !string.IsNullOrEmpty(RankingStorageOverrideForTests), BestScore,
+                (RankingStorageOverrideForTests ?? TankTownRanking.StorageKey) + StageStorageSuffix);
+            BestScore = Mathf.Max(BestScore, Ranking.BestScore);
+        }
+
+        internal bool PrepareSelectedStage()
+        {
+            if (Stage != BuiltStage)
+            {
+                // Generate the chosen play field only after Play, under the transition cover.
+                seedAfterStageSelection = CitySeed;
+                ReloadForReplay(); return false;
+            }
+            if (TitlePreview != null) TitlePreview.Root.SetActive(false);
+            return true;
         }
 
         internal void FinishIntro()
@@ -252,9 +277,10 @@ namespace TankTown
 
         internal void SetOverviewShadows(bool overview)
         {
-            if (toyPipeline != null) toyPipeline.shadowDistance = overview ? Mathf.Max(430, World.HalfExtent * 2.4f) : 95;
-            RenderSettings.fogStartDistance = overview ? Mathf.Max(430, World.HalfExtent * 3.2f) : 160;
-            RenderSettings.fogEndDistance = overview ? Mathf.Max(700, World.HalfExtent * 5.2f) : 410;
+            float extent = TitlePreview?.HalfExtent ?? World.HalfExtent;
+            if (toyPipeline != null) toyPipeline.shadowDistance = overview ? Mathf.Max(430, extent * 2.4f) : 95;
+            RenderSettings.fogStartDistance = overview ? Mathf.Max(430, extent * 3.2f) : 160;
+            RenderSettings.fogEndDistance = overview ? Mathf.Max(700, extent * 5.2f) : 410;
         }
 
         public void ToggleHowTo() { if (State == RoundState.Ready) HowToOpen = !HowToOpen; }
@@ -288,6 +314,11 @@ namespace TankTown
         {
             Presentation.MoveOverview(Time.unscaledDeltaTime);
             World.UpdatePresentation(CameraRig.transform.position);
+            if (IsPlaying) foreach (var fragment in debris) if (fragment.isActiveAndEnabled) fragment.Fade?.Tick();
+        }
+        private void FixedUpdate()
+        {
+            if (IsPlaying) foreach (var fragment in debris) if (fragment.isActiveAndEnabled) fragment.TickPhysics();
         }
         public void AdvanceTime(float seconds)
         {
@@ -398,27 +429,43 @@ namespace TankTown
         public void Blast(Vector3 point, float radius, float impulse, DestructibleBlock directHit = null)
         {
             if (!IsPlaying) return;
-            Damage(Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore),
-                point, impulse, radius * 2, true, directHit, distanceFalloff: true);
+            var query = RentDamageQuery();
+            try { query.Sphere(point, radius); Damage(query, point, impulse, radius * 2, true, directHit, distanceFalloff: true); }
+            finally { ReturnDamageQuery(query); }
             Effects.Impact(point, radius);
             Sound.Impact(point);
         }
 
         public int DamageSphere(Vector3 point, float radius, float impulse, bool isExplosion = true)
-            => Damage(Physics.OverlapSphere(point, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore), point, impulse, radius * 2, isExplosion);
+        {
+            if (!IsPlaying) return 0;
+            var query = RentDamageQuery();
+            try { query.Sphere(point, radius); return Damage(query, point, impulse, radius * 2, isExplosion); }
+            finally { ReturnDamageQuery(query); }
+        }
 
         public int DamageBox(Vector3 point, Vector3 halfSize, Quaternion rotation, float impulse)
-            => Damage(Physics.OverlapBox(point, halfSize, rotation, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore), point, impulse, halfSize.magnitude * 2, false);
+        {
+            if (!IsPlaying) return 0;
+            var query = RentDamageQuery();
+            try { query.Box(point, halfSize, rotation); return Damage(query, point, impulse, halfSize.magnitude * 2, false); }
+            finally { ReturnDamageQuery(query); }
+        }
 
         public int DamageBeam(Vector3 start, Vector3 end, float radius, float impulse)
         {
             if (!IsPlaying) return 0;
-            var buildings = new HashSet<BlockBuilding>();
+            var query = RentDamageQuery();
+            try
+            {
+            query.Capsule(start, end, radius);
+            var buildings = query.Buildings;
             int count = 0;
             var segment = end - start;
             float nearest = float.PositiveInfinity; LastBeamImpact = end;
-            foreach (var collider in Physics.OverlapCapsule(start, end, radius, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore))
+            for (int i = 0; i < query.Count; i++)
             {
+                var collider = query.Hits[i];
                 var block = collider.GetComponentInParent<DestructibleBlock>();
                 if (block == null || block.Detached) continue;
                 var origin = start + segment * Mathf.Clamp01(Vector3.Dot(block.transform.position - start, segment) / segment.sqrMagnitude);
@@ -436,18 +483,21 @@ namespace TankTown
                 if ((person.ClosestPoint(origin) - origin).sqrMagnitude <= radius * radius) person.KnockAside(origin, impulse);
             }
             return count;
+            }
+            finally { ReturnDamageQuery(query); }
         }
 
-        private int Damage(Collider[] colliders, Vector3 point, float impulse, float forceRadius, bool isExplosion, DestructibleBlock directHit = null, bool distanceFalloff = false)
+        private int Damage(TownDamageQuery query, Vector3 point, float impulse, float forceRadius, bool isExplosion, DestructibleBlock directHit = null, bool distanceFalloff = false)
         {
             if (!IsPlaying) return 0;
-            var buildings = new HashSet<BlockBuilding>();
-            var distances = new Dictionary<DestructibleBlock, float>();
+            var buildings = query.Buildings;
+            var distances = query.Distances;
             float blastDamage = Mathf.Max(0, impulse) / Mathf.Max(.1f, Settings.blastImpulse);
             float breakRadius = Mathf.Min(forceRadius * .5f, Settings.blastBreakRadius * forceRadius * .5f / Mathf.Max(.1f, Settings.blastRadius));
             // 複合Colliderは最も近い表面までの距離で一度だけ判定する。分離前に距離を確定する。
-            foreach (var collider in colliders)
+            for (int i = 0; i < query.Count; i++)
             {
+                var collider = query.Hits[i];
                 var block = collider.GetComponentInParent<DestructibleBlock>();
                 if (block == null || block.Detached) continue;
                 float distance = Vector3.Distance(point, collider.ClosestPoint(point));
@@ -512,6 +562,7 @@ namespace TankTown
             Physics.IgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.DebrisLayer, oldPedestrianDebrisIgnore);
             Physics.IgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.PedestrianLayer, oldPedestrianIgnore);
             foreach (var clip in clips) if (clip != null) Destroy(clip);
+            TitlePreview?.Dispose();
             if (ownedSettings) Destroy(Settings);
             if (toyPipeline != null)
             {

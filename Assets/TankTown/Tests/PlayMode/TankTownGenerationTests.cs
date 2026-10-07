@@ -52,22 +52,41 @@ namespace TankTown.Tests
             int half = source.cityHalfBlocks;
             var button = GameObject.Find("Large stage button").GetComponent<Button>(); button.onClick.Invoke();
             yield return null; yield return null;
-            game = Object.FindFirstObjectByType<TankTownGame>();
+            Assert.That(Object.FindFirstObjectByType<TankTownGame>(), Is.SameAs(game), "Selecting a stage must not reload the scene");
             Assert.That(game.State, Is.EqualTo(RoundState.Ready)); Assert.That(game.Stage, Is.EqualTo(TownStage.BigCity));
+            Assert.That(game.World.HalfExtent, Is.EqualTo(classicExtent), "Gameplay generation is deferred until Play");
+            var preview = game.TitlePreview; int seed = game.CitySeed;
+            Assert.That(preview.HalfExtent, Is.EqualTo(classicExtent * 2));
+            Assert.That(preview.Layout.Plots.Count(p => !p.Park), Is.EqualTo(classicBuildings * 4));
+            Assert.That(preview.Root.GetComponentsInChildren<Collider>(), Is.Empty);
+            for (int i = 0; i < 8; i++) game.SelectStage(i % 2 == 0 ? TownStage.Town : TownStage.BigCity);
+            yield return null;
+            Assert.That(game.TitlePreview, Is.SameAs(preview)); Assert.That(game.CitySeed, Is.EqualTo(seed));
+            Assert.That(Camera.main.cullingMask, Is.EqualTo((1 << TownTitlePreview.Layer) | (1 << 5)));
+            foreach (var graphic in GameObject.Find("Tank Town HUD").GetComponentsInChildren<Graphic>())
+                Assert.That(Camera.main.cullingMask & (1 << graphic.gameObject.layer), Is.Not.Zero, "Visible title graphics must be rendered by the restricted camera: " + graphic.name);
+            Assert.That(GameObject.Find("Large stage button").GetComponentInChildren<Text>().text, Does.StartWith("✓"));
+            game.StartOrRestart(); yield return null; yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>();
+            Assert.That(game.IsPlaying, Is.True); Assert.That(game.CitySeed, Is.EqualTo(seed));
             Assert.That(game.World.HalfExtent, Is.EqualTo(classicExtent * 2));
             Assert.That(game.World.Buildings.Count, Is.EqualTo(classicBuildings * 4)); Assert.That(game.World.ParkCount, Is.EqualTo(classicParks * 4));
             Assert.That(source.cityHalfBlocks, Is.EqualTo(half), "Stage configuration must not modify the shared resource");
             Assert.That(game.World.ItemPickups.Select(p => p.Kind).Distinct().Count(), Is.EqualTo(6));
             Assert.That(game.Settings.roundSeconds, Is.EqualTo(60)); Assert.That(game.Settings.megaBeamLength, Is.EqualTo(source.megaBeamLength * 2));
-            game.StartOrRestart(); game.AdvanceTime(1000); game.StartOrRestart(); yield return null; yield return null;
+            game.AdvanceTime(1000); game.StartOrRestart(); yield return null; yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.Stage, Is.EqualTo(TownStage.BigCity)); Assert.That(game.IsPlaying, Is.True);
             game.TogglePause(); game.ReturnToTitle(); yield return null; yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             GameObject.Find("Town stage button").GetComponent<Button>().onClick.Invoke(); yield return null; yield return null;
+            Assert.That(Object.FindFirstObjectByType<TankTownGame>(), Is.SameAs(game));
+            Assert.That(game.TitlePreview.HalfExtent, Is.EqualTo(classicExtent * 2));
+            Assert.That(game.Stage, Is.EqualTo(TownStage.Town));
+            game.StartOrRestart(); yield return null; yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.Stage, Is.EqualTo(TownStage.Town)); Assert.That(game.World.HalfExtent, Is.EqualTo(classicExtent));
-            Assert.That(game.World.Buildings.Count, Is.EqualTo(classicBuildings)); game.StartOrRestart(); Assert.That(game.IsPlaying, Is.True);
+            Assert.That(game.World.Buildings.Count, Is.EqualTo(classicBuildings)); Assert.That(game.IsPlaying, Is.True);
         }
 
         [UnityTest]

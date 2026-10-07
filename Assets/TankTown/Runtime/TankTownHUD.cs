@@ -197,6 +197,8 @@ namespace TankTown
             TextOutline(countdown, ink, 4);
             viewFade.transform.SetAsLastSibling();
             gameplay.SetActive(game.State != RoundState.Ready);
+            // Explicitly include UI descendants in the title camera's restricted mask.
+            foreach (var part in root.GetComponentsInChildren<Transform>(true)) part.gameObject.layer = 5;
         }
 
         private GameObject Panel(string title, Transform parent, Vector2 position, Vector2 size, Color color, bool right = false)

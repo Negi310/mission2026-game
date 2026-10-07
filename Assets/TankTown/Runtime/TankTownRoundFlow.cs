@@ -13,8 +13,9 @@ namespace TankTown
         private readonly TankTownGame game;
         private readonly Camera camera;
         private readonly float overviewHeight, overviewFocusHeight;
+        private readonly int playCullingMask;
         private float elapsed, goElapsed = GoSeconds, orbit = -36;
-        private bool fromReload, cameraChanged, reloading;
+        private bool fromReload, cameraChanged, reloading, stageCoverShown;
         public float CoverOpacity { get; private set; }
         public string Countdown { get; private set; } = "";
         public float BeatProgress { get; private set; }
@@ -22,9 +23,11 @@ namespace TankTown
         public TankTownRoundFlow(TankTownGame owner, Camera view)
         {
             game = owner; camera = view;
+            playCullingMask = camera.cullingMask;
             float highestRoof = 0;
             foreach (var building in game.World.Buildings)
                 highestRoof = Mathf.Max(highestRoof, building.transform.position.y + building.Floors * game.Settings.floorHeight + 3);
+            if (game.TitlePreview != null) { highestRoof = game.TitlePreview.HighestRoof; camera.cullingMask = (1 << TownTitlePreview.Layer) | (1 << 5); }
             // Orbit just above the tallest roof, at a constant height clear of all buildings.
             overviewHeight = Mathf.Max(38, highestRoof + 9);
             overviewFocusHeight = Mathf.Max(8, highestRoof * .35f);
@@ -35,7 +38,7 @@ namespace TankTown
 
         public void BeginStart(bool reload)
         {
-            elapsed = 0; fromReload = reload; cameraChanged = false;
+            elapsed = 0; fromReload = reload; cameraChanged = false; stageCoverShown = false;
             CoverOpacity = reload ? 1 : 0;
             Countdown = ""; game.CameraRig.Paused = true;
         }
@@ -46,6 +49,8 @@ namespace TankTown
         {
             if (cameraChanged) return;
             cameraChanged = true;
+            if (game.TitlePreview != null) game.TitlePreview.Root.SetActive(false);
+            camera.cullingMask = playCullingMask;
             camera.fieldOfView = game.Settings.cameraFieldOfView;
             camera.farClipPlane = game.PlayCameraFarClip;
             game.SetOverviewShadows(false);
@@ -76,6 +81,9 @@ namespace TankTown
                 if (!cameraChanged)
                 {
                     // Render one fully covered frame before revealing the new viewpoint.
+                    CoverOpacity = 1;
+                    if (game.Stage != game.BuiltStage && !stageCoverShown) { stageCoverShown = true; elapsed = coveredAt; return; }
+                    if (!game.PrepareSelectedStage()) return;
                     UsePlayCamera(); CoverOpacity = 1; elapsed = coveredAt; return;
                 }
                 CoverOpacity = 1 - Mathf.SmoothStep(0, 1, (elapsed - coveredAt) / RevealSeconds);
@@ -111,7 +119,7 @@ namespace TankTown
             // Constant, slow orbit: no sway, roll, zoom or randomized direction changes.
             orbit += Mathf.Min(dt, .05f) * 3.5f;
             float radians = orbit * Mathf.Deg2Rad;
-            float extent = game.World.HalfExtent;
+            float extent = game.TitlePreview?.HalfExtent ?? game.World.HalfExtent;
             Vector3 position = new Vector3(Mathf.Sin(radians) * extent * 1.22f, overviewHeight, -Mathf.Cos(radians) * extent * 1.22f);
             Vector3 focus = new Vector3(0, overviewFocusHeight, 0);
             Quaternion rotation = Quaternion.LookRotation(focus - position);

@@ -10,6 +10,7 @@ namespace TankTown
         public bool ImpactSpent { get; private set; }
         public Renderer[] Renderers { get; private set; }
         internal int RegistryIndex { get; set; } = -1;
+        internal DebrisFade Fade { get; set; }
         private TankTownGame game;
         private Rigidbody body;
         private float lowSpeedSince = -1;
@@ -21,9 +22,9 @@ namespace TankTown
             Renderers = GetComponentsInChildren<Renderer>();
         }
 
-        private void FixedUpdate()
+        internal void TickPhysics()
         {
-            if (!game.IsPlaying || body.IsSleeping()) return;
+            if (body.IsSleeping()) return;
             // 大爆発や強化射撃でも高速衝突を解決できる範囲に収める。
             float speed = body.linearVelocity.sqrMagnitude;
             if (speed > 3600)

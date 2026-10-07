@@ -13,6 +13,13 @@ namespace TankTown
         public int Level { get; set; }
         public BuildingPart Kind { get; set; }
         public bool Foundation { get; set; }
+        internal bool CameraExposed { get; private set; }
+        internal bool RenderSeparately => CameraExposed || Durability01 < .9999f;
+        internal void ExposeForCamera(bool value)
+        {
+            if (CameraExposed == value) return;
+            CameraExposed = value; Building?.RegisterDamage();
+        }
         public float Durability01 => Detached ? 0 : Mathf.Clamp01(1 - accumulatedDamage / MaxDurability);
         public readonly List<DestructibleBlock> Links = new List<DestructibleBlock>();
         public IReadOnlyList<Rigidbody> DebrisBodies => looseBodies;
@@ -51,6 +58,7 @@ namespace TankTown
             if (accumulatedDamage + .0001f >= MaxDurability) Break(origin, impulse, forceRadius);
             else
             {
+                Building?.RegisterDamage();
                 if (damageProperties == null) damageProperties = new MaterialPropertyBlock();
                 foreach (var renderer in GetComponentsInChildren<Renderer>())
                 {
@@ -101,7 +109,7 @@ namespace TankTown
                     item.GetComponent<MeshFilter>().sharedMesh = mesh.sharedMesh;
                     var fragmentRenderer = item.GetComponent<MeshRenderer>();
                     fragmentRenderer.sharedMaterials = renderer.sharedMaterials;
-                    fragmentRenderer.SetPropertyBlock(properties);
+                    if (!properties.isEmpty) fragmentRenderer.SetPropertyBlock(properties);
                     game.CameraRig.InheritOcclusion(renderer, fragmentRenderer);
                 }
                 var localCenter = new Vector3((x + .5f) / divisions.x - .5f, (y + .5f) / divisions.y - .5f, (z + .5f) / divisions.z - .5f);
@@ -147,8 +155,8 @@ namespace TankTown
             if (explosive == null || !explosive.Primed)
             {
                 lifetime = game.NextDebrisLifetime();
-                piece.AddComponent<FlyingDebris>().Initialize(game, this);
-                piece.AddComponent<DebrisFade>().Initialize(lifetime);
+                var fragment = piece.AddComponent<FlyingDebris>(); fragment.Initialize(game, this);
+                fragment.Fade = piece.AddComponent<DebrisFade>(); fragment.Fade.Initialize(lifetime, fragment.Renderers);
                 game.TrackDebris(piece);
             }
             Destroy(piece, lifetime);
@@ -174,19 +182,20 @@ namespace TankTown
         internal float Lifetime => debrisLifetime;
         private static readonly int DebrisVisibilityId = Shader.PropertyToID("_DebrisVisibility");
 
-        public void Initialize(float lifetime)
+        public void Initialize(float lifetime, Renderer[] renderers = null)
         {
             debrisBornAt = Time.time;
             debrisLifetime = lifetime;
-            debrisRenderers = GetComponentsInChildren<Renderer>();
-            debrisProperties = new MaterialPropertyBlock();
+            debrisRenderers = renderers ?? GetComponentsInChildren<Renderer>();
+            enabled = false; // The owner's registry ticks all debris; no per-piece Unity Update.
         }
 
-        private void Update()
+        internal void Tick()
         {
             if (debrisRenderers == null) return;
             float age = Time.time - debrisBornAt;
             if (age < debrisLifetime - .45f) return;
+            if (debrisProperties == null) debrisProperties = new MaterialPropertyBlock();
             float visibility = 1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(debrisLifetime - .45f, debrisLifetime, age));
             foreach (var renderer in debrisRenderers)
             {

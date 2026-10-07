@@ -12,6 +12,9 @@ namespace TankTown
         private readonly GameObject title, howTo;
         private readonly Button start, tutorialPlay;
         private bool helpWasOpen;
+        private readonly Button[] stageButtons = new Button[2];
+        private readonly string[] stageLabels = new string[2];
+        private TownStage paintedStage;
         private static Color Ink => TankTownMenuLayout.Ink;
         private static Color Lime => TankTownMenuLayout.Lime;
         private static Color Cyan => TankTownMenuLayout.Cyan;
@@ -37,7 +40,7 @@ namespace TankTown
             menu.Label(card.transform, "Title input hint", "1 / 2 で街選択・SPACE でスタート", new Vector2(34, -712), new Vector2(502, 24), 15, new Color(.69f, .82f, .89f)).alignment = TextAnchor.MiddleCenter;
             var city = menu.Panel(title.transform, "Overview caption", new Vector2(918, -48), new Vector2(464, 86), new Color(Ink.r, Ink.g, Ink.b, .82f));
             menu.Label(city.transform, "City caption heading", "つぎは、どこからこわす？", new Vector2(20, -12), new Vector2(424, 32), 24, Color.white).alignment = TextAnchor.MiddleCenter;
-            menu.Label(city.transform, "City caption detail", game.StageLabel + " / あそぶたびに、新しい街！", new Vector2(20, -47), new Vector2(424, 27), 18, Lime).alignment = TextAnchor.MiddleCenter;
+            menu.Label(city.transform, "City caption detail", "大きな街 / あそぶたびに、新しい街！", new Vector2(20, -47), new Vector2(424, 27), 18, Lime).alignment = TextAnchor.MiddleCenter;
             var legend = menu.Panel(title.transform, "Title item legend", new Vector2(692, -709), new Vector2(688, 154), new Color(Ink.r, Ink.g, Ink.b, .87f));
             menu.Label(legend.transform, "Color legend heading", "ビルの色が、スペシャルの目印！", new Vector2(20, -12), new Vector2(648, 30), 22, Color.white).alignment = TextAnchor.MiddleCenter;
             AddItems(legend.transform, 37, 54, 104, 56);
@@ -65,6 +68,17 @@ namespace TankTown
         public void Fit()
         {
             menu.Fit();
+            if (paintedStage != game.Stage)
+            {
+                paintedStage = game.Stage;
+                for (int i = 0; i < stageButtons.Length; i++)
+                {
+                    bool selected = (TownStage)i == game.Stage;
+                    stageButtons[i].GetComponent<Image>().color = selected ? Lime : new Color(.09f, .28f, .37f);
+                    stageButtons[i].GetComponentInChildren<Text>().text = (selected ? "✓ " : "") + stageLabels[i];
+                    stageButtons[i].GetComponentInChildren<Text>().color = selected ? Ink : Color.white;
+                }
+            }
             title.SetActive(!game.HowToOpen); howTo.SetActive(game.HowToOpen);
             if (helpWasOpen != game.HowToOpen) Select(game.HowToOpen ? tutorialPlay : start);
             helpWasOpen = game.HowToOpen;
@@ -79,6 +93,7 @@ namespace TankTown
         {
             bool selected = game.Stage == stage;
             var button = menu.Button(parent, name, (selected ? "✓ " : "") + label, new Vector2(x, -506), new Vector2(243, 60), selected ? Lime : new Color(.09f, .28f, .37f), () => game.SelectStage(stage));
+            stageButtons[(int)stage] = button; stageLabels[(int)stage] = label; paintedStage = game.Stage;
             button.GetComponentInChildren<Text>().fontSize = 18;
         }
 

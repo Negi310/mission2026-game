@@ -43,7 +43,7 @@ namespace TankTown
                 float du = Vector3.Dot(half, Abs(u)), dv = Vector3.Dot(half, Abs(v));
                 float[] xs = Grid(du, radius), ys = Grid(dv, radius);
                 int start = vertices.Count;
-                for (int y = 0; y < 6; y++) for (int x = 0; x < 6; x++)
+                for (int y = 0; y < 4; y++) for (int x = 0; x < 4; x++)
                 {
                     Vector3 point = Vector3.Scale(direction, half) + u * xs[x] + v * ys[y];
                     Vector3 core = new Vector3(Mathf.Clamp(point.x, -inner.x, inner.x), Mathf.Clamp(point.y, -inner.y, inner.y), Mathf.Clamp(point.z, -inner.z, inner.z));
@@ -60,22 +60,24 @@ namespace TankTown
                     // Inverse-transpose scaling then recovers the physical bevel normal.
                     normals.Add(Vector3.Scale(normal, size).normalized);
                 }
-                for (int y = 0; y < 5; y++) for (int x = 0; x < 5; x++)
+                for (int y = 0; y < 3; y++) for (int x = 0; x < 3; x++)
                 {
-                    int a = start + y * 6 + x, b = a + 1, c = a + 6, d = c + 1;
+                    int a = start + y * 4 + x, b = a + 1, c = a + 4, d = c + 1;
                     triangles.Add(a); triangles.Add(b); triangles.Add(d);
                     triangles.Add(a); triangles.Add(d); triangles.Add(c);
                 }
             }
             var mesh = new Mesh { name = (tapered ? "Toy sloped armor " : "Toy bevel ") + size };
             mesh.SetVertices(vertices); mesh.SetNormals(normals); mesh.SetTriangles(triangles, 0);
-            mesh.RecalculateBounds(); mesh.UploadMeshData(true);
+            // Keep shared geometry readable for per-building batching. One bevel strip
+            // retains rounded highlights with 108 triangles instead of 300 per box.
+            mesh.RecalculateBounds();
             boxes.Add(key, mesh);
             return mesh;
         }
 
         private static Vector3 Abs(Vector3 p) => new Vector3(Mathf.Abs(p.x), Mathf.Abs(p.y), Mathf.Abs(p.z));
-        private static float[] Grid(float half, float radius) => new[] { -half, -half + radius * .293f, -half + radius, half - radius, half - radius * .293f, half };
+        private static float[] Grid(float half, float radius) => new[] { -half, -half + radius, half - radius, half };
         public void Dispose() { foreach (var mesh in boxes.Values) Object.Destroy(mesh); boxes.Clear(); if (head != null) Object.Destroy(head); }
     }
 }
