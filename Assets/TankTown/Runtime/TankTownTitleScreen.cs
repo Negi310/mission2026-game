@@ -53,7 +53,7 @@ namespace TankTown
             menu.Label(tutorial.transform, "Tutorial subtitle", "自動で前進する戦車で、1分間の破壊チャレンジ！", new Vector2(46, -89), new Vector2(1090, 34), 24, Color.white);
             Step(tutorial.transform, 42, "01", "ハンドルで曲がる", "A / D  または  ← / →\n戦車は、ずっと前に進むよ。\n大きなビルへの激突に注意！", Cyan);
             Step(tutorial.transform, 421, "02", "たたいて、発射！", "SPACE / J / K で砲撃\n向いている方へ弾が飛ぶよ。\n赤い燃料タンクで連鎖爆破！", Lime);
-            Step(tutorial.transform, 800, "03", "くずして、集める", "ビルをこわすとアイテム落下！\nビルの色とアイテムが同じ。\n小さなパワーアップも拾おう！", new Color(1, .54f, .24f));
+            Step(tutorial.transform, 800, "03", "全壊したら、光る円へ", "ビルを全壊すると光る円が出現！\n円に入るとスペシャルGET。\nビルの色がアイテムの目印！", new Color(1, .54f, .24f));
             var specials = menu.Panel(tutorial.transform, "Tutorial specials", new Vector2(42, -386), new Vector2(1096, 187), new Color(.08f, .22f, .29f));
             menu.Label(specials.transform, "Tutorial item heading", "スペシャルの使いかた", new Vector2(24, -13), new Vector2(1048, 34), 25, Color.white);
             AddItems(specials.transform, 104, 58, 164, 59);

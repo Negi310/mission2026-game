@@ -83,18 +83,18 @@ namespace TankTown
             for (int i = 0; i < 4; i++) game.World.Explosives[i].gameObject.SetActive(true);
             var center = building.transform.position;
             View(game, center + new Vector3(27, 23, -32), center + Vector3.up * 10);
-            Capture("city-07-rooftop", false);
+            Capture("city-07-before-collapse", false);
             var barrel = game.World.Explosives[0]; game.Blast(barrel.transform.position, .8f, 0);
             yield return new WaitForSeconds(.32f); Capture("city-08-chain");
             yield return new WaitForSeconds(.4f);
-            foreach (var support in building.Blocks.FindAll(x => x != null && x.Foundation && x.Column < 2)) support.Break(support.transform.position, 0);
+            foreach (var support in building.Blocks.FindAll(x => x != null && x.Foundation)) support.Break(support.transform.position, 0);
             building.ReleaseUnsupported(center, 0);
-            yield return new WaitForSeconds(.35f); Capture("city-09-falling-special", false);
+            yield return new WaitForSeconds(.35f); Capture("city-09-special-area", false);
             yield return new WaitForSeconds(3.8f);
             View(game, reward.transform.position + new Vector3(9, 5, -11), reward.transform.position + Vector3.up);
             Capture("city-10-ground-special", false);
             float groundGap = reward.transform.position.y - game.World.Terrain.HeightAt(reward.transform.position);
-            if (!reward.Available || groundGap > 1.2f) { Debug.LogError($"CITY SMOKE: reward did not land unlocked, groundGap={groundGap}"); Application.Quit(1); yield break; }
+            if (!reward.Available || reward.Area == null || groundGap > 1.2f) { Debug.LogError($"CITY SMOKE: full destruction did not reveal the reward area, groundGap={groundGap}"); Application.Quit(1); yield break; }
             body.isKinematic = false; game.Tank.Warp(new Pose(reward.transform.position, Quaternion.identity)); game.Tank.enabled = true;
             game.CameraRig.enabled = true; game.CameraRig.Snap();
             yield return new WaitForSeconds(.4f); Capture("city-11-collected");

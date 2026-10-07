@@ -284,7 +284,7 @@ namespace TankTown.Tests
             }
             yield return null;
             Assert.That(Object.FindObjectsByType<FlyingDebris>(FindObjectsSortMode.None).Length, Is.EqualTo(game.Settings.maxDebris));
-            Assert.That(game.World.Buildings.Take(5).All(x => x.DestroyedFraction >= game.Settings.buildingRewardThreshold), Is.True);
+            Assert.That(game.World.Buildings.Take(5).All(x => x.FullyDestroyed), Is.True);
             Assert.That(game.BrokenBlocks, Is.LessThanOrEqualTo(game.TotalBlocks));
         }
     }

@@ -10,80 +10,71 @@ namespace TankTown
         public ItemKind Kind { get; private set; }
         public bool Collected { get; private set; }
         public BlockBuilding SourceBuilding { get; private set; }
-        public DestructibleBlock SupportingFloor { get; private set; }
         public Rigidbody DropBody { get; private set; }
         public bool Released { get; private set; }
-        public bool Available => SourceBuilding == null || (Released && SourceBuilding.DestroyedFraction >= game.Settings.buildingRewardThreshold);
+        public bool Available => !Collected && (SourceBuilding == null || Released);
+        internal SpecialItemArea Area { get; private set; }
         private TankTownGame game;
         private Transform icon;
         private SphereCollider solid;
-        private TrailRenderer dropTrail;
-        private bool unlockShown;
+        private SphereCollider trigger;
         private bool attracted;
         private float attractUntil;
         private Renderer visual;
-        public void Initialize(TankTownGame owner, ItemKind kind, Material material, BlockBuilding building = null, DestructibleBlock floor = null)
+        public void Initialize(TankTownGame owner, ItemKind kind, Material material, BlockBuilding building = null)
         {
-            game = owner; Kind = kind; SourceBuilding = building; SupportingFloor = floor;
+            game = owner; Kind = kind; SourceBuilding = building;
             gameObject.layer = TownPhysics.RewardLayer;
-            var trigger = gameObject.AddComponent<SphereCollider>();
+            trigger = gameObject.AddComponent<SphereCollider>();
             trigger.isTrigger = true; trigger.radius = 2.2f;
-            if (building != null)
-            {
-                solid = gameObject.AddComponent<SphereCollider>(); solid.radius = .65f;
-                DropBody = gameObject.AddComponent<Rigidbody>();
-                DropBody.mass = .5f; DropBody.isKinematic = true;
-                DropBody.interpolation = RigidbodyInterpolation.Interpolate;
-                DropBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
-                DropBody.constraints = RigidbodyConstraints.FreezeRotation;
-            }
+            trigger.enabled = building == null;
             var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
             quad.name = "Special item billboard";
             quad.layer = TownPhysics.RewardLayer;
             quad.GetComponent<Collider>().enabled = false; Destroy(quad.GetComponent<Collider>());
             quad.transform.SetParent(transform, false);
-            quad.transform.localPosition = Vector3.up * (building == null ? 2 : 1.2f);
-            quad.transform.localScale = Vector3.one * 3.6f;
+            quad.transform.localPosition = Vector3.up * 2.2f;
+            quad.transform.localScale = Vector3.one * (building == null ? 3.6f : 5.2f);
             quad.GetComponent<Renderer>().sharedMaterial = material;
             quad.GetComponent<Renderer>().shadowCastingMode = ShadowCastingMode.Off;
             quad.GetComponent<Renderer>().receiveShadows = false;
             visual = quad.GetComponent<Renderer>();
+            visual.enabled = building == null;
             icon = quad.transform;
         }
-        private void Start()
+
+        internal void SpawnArea()
         {
-            // Keep the pickup trigger working, while its physical body passes through the tank.
-            if (solid != null && game.Tank != null) Physics.IgnoreCollision(solid, game.Tank.HullCollider, true);
+            if (Released || Collected || game == null || !game.IsPlaying || !isActiveAndEnabled || SourceBuilding == null || !SourceBuilding.FullyDestroyed) return;
+            Released = true;
+            transform.position = game.World.GroundPoint(SourceBuilding.transform.position, .75f);
+            solid = gameObject.AddComponent<SphereCollider>(); solid.radius = .65f; solid.enabled = false;
+            DropBody = gameObject.AddComponent<Rigidbody>();
+            DropBody.mass = .5f; DropBody.isKinematic = true;
+            DropBody.interpolation = RigidbodyInterpolation.Interpolate;
+            DropBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            DropBody.constraints = RigidbodyConstraints.FreezeRotation;
+            Physics.IgnoreCollision(solid, game.Tank.HullCollider, true);
+            var root = new GameObject("Special item collection area"); root.transform.SetParent(game.World.transform, false);
+            Area = root.AddComponent<SpecialItemArea>(); Area.Initialize(game, this, SourceBuilding);
+            visual.enabled = true;
+            game.Effects.Pickup(transform.position, ItemIcons.Color(Kind));
         }
         private void FixedUpdate()
         {
+            if (game == null || !game.IsPlaying || !Available) return;
             if (attracted && Time.time > attractUntil) StopAttracting();
-            if (dropTrail != null) dropTrail.emitting = !Collected && game.IsPlaying && DropBody.linearVelocity.sqrMagnitude > 1;
-            if (SourceBuilding == null || Released || !game.IsPlaying) return;
-            if (SupportingFloor != null && !SupportingFloor.Detached && SourceBuilding.DestroyedFraction < game.Settings.buildingRewardThreshold) return;
-            Released = true;
-            DropBody.isKinematic = false;
-            DropBody.WakeUp();
-            dropTrail = gameObject.AddComponent<TrailRenderer>();
-            dropTrail.sharedMaterial = game.Effects.Glow; dropTrail.time = .4f;
-            dropTrail.startWidth = .35f; dropTrail.endWidth = 0;
-            dropTrail.startColor = ItemIcons.Color(Kind); dropTrail.endColor = new Color(1, 1, 1, 0);
-            dropTrail.shadowCastingMode = ShadowCastingMode.Off;
         }
         private void LateUpdate()
         {
+            if (!Available) return;
             var camera = game.CameraRig;
             if (Collected || camera == null) return;
             if (visual.isVisible)
             {
-                icon.localPosition = Vector3.up * ((SourceBuilding == null ? 2 : 1.2f) + Mathf.Sin(Time.time * 2.5f + transform.position.x) * .2f);
+                icon.localPosition = Vector3.up * (2.2f + Mathf.Sin(Time.time * 2.5f + transform.position.x) * .2f);
             }
             icon.rotation = camera.transform.rotation;
-            if (!unlockShown && SourceBuilding != null && Available)
-            {
-                unlockShown = true;
-                game.Effects.Pickup(transform.position, ItemIcons.Color(Kind));
-            }
         }
         private void OnTriggerEnter(Collider other) => Touch(other);
         private void OnTriggerStay(Collider other) => Touch(other);
@@ -93,8 +84,11 @@ namespace TankTown
         }
         public bool Collect()
         {
-            if (Collected || !Available || !game.IsPlaying || game.Tank.Relocating || !game.Items.Receive(Kind)) return false;
+            if (!isActiveAndEnabled || Collected || !Available || !game.IsPlaying || game.Tank.Relocating) return false;
+            if (Area != null && (!Area.gameObject.activeInHierarchy || !Area.Contains(game.Tank.transform.position))) return false;
+            if (!game.Items.Receive(Kind)) return false;
             Collected = true;
+            RemoveArea();
             game.Effects.Pickup(transform.position + Vector3.up, ItemIcons.Color(Kind));
             game.PlayTone(620, .2f, .2f);
             game.ReportSpecial(Kind);
@@ -103,26 +97,44 @@ namespace TankTown
         }
         public void Attract(Vector3 target, float speed)
         {
-            if (Collected || !Available || !game.IsPlaying || game.Tank.Respawning || game.Tank.Relocating) return;
-            // Float freed rewards through the rubble instead of fighting their fall velocity.
-            if (DropBody != null && !attracted)
+            if (!isActiveAndEnabled || Collected || !Available || !game.IsPlaying || game.Tank.Respawning || game.Tank.Relocating) return;
+            // The area remains anchored to the original plot while only its icon moves.
+            if (!attracted)
             {
-                DropBody.linearVelocity = Vector3.zero; DropBody.angularVelocity = Vector3.zero;
-                DropBody.isKinematic = true; solid.enabled = false; attracted = true;
+                if (DropBody != null)
+                {
+                    if (!DropBody.isKinematic) { DropBody.linearVelocity = Vector3.zero; DropBody.angularVelocity = Vector3.zero; }
+                    DropBody.isKinematic = true; solid.enabled = false;
+                }
+                attracted = true;
             }
             attractUntil = Time.time + .08f;
             Vector3 point = Vector3.MoveTowards(transform.position, target, speed * Time.deltaTime);
             if (DropBody != null) DropBody.position = point;
             transform.position = point;
+            if (Area != null && !Area.ContainsHorizontal(point)) RemoveArea();
             if ((point - target).sqrMagnitude < 2.9f) Collect();
         }
         private void StopAttracting()
         {
             if (!attracted) return;
-            attracted = false; solid.enabled = true;
-            if (Released) { DropBody.isKinematic = false; DropBody.WakeUp(); }
+            attracted = false;
+            if (DropBody != null && Area == null) { solid.enabled = true; DropBody.isKinematic = false; DropBody.WakeUp(); }
         }
-        private void OnDisable() => StopAttracting();
+        private void RemoveArea()
+        {
+            if (Area == null) return;
+            var previous = Area; Area = null; previous.gameObject.SetActive(false); Destroy(previous.gameObject);
+            if (trigger != null) trigger.enabled = !Collected;
+        }
+        private void OnEnable()
+        {
+            if (game == null) return;
+            if (Area != null) Area.gameObject.SetActive(true);
+            else SpawnArea();
+        }
+        private void OnDisable() { StopAttracting(); if (Area != null) Area.gameObject.SetActive(false); }
+        private void OnDestroy() => RemoveArea();
     }
 
     public sealed class ItemIcons

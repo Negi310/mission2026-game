@@ -131,7 +131,8 @@ namespace TankTown.Tests
                 Assert.That(building.FacadeColor, Is.EqualTo(ItemIcons.Color(building.Reward.Kind)));
                 foreach (var wall in building.Blocks.Where(b => b.Kind == BuildingPart.Wall))
                     Assert.That(((Vector4)wall.GetComponent<Renderer>().sharedMaterial.GetColor("_BaseColor") - (Vector4)building.FacadeColor).sqrMagnitude, Is.LessThan(.000001f));
-                Assert.That(building.Reward.SupportingFloor.Level, Is.EqualTo(building.Floors - 1));
+                Assert.That(building.Reward.transform.position, Is.EqualTo(game.World.GroundPoint(building.transform.position, .75f)));
+                Assert.That(building.Reward.Area, Is.Null);
                 Assert.That(building.Reward.Available, Is.False);
             }
             yield return null;

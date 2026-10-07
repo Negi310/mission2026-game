@@ -382,11 +382,10 @@ namespace TankTown
             var kind = building.RewardKind;
             var item = new GameObject(ItemIcons.Label(kind));
             item.transform.SetParent(transform, false);
-            // The upper slab really supports this reward; it is never spawned at ground level.
-            var floor = building.Blocks.Find(x => x.Kind == BuildingPart.Slab && x.Level == building.Floors - 1 && x.Column == 0);
-            item.transform.position = building.transform.position + new Vector3(-building.Width * .27f, building.Floors * game.Settings.floorHeight + .85f, -building.Width * .27f);
+            // Remain hidden until every structural part is detached, then mark the plot centre.
+            item.transform.position = GroundPoint(building.transform.position, .75f);
             var pickup = item.AddComponent<ItemPickup>();
-            pickup.Initialize(game, kind, SpecialIcons.Material(kind), building, floor);
+            pickup.Initialize(game, kind, SpecialIcons.Material(kind), building);
             building.Reward = pickup;
             ItemPickups.Add(pickup);
         }

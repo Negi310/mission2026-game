@@ -15,6 +15,7 @@ namespace TankTown
         public int DetachedParts { get; private set; }
         internal int DamageRevision { get; private set; }
         public float DestroyedFraction => Blocks.Count == 0 ? 0 : (float)DetachedParts / Blocks.Count;
+        public bool FullyDestroyed => Blocks.Count > 0 && DetachedParts >= Blocks.Count;
         public ItemPickup Reward { get; set; }
         internal TownBuildingVisual Presentation;
         public int CollapsedFromLevel { get; private set; } = int.MaxValue;
@@ -24,7 +25,11 @@ namespace TankTown
         private readonly Queue<DestructibleBlock> queue = new Queue<DestructibleBlock>();
         private readonly List<Vector2> feet = new List<Vector2>(), hull = new List<Vector2>();
         public void Initialize(TankTownGame owner) => game = owner;
-        internal void RegisterDetached() => DetachedParts++;
+        internal void RegisterDetached()
+        {
+            DetachedParts++;
+            if (FullyDestroyed) Reward?.SpawnArea();
+        }
         internal void RegisterDamage() => DamageRevision++;
 
         public void ReleaseUnsupported(Vector3 origin, float impulse)

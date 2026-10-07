@@ -301,7 +301,7 @@ namespace TankTown
             if (shown != ItemKind.None) heldIcon.sprite = game.World.SpecialIcons.Sprite(shown);
             heldName.text = shown != ItemKind.None ? ItemIcons.Label(shown) : "ほしい色のビルへ！";
             heldName.fontSize = shown == ItemKind.Bulldozer ? 19 : shown == ItemKind.None ? 18 : 22;
-            heldHint.text = game.Items.Held != ItemKind.None ? game.Items.Weapon == ItemKind.None ? "SPACE でつかう" : "次の砲撃でつかう" : shown != ItemKind.None ? "発動中！" : "くずしてスペシャルGET";
+            heldHint.text = game.Items.Held != ItemKind.None ? game.Items.Weapon == ItemKind.None ? "SPACE でつかう" : "次の砲撃でつかう" : shown != ItemKind.None ? "発動中！" : "全壊→光る円でGET";
             activeItems.text = game.Items.ActiveSummary;
             activePanel.SetActive(activeItems.text.Length > 0);
         }

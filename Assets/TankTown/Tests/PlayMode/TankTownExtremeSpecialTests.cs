@@ -87,7 +87,7 @@ namespace TankTown.Tests
             Assert.That(far.Collected, Is.False); Assert.That(far.transform.position, Is.EqualTo(farPosition));
         }
         [UnityTest]
-        public IEnumerator MagnetKeepsBuildingUnlockRulesAndRestoresDroppedRewardPhysicsWithAFullSlot()
+        public IEnumerator MagnetKeepsFullDestructionRulesAndRestoresExtractedRewardPhysicsWithAFullSlot()
         {
             var locked = game.World.Buildings[0].Reward; locked.gameObject.SetActive(true);
             Vector3 lockedPosition = locked.transform.position;
@@ -97,10 +97,12 @@ namespace TankTown.Tests
             building.ReleaseUnsupported(building.transform.position, 0); yield return new WaitForFixedUpdate();
             Assert.That(reward.Available, Is.True);
             reward.DropBody.position = game.Tank.transform.position + Vector3.right * 30 + Vector3.up * 12;
+            reward.transform.position = reward.DropBody.position;
             game.Items.Receive(ItemKind.GigantBomb); game.Items.Receive(ItemKind.Magnet);
             yield return new WaitForSeconds(.4f);
             Assert.That(reward.Collected, Is.False, "A full slot must not discard the reward");
             Assert.That(reward.DropBody.isKinematic, Is.True);
+            Assert.That(reward.Area, Is.Null);
             Assert.That(Vector3.Distance(reward.transform.position, game.Tank.transform.position), Is.LessThan(3));
             Assert.That(locked.Available, Is.False); Assert.That(locked.transform.position, Is.EqualTo(lockedPosition));
             game.Items.OnTankCrash(); yield return new WaitForSeconds(.15f);

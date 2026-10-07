@@ -74,7 +74,9 @@ MonoBehaviour:
   radiusUpgrade: 0.07
   rapidUpgrade: 0.16
   handlingUpgrade: 0.06
-  buildingRewardThreshold: 0.6
+  specialAreaMinRadius: 7
+  specialAreaWidthRatio: 0.65
+  specialAreaLightHeight: 3.8
   megaBeamSeconds: 2
   megaBeamLength: 400
   megaBeamRadius: 9

@@ -11,6 +11,7 @@ namespace TankTown
         private Mesh ring, burst;
         private TankTownSettings settings;
         public Material Glow => glow;
+        internal Material RewardAreaLight { get; private set; }
         private void Awake()
         {
             settings = GetComponent<TankTownGame>()?.Settings;
@@ -24,6 +25,7 @@ namespace TankTown
             softDot.SetPixels(pixels); softDot.Apply(false, true);
             glow = new Material(Shader.Find("TankTown/Arcade Glow")) { mainTexture = softDot };
             smoke = new Material(Shader.Find("TankTown/Arcade Smoke")) { mainTexture = softDot };
+            RewardAreaLight = new Material(Shader.Find("TankTown/Reward Area"));
             for (int i = 0; i < fireColors.Length; i++)
             {
                 fireColors[i] = new Material(Shader.Find("TankTown/Explosion Fire"));
@@ -244,6 +246,7 @@ namespace TankTown
         private void OnDestroy()
         {
             Destroy(glow); Destroy(smoke); Destroy(softDot); Destroy(ring); Destroy(burst);
+            Destroy(RewardAreaLight);
             foreach (var material in fireColors) Destroy(material);
         }
     }

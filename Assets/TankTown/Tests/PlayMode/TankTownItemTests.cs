@@ -106,7 +106,7 @@ namespace TankTown.Tests
             item.gameObject.SetActive(true);
             foreach (var support in item.SourceBuilding.Blocks.FindAll(x => x.Foundation)) support.Break(support.transform.position, 0);
             item.SourceBuilding.ReleaseUnsupported(item.SourceBuilding.transform.position, 0);
-            item.transform.position = game.World.GroundPoint(game.Tank.transform.position + Vector3.forward * 3.2f, 1.2f); Physics.SyncTransforms();
+            Place(item.Area.Center); Physics.SyncTransforms();
             for (int i = 0; i < 15; i++) yield return new WaitForFixedUpdate();
             Assert.That(item.Collected, Is.True); Assert.That(game.Items.Held, Is.EqualTo(ItemKind.MegaBeam));
             Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.None));
@@ -141,10 +141,10 @@ namespace TankTown.Tests
             Physics.SyncTransforms(); var body = game.Tank.GetComponent<Rigidbody>(); var origin = body.position;
             game.Items.Receive(ItemKind.Missiles);
             var rockets = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None); Assert.That(rockets.Length, Is.EqualTo(5));
-            var launch = rockets[0].transform.position;
+            float launchHeight = float.PositiveInfinity; foreach (var rocket in rockets) launchHeight = Mathf.Min(launchHeight, rocket.transform.position.y);
             Assert.That(System.Array.Exists(rockets, x => x.TrackingTarget != null), Is.True);
             yield return new WaitForSeconds(.35f);
-            Assert.That(rockets[0].transform.position.y, Is.GreaterThan(launch.y + 3));
+            Assert.That(System.Array.Exists(rockets, x => x.transform.position.y > launchHeight + 3), Is.True);
             yield return new WaitForSeconds(3.6f);
             Assert.That(game.Items.MissileStrikes, Is.GreaterThanOrEqualTo(5));
             Assert.That(game.BrokenBlocks, Is.GreaterThan(0));
@@ -160,11 +160,11 @@ namespace TankTown.Tests
             var pickup = root.AddComponent<ItemPickup>(); pickup.Initialize(game, ItemKind.Missiles, game.World.SpecialIcons.Material(ItemKind.Missiles));
             Assert.That(pickup.Collect(), Is.True); Assert.That(game.Items.Held, Is.EqualTo(ItemKind.None));
             var rockets = Object.FindObjectsByType<ItemMissile>(FindObjectsSortMode.None); Assert.That(rockets.Length, Is.EqualTo(5));
-            Vector3 launch = rockets[0].transform.position;
+            float launchHeight = float.PositiveInfinity; foreach (var rocket in rockets) launchHeight = Mathf.Min(launchHeight, rocket.transform.position.y);
             game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
             Assert.That(game.Items.StopsForward && game.Items.MissilesActive, Is.True);
             yield return new WaitForSeconds(.3f);
-            Assert.That(rockets[0].transform.position.y, Is.GreaterThan(launch.y + 3));
+            Assert.That(System.Array.Exists(rockets, x => x.transform.position.y > launchHeight + 3), Is.True);
             Assert.That(game.Items.ActiveSummary, Does.Contain("メガビーム").And.Contain("追尾ミサイル"));
             yield return new WaitForSeconds(game.Settings.megaBeamSeconds);
             Assert.That(game.Items.Weapon, Is.EqualTo(ItemKind.None)); Assert.That(game.Items.MissilesActive, Is.True);

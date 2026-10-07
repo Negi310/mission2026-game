@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -38,8 +39,13 @@ namespace TankTown.Tests
 
         private void Collapse(BlockBuilding building)
         {
-            foreach (var support in building.Blocks.FindAll(x => x != null && x.Foundation && x.Column < 2)) support.Break(support.transform.position, 0);
+            foreach (var support in building.Blocks.Where(x => x != null && x.Foundation).ToArray()) support.Break(support.transform.position, 0);
             building.ReleaseUnsupported(building.transform.position, 0);
+        }
+        private void MoveTank(Vector3 point)
+        {
+            var body = game.Tank.GetComponent<Rigidbody>(); body.position = game.World.GroundPoint(point, game.Settings.rideHeight);
+            game.Tank.transform.position = body.position; Physics.SyncTransforms();
         }
 
         [UnityTest]
@@ -78,7 +84,7 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator EveryBuildingHasAnUpperFloorRewardAndAllSixKindsExist()
+        public IEnumerator EveryBuildingHasAHiddenGroundCentreRewardAndAllSixKindsExist()
         {
             Assert.That(game.World.ItemPickups.Count, Is.EqualTo(game.World.Buildings.Count));
             for (int i = 0; i < 6; i++) Assert.That(game.World.ItemPickups.Exists(x => x.Kind == (ItemKind)i), Is.True);
@@ -86,49 +92,85 @@ namespace TankTown.Tests
             {
                 var reward = building.Reward;
                 Assert.That(reward.SourceBuilding, Is.EqualTo(building));
-                Assert.That(reward.SupportingFloor.Kind, Is.EqualTo(BuildingPart.Slab));
-                Assert.That(reward.SupportingFloor.Level, Is.EqualTo(building.Floors - 1));
-                Assert.That(reward.transform.position.y - building.transform.position.y, Is.GreaterThan(building.Floors * game.Settings.floorHeight));
-                Assert.That(reward.Available, Is.False); Assert.That(reward.DropBody.isKinematic, Is.True);
+                Assert.That(reward.transform.position, Is.EqualTo(game.World.GroundPoint(building.transform.position, .75f)));
+                Assert.That(reward.GetComponentsInChildren<Renderer>().All(x => !x.enabled), Is.True);
+                Assert.That(reward.Available, Is.False); Assert.That(reward.DropBody, Is.Null); Assert.That(reward.Area, Is.Null);
                 Assert.That(reward.Collect(), Is.False);
             }
             yield return null;
         }
 
         [UnityTest]
-        public IEnumerator BreakingOnlyTheRewardFloorMakesItFallButDoesNotUnlockIt()
+        public IEnumerator BreakingTheRoofAndSomeWallsNeverSpawnsAnArea()
         {
             StartIsolated(); var reward = game.World.Buildings[0].Reward; reward.gameObject.SetActive(true);
-            float height = reward.transform.position.y;
-            reward.SupportingFloor.Break(reward.SupportingFloor.transform.position, 0);
+            var building = reward.SourceBuilding; Vector3 position = reward.transform.position;
+            var roof = building.Blocks.First(x => x.Kind == BuildingPart.Slab && x.Level == building.Floors - 1);
+            roof.Break(roof.transform.position, 0);
+            var wall = building.Blocks.First(x => x.Kind == BuildingPart.Wall); wall.Break(wall.transform.position, 0);
             for (int i = 0; i < 20; i++) yield return new WaitForFixedUpdate();
-            Assert.That(reward.Released, Is.True); Assert.That(reward.DropBody.isKinematic, Is.False);
-            Assert.That(reward.transform.position.y, Is.LessThan(height - .1f));
+            Assert.That(reward.Released, Is.False); Assert.That(reward.DropBody, Is.Null); Assert.That(reward.Area, Is.Null);
+            Assert.That(reward.transform.position, Is.EqualTo(position));
             Assert.That(reward.Available, Is.False); Assert.That(reward.Collect(), Is.False);
             Assert.That(game.Items.Held, Is.EqualTo(ItemKind.None));
         }
 
         [UnityTest]
-        public IEnumerator MajorCollapseDropsTheActualRewardToTheGroundAndTankContactCollectsIt()
+        public IEnumerator FullDestructionSpawnsTheGroundAreaAndEnteringItsEdgeCollectsIt()
         {
             StartIsolated(); var building = game.World.Buildings[0]; var reward = building.Reward;
             reward.gameObject.SetActive(true); var original = reward.transform.position;
             Collapse(building);
-            Assert.That(building.DestroyedFraction, Is.GreaterThanOrEqualTo(game.Settings.buildingRewardThreshold));
-            for (int i = 0; i < 180; i++) yield return new WaitForFixedUpdate();
-            Assert.That(reward.Available, Is.True); Assert.That(reward.DropBody.isKinematic, Is.False);
-            float ground = game.World.Terrain.HeightAt(reward.transform.position);
-            Assert.That(reward.transform.position.y, Is.InRange(ground + .5f, ground + .85f));
-            Assert.That(new Vector2(reward.transform.position.x - original.x, reward.transform.position.z - original.z).magnitude, Is.LessThan(.2f));
+            Assert.That(building.FullyDestroyed, Is.True);
+            Assert.That(reward.Available, Is.True); Assert.That(reward.DropBody.isKinematic, Is.True);
+            Assert.That(reward.transform.position, Is.EqualTo(original)); Assert.That(reward.Area, Is.Not.Null);
+            var area = reward.Area;
+            Assert.That(area.Center, Is.EqualTo(game.World.GroundPoint(building.transform.position)));
+            Assert.That(area.Radius, Is.GreaterThanOrEqualTo(7));
             Assert.That(reward.Collected, Is.False);
-            var body = game.Tank.GetComponent<Rigidbody>();
-            body.position = game.World.GroundPoint(reward.transform.position, game.Settings.rideHeight);
-            game.Tank.transform.position = body.position; Physics.SyncTransforms();
+            MoveTank(area.Center + Vector3.right * (area.Radius * 1.04f));
+            yield return new WaitForFixedUpdate(); Assert.That(reward.Collected, Is.False, "Overlapping the outer edge with the hull is not entering the circle");
+            MoveTank(area.Center + Vector3.right * (area.Radius * .85f));
             yield return new WaitForFixedUpdate(); yield return null;
             Assert.That(reward.Collected, Is.True);
             if (ItemIcons.Automatic(reward.Kind)) Assert.That(game.Items.Remaining(reward.Kind), Is.GreaterThan(0));
             else Assert.That(game.Items.Held, Is.EqualTo(reward.Kind));
             Assert.That(reward.gameObject.activeSelf, Is.False);
+            Assert.That(reward.Area, Is.Null); Assert.That(area == null || !area.gameObject.activeSelf, Is.True);
+        }
+        [UnityTest]
+        public IEnumerator MagnetMovesOnlyTheItemAndRemovesTheAreaExactlyWhenItLeavesTheCircle()
+        {
+            StartIsolated(); var building = game.World.Buildings.First(x => x.Reward.Kind == ItemKind.MegaBeam);
+            var reward = building.Reward; reward.gameObject.SetActive(true); Collapse(building);
+            var area = reward.Area; Vector3 center = area.Center;
+            MoveTank(center + Vector3.right * (area.Radius * 1.8f));
+            game.Items.Receive(ItemKind.GigantBomb); // Keep the extracted item observable rather than consuming it.
+            yield return null; // The newly started round needs a scaled frame before attraction moves.
+            reward.Attract(game.Tank.transform.position + Vector3.up, 10);
+            Assert.That(reward.Area, Is.SameAs(area)); Assert.That(area.Center, Is.EqualTo(center));
+            Assert.That(reward.transform.position.x, Is.GreaterThan(center.x));
+            for (int i = 0; i < 40 && reward.Area != null; i++) reward.Attract(game.Tank.transform.position + Vector3.up, 120);
+            Assert.That(reward.Area, Is.Null); Assert.That(area.gameObject.activeSelf, Is.False);
+            Assert.That(reward.Collected, Is.False); Assert.That(reward.gameObject.activeSelf, Is.True);
+            Assert.That(Vector2.Distance(new Vector2(reward.transform.position.x, reward.transform.position.z), new Vector2(center.x, center.z)), Is.GreaterThan(area.Radius));
+            yield return new WaitForSeconds(.15f);
+            Assert.That(reward.DropBody.isKinematic, Is.False, "An extracted item survives cancelled attraction and resumes ground collision");
+        }
+        [UnityTest]
+        public IEnumerator OneRemainingPartKeepsTheRewardLockedAndTheLastPartSpawnsOnlyOneArea()
+        {
+            StartIsolated(); var building = game.World.Buildings[0]; var reward = building.Reward;
+            reward.gameObject.SetActive(true); var last = building.Blocks.First(x => x.Foundation);
+            foreach (var block in building.Blocks.Where(x => x != last).ToArray()) block.Break(block.transform.position, 0);
+            Assert.That(building.DestroyedFraction, Is.GreaterThan(.9f)); Assert.That(building.FullyDestroyed, Is.False);
+            Assert.That(reward.Available, Is.False); Assert.That(reward.Area, Is.Null);
+            last.Break(last.transform.position, 0); var area = reward.Area;
+            Assert.That(area, Is.Not.Null); Assert.That(building.FullyDestroyed, Is.True);
+            last.Break(last.transform.position, 0); reward.SpawnArea();
+            Assert.That(reward.Area, Is.SameAs(area));
+            Assert.That(Object.FindObjectsByType<SpecialItemArea>(FindObjectsSortMode.None).Length, Is.EqualTo(1));
+            yield return null;
         }
 
         [UnityTest]
@@ -145,9 +187,10 @@ namespace TankTown.Tests
                 Collapse(first);
                 foreach (var building in game.World.Buildings.GetRange(0, 5)) Collapse(building);
                 yield return new WaitForFixedUpdate(); yield return null;
-                Assert.That(first.DestroyedFraction, Is.GreaterThanOrEqualTo(game.Settings.buildingRewardThreshold));
+                Assert.That(first.FullyDestroyed, Is.True);
                 Assert.That(first.Blocks.Exists(x => x == null), Is.True, "Old debris must actually have been evicted");
                 Assert.That(reward.Available, Is.True);
+                MoveTank(reward.Area.Center);
                 Assert.That(game.Items.Receive(ItemKind.GigantBomb), Is.True);
                 Assert.That(reward.Collect(), Is.False); Assert.That(reward.Collected, Is.False);
                 Assert.That(reward.gameObject.activeSelf, Is.True);
