@@ -65,18 +65,12 @@ namespace TankTown
             gameplayRect.offsetMin = gameplayRect.offsetMax = Vector2.zero;
             var hud = gameplay.transform;
 
-            var tankWord = Label(hud, "TANK", new Vector2(28, -17), new Vector2(143, 65), 43, new Color(1, .75f, .08f));
-            var townWord = Label(hud, "TOWN", new Vector2(172, -17), new Vector2(165, 65), 43, new Color(.08f, .83f, 1));
-            tankWord.fontStyle = townWord.fontStyle = FontStyle.Bold;
-            tankWord.font = townWord.font = displayFont;
-            tankWord.fontSize = townWord.fontSize = 37;
-            TextOutline(tankWord, ink, 3); TextOutline(townWord, ink, 3);
             var clock = Panel("Clock", hud, new Vector2(-28, -26), new Vector2(190, 83), ink, true);
             style.Card(clock, new Color(.83f, .93f, 1));
             timer = Label(clock.transform, "01:00", new Vector2(18, -4), new Vector2(162, 48), 38, Color.white);
             timer.fontStyle = FontStyle.Bold;
             Label(clock.transform, "のこり時間", new Vector2(26, -53), new Vector2(158, 24), 16, yellow);
-            var progress = Panel("Destruction", hud, new Vector2(28, -89), new Vector2(310, 89), new Color(.98f, .97f, .9f, .98f));
+            var progress = Panel("Destruction", hud, new Vector2(28, -26), new Vector2(310, 89), new Color(.98f, .97f, .9f, .98f));
             style.Card(progress, ink);
             var scoreLabel = Label(progress.transform, "破壊度", new Vector2(16, -14), new Vector2(98, 35), 25, ink);
             scoreLabel.fontStyle = FontStyle.Bold;
@@ -85,7 +79,7 @@ namespace TankTown
             score.fontStyle = FontStyle.Bold;
             var track = Panel("Progress track", progress.transform, new Vector2(16, -61), new Vector2(278, 14), new Color(.76f, .8f, .68f));
             fill = Panel("Progress fill", track.transform, Vector2.zero, new Vector2(0, 14), new Color(.59f, .9f, .06f)).GetComponent<Image>();
-            var ranking = Panel("Live ranking", hud, new Vector2(28, -193), new Vector2(310, 105), ink);
+            var ranking = Panel("Live ranking", hud, new Vector2(28, -130), new Vector2(310, 105), ink);
             ranking.GetComponent<Image>().raycastTarget = false;
             style.Card(ranking, yellow);
             Label(ranking.transform, game.StageLabel + "・ランキング", new Vector2(12, -6), new Vector2(286, 24), 15, yellow);
@@ -299,7 +293,7 @@ namespace TankTown
             heldIcon.gameObject.SetActive(shown != ItemKind.None);
             emptyItem.gameObject.SetActive(shown == ItemKind.None);
             if (shown != ItemKind.None) heldIcon.sprite = game.World.SpecialIcons.Sprite(shown);
-            heldName.text = shown != ItemKind.None ? ItemIcons.Label(shown) : "ほしい色のビルへ！";
+            heldName.text = shown != ItemKind.None ? ItemIcons.Label(shown) : game.World.CandyTheme ? "ほしい色のお菓子へ！" : "ほしい色のビルへ！";
             heldName.fontSize = shown == ItemKind.Bulldozer ? 19 : shown == ItemKind.None ? 18 : 22;
             heldHint.text = game.Items.Held != ItemKind.None ? game.Items.Weapon == ItemKind.None ? "SPACE でつかう" : "次の砲撃でつかう" : shown != ItemKind.None ? "発動中！" : "全壊→光る円でGET";
             activeItems.text = game.Items.ActiveSummary;

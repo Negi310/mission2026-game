@@ -12,8 +12,8 @@ namespace TankTown
         private readonly GameObject title, howTo;
         private readonly Button start, tutorialPlay;
         private bool helpWasOpen;
-        private readonly Button[] stageButtons = new Button[2];
-        private readonly string[] stageLabels = new string[2];
+        private readonly Button[] stageButtons = new Button[3];
+        private readonly string[] stageLabels = new string[3];
         private TownStage paintedStage;
         private static Color Ink => TankTownMenuLayout.Ink;
         private static Color Lime => TankTownMenuLayout.Lime;
@@ -33,11 +33,12 @@ namespace TankTown
             menu.Label(card.transform, "Title catchphrase", "まちを、バラバラに！", new Vector2(34, -325), new Vector2(506, 50), 33, Color.white);
             menu.Label(card.transform, "Title description", "走る！ 撃つ！ 街がくずれる！\n1分で、どこまでこわせる？", new Vector2(36, -387), new Vector2(500, 77), 23, new Color(.79f, .91f, .96f));
             menu.Label(card.transform, "Stage heading", "あそぶ街をえらぼう", new Vector2(34, -470), new Vector2(502, 26), 19, Cyan);
-            StageButton(card.transform, TownStage.Town, "Town stage button", 34, "いつもの街  [1]\n268 × 268");
-            StageButton(card.transform, TownStage.BigCity, "Large stage button", 293, "大きな街  [2]\n面積４倍 / 536 × 536");
+            StageButton(card.transform, TownStage.Town, "Town stage button", 34, "いつもの街 [1]\n268 × 268");
+            StageButton(card.transform, TownStage.BigCity, "Large stage button", 205, "大きな街 [2]\n面積４倍");
+            StageButton(card.transform, TownStage.CandyTown, "Candy stage button", 376, "お菓子の街 [3]\nケーキ＆チョコ");
             start = menu.Button(card.transform, "Title play button", "あそぶ    →    SPACE", new Vector2(34, -579), new Vector2(502, 63), Lime, game.StartOrRestart);
             menu.Button(card.transform, "How to button", "あそびかた    H", new Vector2(34, -658), new Vector2(502, 48), new Color(.09f, .28f, .37f), game.ToggleHowTo);
-            menu.Label(card.transform, "Title input hint", "1 / 2 で街選択・SPACE でスタート", new Vector2(34, -712), new Vector2(502, 24), 15, new Color(.69f, .82f, .89f)).alignment = TextAnchor.MiddleCenter;
+            menu.Label(card.transform, "Title input hint", "1 / 2 / 3 で街選択・SPACE でスタート", new Vector2(34, -712), new Vector2(502, 24), 15, new Color(.69f, .82f, .89f)).alignment = TextAnchor.MiddleCenter;
             var city = menu.Panel(title.transform, "Overview caption", new Vector2(918, -48), new Vector2(464, 86), new Color(Ink.r, Ink.g, Ink.b, .82f));
             menu.Label(city.transform, "City caption heading", "つぎは、どこからこわす？", new Vector2(20, -12), new Vector2(424, 32), 24, Color.white).alignment = TextAnchor.MiddleCenter;
             menu.Label(city.transform, "City caption detail", "大きな街 / あそぶたびに、新しい街！", new Vector2(20, -47), new Vector2(424, 27), 18, Lime).alignment = TextAnchor.MiddleCenter;
@@ -92,9 +93,9 @@ namespace TankTown
         private void StageButton(Transform parent, TownStage stage, string name, float x, string label)
         {
             bool selected = game.Stage == stage;
-            var button = menu.Button(parent, name, (selected ? "✓ " : "") + label, new Vector2(x, -506), new Vector2(243, 60), selected ? Lime : new Color(.09f, .28f, .37f), () => game.SelectStage(stage));
+            var button = menu.Button(parent, name, (selected ? "✓ " : "") + label, new Vector2(x, -506), new Vector2(160, 60), selected ? Lime : new Color(.09f, .28f, .37f), () => game.SelectStage(stage));
             stageButtons[(int)stage] = button; stageLabels[(int)stage] = label; paintedStage = game.Stage;
-            button.GetComponentInChildren<Text>().fontSize = 18;
+            button.GetComponentInChildren<Text>().fontSize = 17;
         }
 
         private void Step(Transform parent, float x, string number, string heading, string detail, Color color)

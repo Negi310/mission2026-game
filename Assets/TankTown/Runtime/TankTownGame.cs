@@ -13,13 +13,13 @@ namespace TankTown
     {
         public TankTownSettings Settings { get; private set; }
         public int CitySeed { get; private set; }
-        internal static TownStage SelectedStage;
+        internal static TownStage SelectedStage = TownStage.CandyTown;
         public TownStage Stage { get; private set; }
         internal TownStage BuiltStage { get; private set; }
         internal TownTitlePreview TitlePreview { get; private set; }
         public int StageScale => Stage == TownStage.BigCity ? 2 : 1;
-        public string StageLabel => Stage == TownStage.BigCity ? "大きな街" : "いつもの街";
-        internal string StageStorageSuffix => Stage == TownStage.BigCity ? ".BigCity" : "";
+        public string StageLabel => Stage == TownStage.CandyTown ? "お菓子の街" : Stage == TownStage.BigCity ? "大きな街" : "いつもの街";
+        internal string StageStorageSuffix => Stage == TownStage.CandyTown ? ".CandyTown" : Stage == TownStage.BigCity ? ".BigCity" : "";
         internal float PlayCameraFarClip => Mathf.Max(500, World.HalfExtent * 3.2f);
         internal static int? GenerationSeedOverride;
         internal static bool SkipIntroForTests;
@@ -84,7 +84,7 @@ namespace TankTown
             var sourceSettings = Resources.Load<TankTownSettings>("TankTownSettings");
             Settings = sourceSettings != null ? Instantiate(sourceSettings) : ScriptableObject.CreateInstance<TankTownSettings>();
             ownedSettings = true;
-            Stage = SelectedStage == TownStage.BigCity ? TownStage.BigCity : TownStage.Town;
+            Stage = SelectedStage == TownStage.BigCity || SelectedStage == TownStage.CandyTown ? SelectedStage : TownStage.Town;
             BuiltStage = Stage;
             if (Stage == TownStage.BigCity)
             {
@@ -237,7 +237,7 @@ namespace TankTown
 
         public void SelectStage(TownStage stage)
         {
-            if (State != RoundState.Ready || stage == Stage || (stage != TownStage.Town && stage != TownStage.BigCity)) return;
+            if (State != RoundState.Ready || stage == Stage || (stage != TownStage.Town && stage != TownStage.BigCity && stage != TownStage.CandyTown)) return;
             SelectedStage = stage;
             Stage = stage;
             LoadStageRanking();

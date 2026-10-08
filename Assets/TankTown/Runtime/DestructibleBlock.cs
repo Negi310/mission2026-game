@@ -13,6 +13,7 @@ namespace TankTown
         public int Level { get; set; }
         public BuildingPart Kind { get; set; }
         public bool Foundation { get; set; }
+        internal bool PreserveShape { get; set; }
         internal bool CameraExposed { get; private set; }
         internal bool RenderSeparately => CameraExposed || Durability01 < .9999f;
         internal void ExposeForCamera(bool value)
@@ -77,7 +78,7 @@ namespace TankTown
             var renderer = GetComponent<MeshRenderer>();
             var box = GetComponent<BoxCollider>();
             // 柱や車・燃料、木の複合形状は維持し、大きな板・梁・屋根を分割する。
-            if (explosive != null || Kind == BuildingPart.Pillar || mesh == null || renderer == null || box == null || box.center != Vector3.zero || box.size != Vector3.one) return;
+            if (PreserveShape || explosive != null || Kind == BuildingPart.Pillar || mesh == null || renderer == null || box == null || box.center != Vector3.zero || box.size != Vector3.one) return;
             Vector3 size = transform.localScale;
             float target = Mathf.Max(1, game.Settings.fragmentSize);
             var divisions = new Vector3Int(Mathf.Clamp(Mathf.CeilToInt(size.x / target), 1, 4),

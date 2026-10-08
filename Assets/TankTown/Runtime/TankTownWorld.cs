@@ -5,7 +5,7 @@ namespace TankTown
 {
     public enum ToySurface { Paint, Concrete, Metal, Rubber, Glass, Organic, Wood }
 
-    public sealed class TankTownWorld : MonoBehaviour
+    public sealed partial class TankTownWorld : MonoBehaviour
     {
         public Material ShotMaterial { get; private set; }
         public UpgradeIcons Icons { get; private set; }
@@ -109,6 +109,7 @@ namespace TankTown
             wood = MakeMaterial(new Color(.3f, .19f, .105f), ToySurface.Wood);
             cannonPaint = MakeMaterial(new Color(1, .94f, .77f));
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
+            if (CandyTheme) InitializeCandyPalette();
             Icons = new UpgradeIcons();
             SpecialIcons = new ItemIcons();
             Layout = new TownLayout(game.Settings, game.CitySeed, RoadWidth);
@@ -133,6 +134,7 @@ namespace TankTown
             }
             var buildingPaints = new Material[6];
             for (int i = 0; i < 6; i++) buildingPaints[i] = MakeMaterial(ItemIcons.Color((ItemKind)i), ToySurface.Concrete);
+            if (CandyTheme) candyLollipops = buildingPaints;
             var random = new System.Random(unchecked(game.CitySeed ^ 0x4D190));
             foreach (var plot in Layout.Plots)
                 {
@@ -152,6 +154,7 @@ namespace TankTown
                 }
             // The first straight has all four upgrades, so their effect is easy to try.
             for (int i = 0; i < 4; i++) CreatePickup(SpawnPosition + new Vector3(0, .2f, 8 + i * 7), (UpgradeKind)i, false);
+            if (CandyTheme) CreateDoughnutGate();
             CreateTraffic();
             var scenery = gameObject.AddComponent<TownScenery>();
             SkyMaterial = scenery.Build(this, game);
@@ -336,6 +339,7 @@ namespace TankTown
         }
         private void CreatePark(Vector3 center)
         {
+            if (CandyTheme) { CreateCandyPark(center); return; }
             ParkCount++;
             float width = BuildingWidth;
             Terrain.Surface("Garden plaza", new Vector2(center.x - width / 2, center.z - width / 2), Vector2.one * width, .04f, grass);
@@ -431,7 +435,7 @@ namespace TankTown
 
         private void CreateBuilding(Vector3 center, int floors, Material color, float width, int style, ItemKind reward)
         {
-            var root = new GameObject(style == 0 ? "Tower frame" : style == 1 ? "Apartment frame" : "Shop frame");
+            var root = new GameObject(CandyTheme ? (style == 0 ? "Shortcake tower" : style == 1 ? "Chocolate house" : "Biscuit house") : style == 0 ? "Tower frame" : style == 1 ? "Apartment frame" : "Shop frame");
             root.transform.SetParent(transform);
             root.transform.position = center;
             var building = root.AddComponent<BlockBuilding>();
@@ -443,21 +447,26 @@ namespace TankTown
             float height = game.Settings.floorHeight, h = (width - pillar) / 2;
             var corners = new[] { new Vector3(-h, 0, -h), new Vector3(h, 0, -h), new Vector3(h, 0, h), new Vector3(-h, 0, h) };
             var previous = new DestructibleBlock[4];
+            var previousSlabs = new DestructibleBlock[4];
             for (int level = 0; level < floors; level++)
             {
+                float levelWidth = CandyTheme && style == 0 ? width * (1 - level / 2 * .11f) : width;
+                h = (levelWidth - pillar) / 2;
+                corners[0] = new Vector3(-h, 0, -h); corners[1] = new Vector3(h, 0, -h);
+                corners[2] = new Vector3(h, 0, h); corners[3] = new Vector3(-h, 0, h);
                 float y = level * height;
                 var pillars = new DestructibleBlock[4];
                 var beams = new DestructibleBlock[4];
                 var slabs = new DestructibleBlock[4];
                 for (int i = 0; i < 4; i++)
                 {
-                    pillars[i] = Part("Pillar", corners[i] + Vector3.up * (y + height / 2), new Vector3(pillar, height - .12f, pillar), frame, BuildingPart.Pillar, level, i, building);
+                    pillars[i] = Part("Pillar", corners[i] + Vector3.up * (y + height / 2), new Vector3(pillar, height - .12f, pillar), CandyTheme ? candyWafer : frame, BuildingPart.Pillar, level, i, building);
                     pillars[i].Foundation = level == 0;
-                    if (level > 0) BlockBuilding.Connect(pillars[i], previous[i]);
+                    if (level > 0) BlockBuilding.Connect(pillars[i], CandyTheme && style == 0 ? previousSlabs[i] : previous[i]);
                     var middle = (corners[i] + corners[(i + 1) % 4]) / 2;
-                    beams[i] = Part("Beam", middle + Vector3.up * (y + height - .25f), i % 2 == 0 ? new Vector3(width - pillar, .5f, .65f) : new Vector3(.65f, .5f, width - pillar), frame, BuildingPart.Beam, level, i, building);
-                    float q = (width - pillar) / 4;
-                    slabs[i] = Part("Floor slab", new Vector3(Mathf.Sign(corners[i].x) * q, y + height - .12f, Mathf.Sign(corners[i].z) * q), new Vector3(q * 2 - .05f, .24f, q * 2 - .05f), level == floors - 1 ? cream : frame, BuildingPart.Slab, level, i, building);
+                    beams[i] = Part("Beam", middle + Vector3.up * (y + height - .25f), i % 2 == 0 ? new Vector3(levelWidth - pillar, .5f, .65f) : new Vector3(.65f, .5f, levelWidth - pillar), CandyTheme ? color : frame, BuildingPart.Beam, level, i, building);
+                    float q = (levelWidth - pillar) / 4;
+                    slabs[i] = Part("Floor slab", new Vector3(Mathf.Sign(corners[i].x) * q, y + height - .12f, Mathf.Sign(corners[i].z) * q), new Vector3(q * 2 - .05f, .24f, q * 2 - .05f), CandyTheme ? candyCream : level == floors - 1 ? cream : frame, BuildingPart.Slab, level, i, building);
                 }
                 for (int i = 0; i < 4; i++)
                 {
@@ -470,8 +479,9 @@ namespace TankTown
                     var rotation = Quaternion.Euler(0, yaw, 0);
                     for (int panel = -1; panel <= 1; panel += 2)
                     {
-                        var wall = Part("Facade panel", rotation * new Vector3(panel * (width - 1.6f) / 4, 0, width / 2 - .2f) + Vector3.up * (y + height / 2 - .12f), new Vector3((width - 1.6f) / 2 - .08f, height - .65f, .28f), color, BuildingPart.Wall, level, i, building);
+                        var wall = Part("Facade panel", rotation * new Vector3(panel * (levelWidth - 1.6f) / 4, 0, levelWidth / 2 - .2f) + Vector3.up * (y + height / 2 - .12f), new Vector3((levelWidth - 1.6f) / 2 - .08f, height - .65f, .28f), CandyTheme ? CandyWallMaterial(style) : color, BuildingPart.Wall, level, i, building);
                         wall.transform.localRotation = rotation;
+                        if (CandyTheme) { DecorateCandyPanel(wall, style, color); continue; }
                         BlockBuilding.Connect(wall, beams[i]);
                         // Normalized local sizes keep these windows attached to thin facade panels.
                         for (int window = -1; window <= 1; window += 2)
@@ -479,20 +489,24 @@ namespace TankTown
                     }
                 }
                 previous = pillars;
+                previousSlabs = slabs;
             }
             if (style == 2)
             {
                 for (int side = -1; side <= 1; side += 2)
                 {
-                    var roof = Part("Shop gable roof", new Vector3(0, floors * height + .65f, side * width / 4), new Vector3(width + .3f, .3f, width * .54f), color, BuildingPart.Prop, floors - 1, -1, building);
+                    var roof = Part("Shop gable roof", new Vector3(0, floors * height + .65f, side * width / 4), new Vector3(width + .3f, .3f, width * .54f), CandyTheme ? candyWafer : color, BuildingPart.Prop, floors - 1, -1, building);
                     roof.transform.localRotation = Quaternion.Euler(side * 15, 0, 0);
+                    if (CandyTheme) DecorateBiscuitRoof(roof, color);
                     foreach (var post in previous) BlockBuilding.Connect(roof, post);
                 }
             }
             else
             {
-                float roofHeight = style == 0 ? 3 : 1.2f;
-                var roof = Part(style == 0 ? "Tower crown" : "Roof utility", new Vector3(0, floors * height + roofHeight / 2), new Vector3(width * .3f, roofHeight, width * .3f), style == 0 ? color : dark, BuildingPart.Prop, floors - 1, -1, building);
+                float roofHeight = CandyTheme ? .65f : style == 0 ? 3 : 1.2f;
+                float roofWidth = CandyTheme && style == 0 ? width * (1 - (floors - 1) / 2 * .11f) : width;
+                var roof = Part(CandyTheme ? "Candy roof topper" : style == 0 ? "Tower crown" : "Roof utility", new Vector3(0, floors * height + roofHeight / 2), new Vector3(roofWidth * (CandyTheme ? .72f : .3f), roofHeight, roofWidth * (CandyTheme ? .72f : .3f)), CandyTheme ? candyCream : style == 0 ? color : dark, BuildingPart.Prop, floors - 1, -1, building);
+                if (CandyTheme) DecorateCandyRoof(roof, style, color, roofWidth);
                 foreach (var post in previous) BlockBuilding.Connect(roof, post);
             }
             CreateBuildingReward(building);
@@ -512,6 +526,7 @@ namespace TankTown
 
         private void CreateProp(Vector3 position, string label, Material color, bool sign)
         {
+            if (CandyTheme) { CreateCandyProp(position, label, color, sign); return; }
             position = GroundPoint(position);
             var item = new GameObject(label);
             item.transform.SetParent(transform, false);
@@ -591,6 +606,7 @@ namespace TankTown
             foreach (var mesh in vehicleMeshes) if (mesh != null) Destroy(mesh);
             Terrain?.Dispose();
             geometry.Dispose();
+            candyGeometry?.Dispose();
             foreach (var material in materials) if (material != null) Destroy(material);
             Icons?.Dispose();
             SpecialIcons?.Dispose();

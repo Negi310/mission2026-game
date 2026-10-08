@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace TankTown
 {
-    public enum TownStage { Town, BigCity }
+    public enum TownStage { Town, BigCity, CandyTown }
 
     // Streets stay connected; only occupied plots and their content are shuffled.
     public sealed class TownLayout
