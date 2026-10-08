@@ -7,7 +7,36 @@ namespace TankTown
     internal sealed class ToyGeometry
     {
         private readonly Dictionary<(Vector3, bool), Mesh> boxes = new Dictionary<(Vector3, bool), Mesh>();
-        private Mesh head;
+        private Mesh head, shell;
+        public Mesh CannonShell()
+        {
+            if (shell != null) return shell;
+            const int sides = 12;
+            // Radius / longitudinal position: the nose points along local +Z.
+            Vector2[] profile = { new Vector2(.18f, -.58f), new Vector2(.21f, -.50f), new Vector2(.23f, -.43f),
+                new Vector2(.23f, -.31f), new Vector2(.20f, -.25f), new Vector2(.20f, .23f),
+                new Vector2(.17f, .38f), new Vector2(.105f, .52f), new Vector2(0, .67f) };
+            var points = new List<Vector3>();
+            var triangles = new[] { new List<int>(), new List<int>(), new List<int>() };
+            Vector3 Point(int ring, int sector)
+            {
+                float angle = sector * Mathf.PI * 2 / sides;
+                return new Vector3(Mathf.Cos(angle) * profile[ring].x, Mathf.Sin(angle) * profile[ring].x, profile[ring].y);
+            }
+            void Face(int material, Vector3 a, Vector3 b, Vector3 c)
+            { int n = points.Count; points.Add(a); points.Add(b); points.Add(c); triangles[material].Add(n); triangles[material].Add(n + 1); triangles[material].Add(n + 2); }
+            for (int r = 0; r < profile.Length - 1; r++) for (int s = 0; s < sides; s++)
+            {
+                int material = r == 1 || r == 2 ? 2 : r >= 5 ? 1 : 0;
+                var a = Point(r, s); var b = Point(r + 1, s); var c = Point(r + 1, s + 1); var d = Point(r, s + 1);
+                if (profile[r + 1].x > 0) Face(material, a, c, b);
+                Face(material, a, d, c);
+            }
+            for (int s = 0; s < sides; s++) Face(0, new Vector3(0, 0, profile[0].y), Point(0, s + 1), Point(0, s));
+            shell = new Mesh { name = "Pointed cannon shell" }; shell.SetVertices(points); shell.subMeshCount = triangles.Length;
+            for (int i = 0; i < triangles.Length; i++) shell.SetTriangles(triangles[i], i);
+            shell.RecalculateNormals(); shell.RecalculateBounds(); return shell;
+        }
         public Mesh LowPolyHead()
         {
             if (head != null) return head;
@@ -78,6 +107,6 @@ namespace TankTown
 
         private static Vector3 Abs(Vector3 p) => new Vector3(Mathf.Abs(p.x), Mathf.Abs(p.y), Mathf.Abs(p.z));
         private static float[] Grid(float half, float radius) => new[] { -half, -half + radius, half - radius, half };
-        public void Dispose() { foreach (var mesh in boxes.Values) Object.Destroy(mesh); boxes.Clear(); if (head != null) Object.Destroy(head); }
+        public void Dispose() { foreach (var mesh in boxes.Values) Object.Destroy(mesh); boxes.Clear(); if (head != null) Object.Destroy(head); if (shell != null) Object.Destroy(shell); }
     }
 }

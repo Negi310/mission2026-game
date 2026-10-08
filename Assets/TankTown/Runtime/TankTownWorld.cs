@@ -30,6 +30,7 @@ namespace TankTown
         private readonly List<Material> materials = new List<Material>();
         private readonly Dictionary<Color, Material> carPaints = new Dictionary<Color, Material>();
         private readonly ToyGeometry geometry = new ToyGeometry();
+        private Material[] cannonShellMaterials;
         private TankTownGame game;
         private TownTrafficGrid trafficGrid;
         private Mesh proxyCube;
@@ -109,6 +110,12 @@ namespace TankTown
             wood = MakeMaterial(new Color(.3f, .19f, .105f), ToySurface.Wood);
             cannonPaint = MakeMaterial(new Color(1, .94f, .77f));
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
+            cannonShellMaterials = new[]
+            {
+                MakeMaterial(new Color(.32f, .44f, .18f), ToySurface.Metal),
+                MakeMaterial(new Color(.82f, .89f, .95f), ToySurface.Metal),
+                MakeMaterial(new Color(1, .68f, .10f), ToySurface.Metal)
+            };
             if (CandyTheme) InitializeCandyPalette();
             Icons = new UpgradeIcons();
             SpecialIcons = new ItemIcons();
@@ -550,6 +557,17 @@ namespace TankTown
             {
                 Box("Top", new Vector3(0, 2.7f, 0), label == "Street lamp" ? new Vector3(.9f, .5f, .9f) : new Vector3(1.8f, .9f, .25f), color, item.transform, true);
             }
+        }
+
+        internal GameObject CreateCannonShell(Vector3 position, Vector3 direction)
+        {
+            var shot = new GameObject("Cannon shell", typeof(MeshFilter), typeof(MeshRenderer));
+            shot.transform.SetParent(transform, false);
+            shot.transform.SetPositionAndRotation(position, Quaternion.LookRotation(direction));
+            shot.GetComponent<MeshFilter>().sharedMesh = geometry.CannonShell();
+            var renderer = shot.GetComponent<MeshRenderer>(); renderer.sharedMaterials = cannonShellMaterials;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; renderer.receiveShadows = false;
+            return shot;
         }
 
         public TankMotor CreateTank()

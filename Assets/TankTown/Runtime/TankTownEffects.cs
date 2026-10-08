@@ -239,9 +239,9 @@ namespace TankTown
         public void Trail(GameObject shell)
         {
             var trail = shell.AddComponent<TrailRenderer>();
-            trail.sharedMaterial = glow; trail.time = .18f; trail.startWidth = .65f; trail.endWidth = .02f;
+            trail.sharedMaterial = glow; trail.time = .075f; trail.startWidth = .26f; trail.endWidth = .015f;
             trail.minVertexDistance = .12f; trail.shadowCastingMode = ShadowCastingMode.Off;
-            trail.startColor = new Color(1, .8f, .15f); trail.endColor = new Color(1, .16f, .55f, 0);
+            trail.startColor = new Color(1, .87f, .35f); trail.endColor = new Color(1, .44f, .08f, 0);
         }
         private void OnDestroy()
         {

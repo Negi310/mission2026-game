@@ -61,13 +61,7 @@ namespace TankTown
             if (!game.IsPlaying || Relocating || game.Items.StopsForward || Time.time < nextShot) return;
             nextShot = Time.time + game.Stats.ShotCooldown;
             if (game.Items.UseHeld()) return;
-            var shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            shot.name = "Cannonball";
-            shot.transform.position = Muzzle.position;
-            shot.transform.localScale = Vector3.one * 0.48f;
-            shot.GetComponent<Collider>().enabled = false;
-            Destroy(shot.GetComponent<Collider>());
-            shot.GetComponent<Renderer>().sharedMaterial = game.World.ShotMaterial;
+            var shot = game.World.CreateCannonShell(Muzzle.position, Muzzle.forward);
             shot.AddComponent<TankShell>().Initialize(game, Muzzle.forward);
             game.Effects.Trail(shot);
             game.Effects.Muzzle(Muzzle.position, Muzzle.forward);
@@ -296,11 +290,16 @@ namespace TankTown
         private TankTownGame game;
         private Vector3 direction;
         private float life, radius, impulse;
-        public void Initialize(TankTownGame owner, Vector3 forward) { game = owner; direction = forward; radius = game.Stats.BlastRadius; impulse = game.Stats.BlastImpulse; }
+        public void Initialize(TankTownGame owner, Vector3 forward)
+        {
+            game = owner; direction = forward.normalized;
+            transform.rotation = Quaternion.LookRotation(direction);
+            radius = game.Stats.BlastRadius; impulse = game.Stats.BlastImpulse;
+        }
         private void Update()
         {
             if (!game.IsPlaying) return;
-            float distance = 52 * Time.deltaTime;
+            float distance = game.Settings.shellSpeed * Time.deltaTime;
             bool solid = Physics.SphereCast(transform.position, .25f, direction, out RaycastHit hit, distance, TownPhysics.StructureMask, QueryTriggerInteraction.Ignore);
             if (Physics.SphereCast(transform.position, .25f, direction, out var personHit, distance, TownPhysics.PedestrianMask, QueryTriggerInteraction.Collide) && (!solid || personHit.distance < hit.distance))
             { hit = personHit; solid = true; }
