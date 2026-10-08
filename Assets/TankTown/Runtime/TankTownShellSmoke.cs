@@ -35,14 +35,14 @@ namespace TankTown
             game.Tank.Warp(new Pose(game.World.SpawnPosition, Quaternion.identity));
             game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
             game.CameraRig.enabled = false;
-            // Enlarge the actual shared model at a diagnostic viewing position, without muzzle effects.
+            // Frame the actual shared model at a diagnostic position, without muzzle effects.
             var display = game.World.CreateCannonShell(game.World.GroundPoint(game.World.SpawnPosition + Vector3.forward * 24, 14), Vector3.forward);
-            Camera.main.transform.position = display.transform.position + new Vector3(1.65f, .75f, -1.05f);
+            Camera.main.transform.position = display.transform.position + new Vector3(1.65f, .75f, -1.05f) * game.Settings.shellVisualScale;
             Camera.main.transform.LookAt(display.transform.position); yield return null; Capture(game, "shell-01-detail"); Destroy(display);
             game.CameraRig.Snap(); game.CameraRig.enabled = true;
             game.Input.PulsePad(0); var shot = FindFirstObjectByType<TankShell>();
             var origin = shot.transform.position; float started = Time.time;
-            for (int i = 0; i < 5; i++) yield return null;
+            for (int i = 0; i < 8; i++) yield return null;
             if (shot == null) { Fail("free-flight shot vanished too early"); yield break; }
             float measuredSpeed = Vector3.Distance(origin, shot.transform.position) / (Time.time - started);
             if (Mathf.Abs(measuredSpeed - game.Settings.shellSpeed) > 1) { Fail("actual flight speed differs from the configured speed"); yield break; }
@@ -59,7 +59,7 @@ namespace TankTown
             float timeToHit = Time.time - started;
             if (game.BrokenBlocks <= before || target.FullyDestroyed) { Fail("the fast shot must still produce local destruction"); yield break; }
             yield return new WaitForSeconds(.06f); Capture(game, "shell-03-impact");
-            Debug.Log($"CANNON SHELL SMOKE COMPLETE: stage={game.Stage}, speed={measuredSpeed:0.0}, configuredSpeed={game.Settings.shellSpeed:0.0}, timeToHit={timeToHit:0.000}, sharedPointedMesh=true, materialRegions=3, localDestruction=true");
+            Debug.Log($"CANNON SHELL SMOKE COMPLETE: stage={game.Stage}, speed={measuredSpeed:0.0}, configuredSpeed={game.Settings.shellSpeed:0.0}, visualScale={game.Settings.shellVisualScale:0.0}, timeToHit={timeToHit:0.000}, sharedPointedMesh=true, materialRegions=3, localDestruction=true");
             Application.Quit(0);
         }
         private void Capture(TankTownGame game, string label)

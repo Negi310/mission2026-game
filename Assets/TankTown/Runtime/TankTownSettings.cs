@@ -22,6 +22,7 @@ namespace TankTown
         [Header("Cannon")]
         [Range(0, 10)] public float cannonElevation = 4;
         [Min(10)] public float shellSpeed = 120;
+        [Min(.1f)] public float shellVisualScale = 3;
         [Min(0)] public float shotCooldown = 0.35f;
         [Min(1)] public float blastRadius = 8;
         [Min(0)] public float blastImpulse = 12;

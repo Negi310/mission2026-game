@@ -26,6 +26,7 @@ MonoBehaviour:
   rideHeight: 1
   cannonElevation: 4
   shellSpeed: 120
+  shellVisualScale: 3
   shotCooldown: 0.35
   blastRadius: 8
   blastImpulse: 12

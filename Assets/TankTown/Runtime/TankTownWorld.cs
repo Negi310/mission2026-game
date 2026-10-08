@@ -564,6 +564,8 @@ namespace TankTown
             var shot = new GameObject("Cannon shell", typeof(MeshFilter), typeof(MeshRenderer));
             shot.transform.SetParent(transform, false);
             shot.transform.SetPositionAndRotation(position, Quaternion.LookRotation(direction));
+            // Visual size is independent of TankShell's world-space hit radius and blast.
+            shot.transform.localScale = Vector3.one * game.Settings.shellVisualScale;
             shot.GetComponent<MeshFilter>().sharedMesh = geometry.CannonShell();
             var renderer = shot.GetComponent<MeshRenderer>(); renderer.sharedMaterials = cannonShellMaterials;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; renderer.receiveShadows = false;
