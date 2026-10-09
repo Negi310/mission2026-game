@@ -38,18 +38,25 @@ namespace TankTown
             }
             var view = game.CameraRig.transform;
             float scale = game.Tank.VehicleScale;
+            float iconSize = game.Settings.pickupIconSize;
             for (int i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i]; int row = i / 4, columns = Mathf.Min(4, entries.Count - row * 4);
-                float desiredX = (i % 4 - (columns - 1) * .5f) * 1.35f;
-                entry.X = Mathf.SmoothDamp(entry.X, desiredX, ref entry.XVelocity, .09f);
-                entry.Row = Mathf.SmoothDamp(entry.Row, row, ref entry.RowVelocity, .09f);
-                var target = game.Tank.transform.position + Vector3.up * (2.8f * scale + entry.Row * 1.25f) + view.right * entry.X;
-                float flight = Mathf.Clamp01(entry.Age / Mathf.Clamp(game.Settings.pickupFlyTime, .1f, duration * .6f));
-                float blend = Mathf.SmoothStep(0, 1, flight);
-                var position = Vector3.Lerp(entry.Origin, target, blend) + Vector3.up * (Mathf.Sin(flight * Mathf.PI) * .55f);
+                float column = i % 4 - (columns - 1) * .5f;
+                float desiredX = column * game.Settings.pickupIconSpacing;
+                entry.X = Mathf.SmoothDamp(entry.X, desiredX, ref entry.XVelocity, .045f);
+                entry.Row = Mathf.SmoothDamp(entry.Row, row, ref entry.RowVelocity, .045f);
+                float stagger = columns > 1 ? Mathf.Sin((i % 4) * 2.3f) * .10f : 0;
+                var target = game.Tank.transform.position + Vector3.up * (game.Settings.pickupIconHeight * scale + entry.Row * iconSize * .7f + stagger) + view.right * entry.X;
+                float flyTime = Mathf.Clamp(game.Settings.pickupFlyTime, .1f, duration * .6f);
+                float flight = Mathf.Clamp01(entry.Age / flyTime);
+                float blend = 1 - Mathf.Pow(1 - flight, 3);
+                var position = Vector3.Lerp(entry.Origin, target, blend) + Vector3.up * (Mathf.Sin(flight * Mathf.PI) * .25f);
+                float arrival = Mathf.Clamp01((entry.Age - flyTime) / .12f);
+                float pop = 1 + Mathf.Sin(arrival * Mathf.PI) * .15f;
+                var rotation = view.rotation * Quaternion.Euler(0, 0, -column * 7 * blend);
                 float opacity = Mathf.Clamp01((duration - entry.Age) / .28f);
-                entry.Pickup.Display(position, view.rotation, Mathf.Lerp(entry.InitialSize, 1.15f, blend), opacity);
+                entry.Pickup.Display(position, rotation, Mathf.Lerp(entry.InitialSize, iconSize, blend) * pop, opacity, 20 + i);
             }
         }
         internal void Clear()

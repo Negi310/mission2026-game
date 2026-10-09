@@ -128,13 +128,15 @@ namespace TankTown
             return true;
         }
 
-        internal void Display(Vector3 position, Quaternion rotation, float size, float opacity)
+        internal void Display(Vector3 position, Quaternion rotation, float size, float opacity, int order)
         {
             icon.SetPositionAndRotation(position, rotation);
             icon.localScale = Vector3.one * size;
             if (displayProperties == null) displayProperties = new MaterialPropertyBlock();
             displayProperties.SetColor("_Color", new Color(1, 1, 1, opacity));
             visual.SetPropertyBlock(displayProperties);
+            // Keep overlapping edges deterministic as the camera turns.
+            visual.sortingOrder = order;
         }
 
         public void Attract(Vector3 target, float speed)

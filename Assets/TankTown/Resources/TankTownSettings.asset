@@ -17,8 +17,11 @@ MonoBehaviour:
   respawnDelay: 0.45
   crashBlastRadius: 10
   crashBlastImpulseMultiplier: 1.8
-  pickupFlyTime: 0.28
+  pickupFlyTime: 0.14
   pickupDisplayDuration: 2.2
+  pickupIconSize: 1.75
+  pickupIconHeight: 2.1
+  pickupIconSpacing: 1.25
   driveSpeed: 16
   turnSpeed: 85
   acceleration: 10

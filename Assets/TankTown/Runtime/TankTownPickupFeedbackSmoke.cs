@@ -65,8 +65,8 @@ namespace TankTown
             var speed = Pickup(UpgradeKind.Speed, Vector3.forward * 5);
             yield return null; Capture("01-field");
             var original = speed.Icon; speed.Collect();
-            yield return new WaitForSeconds(.10f); Capture("02-flight");
-            yield return new WaitForSeconds(.22f); Capture("03-above");
+            yield return new WaitForSeconds(game.Settings.pickupFlyTime * .4f); Capture("02-flight");
+            yield return new WaitForSeconds(game.Settings.pickupFlyTime * .6f + .12f); Capture("03-above");
             foreach (var kind in new[] { UpgradeKind.Power, UpgradeKind.Rapid, UpgradeKind.Handling })
                 Pickup(kind, new Vector3(((int)kind - 2) * 2, 0, 5)).Collect();
             yield return new WaitForSeconds(.32f); Capture("04-multiple"); Capture("05-multiple-720", 1280, 720);
@@ -96,7 +96,7 @@ namespace TankTown
             if (game.Tank.Respawning || respawnSeconds > .65f || game.BrokenBlocks <= before)
                 throw new InvalidOperationException("Fast recovery or the crash blast failed");
             yield return new WaitForSeconds(.45f); Capture("08-recovered");
-            Debug.Log($"PICKUP FEEDBACK SMOKE COMPLETE: captures=8, reused=True, simultaneous=4, respawn={respawnSeconds:F3}s, crashDamage={game.BrokenBlocks - before}, crashes={game.Crashes}, seed={game.CitySeed}");
+            Debug.Log($"PICKUP FEEDBACK SMOKE COMPLETE: captures=8, reused=True, simultaneous=4, flyTime={game.Settings.pickupFlyTime:F2}s, iconSize={game.Settings.pickupIconSize:F2}, respawn={respawnSeconds:F3}s, crashDamage={game.BrokenBlocks - before}, crashes={game.Crashes}, seed={game.CitySeed}");
             Application.Quit(0);
         }
     }

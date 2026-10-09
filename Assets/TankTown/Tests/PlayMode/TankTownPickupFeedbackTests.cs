@@ -33,7 +33,7 @@ namespace TankTown.Tests
             game.World.Pickups.Add(pickup); return pickup;
         }
         [UnityTest]
-        public IEnumerator CollectionReusesFieldQuadsAndSeparatesThemAboveMovingTank()
+        public IEnumerator CollectionReusesFieldQuadsAndOverlapsEdgesAboveMovingTank()
         {
             var pickups = Enumerable.Range(0, 4).Select(i => Pickup((UpgradeKind)i, new Vector3(i - 1.5f, 0, 4))).ToArray();
             foreach (var pickup in pickups)
@@ -50,14 +50,20 @@ namespace TankTown.Tests
             Assert.That(game.PickupDisplay.Count, Is.EqualTo(4));
             for (int i = 0; i < pickups.Length; i++)
             {
-                Assert.That(pickups[i].Icon.position.y, Is.GreaterThan(game.Tank.transform.position.y + 2));
-                if (i > 0) Assert.That(Vector3.Dot(pickups[i].Icon.position - pickups[i - 1].Icon.position, game.CameraRig.transform.right), Is.GreaterThan(1));
+                Assert.That(pickups[i].Icon.position.y, Is.GreaterThan(game.Tank.transform.position.y + 1.5f));
+                if (i > 0)
+                {
+                    float gap = Vector3.Dot(pickups[i].Icon.position - pickups[i - 1].Icon.position, game.CameraRig.transform.right);
+                    Assert.That(gap, Is.GreaterThan(pickups[i].Icon.lossyScale.x * .45f), "The symbols must remain readable");
+                    Assert.That(gap, Is.LessThan(pickups[i].Icon.lossyScale.x * .8f), "The outside edges must overlap");
+                    Assert.That(pickups[i].Icon.GetComponent<Renderer>().sortingOrder, Is.GreaterThan(pickups[i - 1].Icon.GetComponent<Renderer>().sortingOrder));
+                }
             }
             var before = pickups[0].Icon.position;
             game.Tank.Warp(new Pose(game.Tank.transform.position + Vector3.forward * 4, Quaternion.Euler(0, 40, 0)));
             yield return null;
             Assert.That(pickups[0].Icon.position.z - before.z, Is.GreaterThan(3));
-            foreach (var pickup in pickups) Assert.That(Quaternion.Angle(pickup.Icon.rotation, game.CameraRig.transform.rotation), Is.LessThan(.01f));
+            foreach (var pickup in pickups) Assert.That(Vector3.Angle(pickup.Icon.forward, game.CameraRig.transform.forward), Is.LessThan(.05f));
         }
         [UnityTest]
         public IEnumerator PickupDisplayPausesFadesAndExpiresWithoutLosingTheUpgrade()

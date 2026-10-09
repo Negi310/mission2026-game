@@ -12,8 +12,11 @@ namespace TankTown
         [Min(1)] public float crashBlastRadius = 10;
         [Min(0)] public float crashBlastImpulseMultiplier = 1.8f;
         [Header("Pickup feedback")]
-        [Min(.1f)] public float pickupFlyTime = .28f;
+        [Min(.1f)] public float pickupFlyTime = .14f;
         [Min(.5f)] public float pickupDisplayDuration = 2.2f;
+        [Min(.5f)] public float pickupIconSize = 1.75f;
+        [Min(1)] public float pickupIconHeight = 2.1f;
+        [Min(.1f)] public float pickupIconSpacing = 1.25f;
         [Min(1)] public float driveSpeed = 16;
         [Min(1)] public float turnSpeed = 85;
         [Header("Driving")]
