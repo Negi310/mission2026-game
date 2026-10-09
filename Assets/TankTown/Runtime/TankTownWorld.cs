@@ -498,11 +498,21 @@ namespace TankTown
                             new Vector3((levelWidth - 1.6f) / 2 - .08f, dessert && style == 0 ? height : height - (dessert ? .10f : .65f), dessert ? style == 1 ? 1.4f : .6f : .28f), CandyTheme ? CandyWallMaterial(style) : color, BuildingPart.Wall, level, i, building);
                         wall.transform.localRotation = rotation;
                         if (CandyTheme && style == 0) wall.GetComponent<MeshFilter>().sharedMesh = geometry.RoundedBox(wall.transform.localScale, false, .035f);
-                        if (CandyTheme) { DecorateCandyPanel(wall, style, color); continue; }
+                        if (CandyTheme)
+                        {
+                            DecorateCandyPanel(wall, style, color);
+                            if (level == 0 && i == 0 && panel == -1) AddBuildingEntrance(wall, color);
+                            continue;
+                        }
                         BlockBuilding.Connect(wall, beams[i]);
                         // Normalized local sizes keep these windows attached to thin facade panels.
                         for (int window = -1; window <= 1; window += 2)
+                        {
+                            // Keep the ground-floor center clear for the main entrance.
+                            if (level == 0 && i == 0 && window == -panel) continue;
                             Box("Window", new Vector3(window * .24f, .03f, .515f), new Vector3(.32f, .55f, .025f), glass, wall.transform, false);
+                        }
+                        if (level == 0 && i == 0 && panel == -1) AddBuildingEntrance(wall, color);
                     }
                 }
                 previous = pillars;

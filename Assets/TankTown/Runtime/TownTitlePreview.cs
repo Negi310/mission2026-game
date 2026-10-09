@@ -88,10 +88,25 @@ namespace TankTown
                             var pos = new Vector3(x, y + height / 2 - .12f, width / 2 - .2f);
                             Box(parts, paint, center + rotation * pos, new Vector3(panelWidth, height - .65f, .28f), rotation);
                             foreach (int window in new[] { -1, 1 })
+                            {
+                                if (level == 0 && side == 2 && window == -panel) continue;
                                 Box(parts, glass, center + rotation * (pos + new Vector3(window * panelWidth * .24f, (height - .65f) * .03f, .1442f)), new Vector3(panelWidth * .32f, (height - .65f) * .55f, .007f), rotation);
+                            }
                         }
                     }
                 }
+                // Match the main south-facing doorway without extra objects or physics.
+                float doorWidth = plot.Style == 0 ? 3.4f : 2.9f, doorHeight = 2.45f;
+                Vector3 doorway = center + Vector3.back * (width / 2 + .16f);
+                Box(parts, dark, doorway + Vector3.up * doorHeight / 2, new Vector3(doorWidth, doorHeight, .12f));
+                foreach (int side in new[] { -1, 1 })
+                {
+                    Box(parts, frame, doorway + new Vector3(side * (doorWidth / 2 + .1f), doorHeight / 2, -.08f), new Vector3(.24f, doorHeight, .25f));
+                    Box(parts, glass, doorway + new Vector3(side * doorWidth / 4, doorHeight * .65f, -.13f), new Vector3(doorWidth / 2 - .24f, doorHeight * .58f, .05f));
+                }
+                Box(parts, frame, doorway + new Vector3(0, doorHeight + .08f, -.08f), new Vector3(doorWidth + .45f, .3f, .3f));
+                Box(parts, paint, doorway + new Vector3(0, doorHeight + .42f, -.45f), new Vector3(doorWidth + .95f, .16f, 1.4f));
+                Box(parts, ground, doorway + new Vector3(0, .08f, -.35f), new Vector3(doorWidth + .6f, .16f, 1.0f));
                 if (plot.Style == 2)
                 {
                     foreach (int side in new[] { -1, 1 })
