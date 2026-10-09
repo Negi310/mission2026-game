@@ -6,7 +6,7 @@ namespace TankTown
     // Shared render meshes preserve the original box colliders and part dimensions.
     internal sealed class ToyGeometry
     {
-        private readonly Dictionary<(Vector3, bool), Mesh> boxes = new Dictionary<(Vector3, bool), Mesh>();
+        private readonly Dictionary<(Vector3, bool, float), Mesh> boxes = new Dictionary<(Vector3, bool, float), Mesh>();
         private Mesh head, shell;
         public Mesh CannonShell()
         {
@@ -55,11 +55,11 @@ namespace TankTown
             head = new Mesh { name = "32 face low poly head" }; head.SetVertices(points); head.SetTriangles(triangles, 0); head.RecalculateNormals(); head.RecalculateBounds(); return head;
         }
 
-        public Mesh RoundedBox(Vector3 size, bool tapered = false)
+        public Mesh RoundedBox(Vector3 size, bool tapered = false, float maxBevel = .16f)
         {
-            var key = (size, tapered);
+            var key = (size, tapered, maxBevel);
             if (boxes.TryGetValue(key, out var cached)) return cached;
-            float radius = Mathf.Min(.16f, Mathf.Min(size.x, Mathf.Min(size.y, size.z)) * .22f);
+            float radius = Mathf.Min(maxBevel, Mathf.Min(size.x, Mathf.Min(size.y, size.z)) * .22f);
             Vector3 half = size * .5f, inner = half - Vector3.one * radius;
             var vertices = new List<Vector3>();
             var normals = new List<Vector3>();

@@ -73,24 +73,52 @@ namespace TankTown
         private void DecorateCandyPanel(DestructibleBlock wall, int style, Material color)
         {
             float w = wall.transform.localScale.x, h = wall.transform.localScale.y;
-            CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 - .12f, .20f), new Vector3(w + .10f, .45f, .48f), color);
             if (style == 0)
             {
-                CandyDetail(wall.transform, "Cream layer", new Vector3(0, h / 2 - .65f, .28f), new Vector3(w + .18f, 1.0f, .65f), candyCream, candyGeometry.CreamRibbon);
-                CandyDetail(wall.transform, "Strawberry filling", new Vector3(0, -.35f, .17f), new Vector3(w, .20f, .12f), candyJam);
+                // Two structural floors form one large cake tier. The next tier is narrower.
+                bool tierTop = wall.Level % 2 == 1 || wall.Level == wall.Building.Floors - 1;
+                if (!tierTop) return;
+                CandyDetail(wall.transform, "Cream layer", new Vector3(0, h / 2 - .20f, .38f), new Vector3(w + .30f, 1.10f, 2.25f), candyCream, candyGeometry.CreamRibbon);
+                CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 + .23f, .55f), new Vector3(w + .24f, .16f, 1.5f), color);
+                CandyDetail(wall.transform, "Strawberry filling", new Vector3(0, h / 2 - .85f, .36f), new Vector3(w, .16f, .14f), candyJam);
+                if (wall.Level < wall.Building.Floors - 1)
+                {
+                    int count = w >= 7 ? 3 : 2;
+                    float diameter = Mathf.Min(2.2f, w / count * .82f), berryHeight = diameter * 1.12f;
+                    for (int i = 0; i < count; i++)
+                        CandyDetail(wall.transform, "Tier strawberry", new Vector3(((i + .5f) / count - .5f) * w, h / 2 + .35f + berryHeight / 2, 1.05f),
+                            new Vector3(diameter, berryHeight, diameter), candyStrawberry, candyGeometry.TierStrawberry);
+                }
             }
             else if (style == 1)
             {
-                foreach (int x in new[] { -1, 1 }) foreach (int y in new[] { -1, 1 })
-                    CandyDetail(wall.transform, "Chocolate square", new Vector3(x * w * .245f, y * h * .20f - .18f, .23f), new Vector3(w * .45f, h * .35f, .27f), candyChocolateTile);
+                wall.GetComponent<MeshFilter>().sharedMesh = FragmentBoxMesh(wall.transform.localScale, true);
+                int count = Mathf.Clamp(Mathf.RoundToInt(w / 2.5f), 2, 3);
+                var size = new Vector3(w / count - .15f, h - .28f, .95f);
+                for (int i = 0; i < count; i++)
+                {
+                    var cell = CandyDetail(wall.transform, "Chocolate square", new Vector3(((i + .5f) / count - .5f) * w, -.03f, .15f), size, candyChocolateTile, candyGeometry.ChocolateBar(size));
+                    var insetSize = new Vector3(size.x - .66f, size.y - .66f, .025f);
+                    CandyDetail(cell.transform, "Chocolate inset", new Vector3(0, 0, size.z * .29f + .015f), insetSize, candyChocolate, geometry.RoundedBox(insetSize));
+                }
+                CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 - .04f, .17f), new Vector3(w + .12f, .18f, 1.1f), color);
             }
             else
             {
+                CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 - .12f, .20f), new Vector3(w + .10f, .32f, .48f), color);
                 CandyDetail(wall.transform, "Biscuit window", new Vector3(0, -.18f, .19f), new Vector3(w * .36f, h * .56f, .16f), candyChocolate);
                 foreach (int side in new[] { -1, 1 })
                     CandyDetail(wall.transform, "Wafer edge", new Vector3(side * w * .44f, -.1f, .19f), new Vector3(.18f, h * .75f, .15f), candyCream);
                 CandyDetail(wall.transform, "Sugar window cross", new Vector3(0, -.18f, .3f), new Vector3(.13f, h * .56f, .11f), color);
                 CandyDetail(wall.transform, "Sugar window cross", new Vector3(0, -.18f, .3f), new Vector3(w * .36f, .13f, .11f), color);
+                if (wall.Level == 0)
+                {
+                    float canopyWidth = w * .68f, stripeWidth = canopyWidth / 7;
+                    for (int stripe = 0; stripe < 7; stripe++)
+                        CandyDetail(wall.transform, "Shop awning stripe", new Vector3((stripe - 3) * stripeWidth, h * .20f, 1.1f),
+                            new Vector3(stripeWidth + .015f, .16f, 1.8f), stripe % 2 == 0 ? color : candyCream);
+                    CandyDetail(wall.transform, "Shop awning fringe", new Vector3(0, h * .20f - .14f, 1.9f), new Vector3(canopyWidth, .40f, .22f), color, candyGeometry.CreamRibbon);
+                }
             }
         }
         private void DecorateBiscuitRoof(DestructibleBlock roof, Material color)
@@ -102,7 +130,7 @@ namespace TankTown
         {
             foreach (int x in new[] { -1, 1 }) foreach (int z in new[] { -1, 1 })
             {
-                Vector3 point = new Vector3(x * width * .20f, 1.6f, z * width * .20f);
+                Vector3 point = new Vector3(x * width * .20f, style == 0 ? roof.transform.localScale.y / 2 + 1.6f : 1.6f, z * width * .20f);
                 if (style == 0)
                 {
                     var berry = CandyDetail(roof.transform, "Roof strawberry", point, new Vector3(3.2f, 3.4f, 3.2f), candyStrawberry, candyGeometry.Strawberry);
@@ -138,8 +166,11 @@ namespace TankTown
             Terrain.Surface("Candy garden plaza", new Vector2(center.x - BuildingWidth / 2, center.z - BuildingWidth / 2), Vector2.one * BuildingWidth, .04f, grass);
             var muffin = Box("Crushable cupcake", center + Vector3.up * 1.1f, new Vector3(5, 2.2f, 5), candyWafer);
             AddBlock(muffin, true);
-            CandyDetail(muffin.transform, "Cupcake frosting", new Vector3(0, 1.9f, 0), new Vector3(6.2f, 2.8f, 6.2f), candyPink, candyGeometry.Sphere);
-            CandyDetail(muffin.transform, "Cupcake cherry", new Vector3(0, 3.7f, 0), new Vector3(1.6f, 1.6f, 1.6f), candyJam, candyGeometry.Sphere);
+            CandyDetail(muffin.transform, "Cupcake frosting", new Vector3(0, 1.5f, 0), new Vector3(6.2f, 1.7f, 6.2f), candyPink, candyGeometry.Sphere);
+            CandyDetail(muffin.transform, "Whipped cream lower", new Vector3(0, 2.3f, 0), new Vector3(5.5f, 1.5f, 5.5f), candyCream, candyGeometry.Sphere);
+            CandyDetail(muffin.transform, "Whipped cream upper", new Vector3(.15f, 3.0f, 0), new Vector3(3.9f, 1.4f, 3.9f), candyCream, candyGeometry.Sphere);
+            CandyDetail(muffin.transform, "Whipped cream peak", new Vector3(.3f, 3.6f, 0), new Vector3(2.5f, 1.3f, 2.5f), candyCream, candyGeometry.Sphere);
+            CandyDetail(muffin.transform, "Cupcake cherry", new Vector3(.35f, 4.35f, 0), new Vector3(1.6f, 1.6f, 1.6f), candyJam, candyGeometry.Sphere);
             for (int i = 0; i < 4; i++)
             {
                 var direction = Quaternion.Euler(0, i * 90, 0) * Vector3.forward;

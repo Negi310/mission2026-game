@@ -15,8 +15,59 @@ namespace TankTown
         public Mesh CreamRibbon { get; } = Ribbon();
         public Mesh DistantStrawberry { get; } = Berry(12, 6);
         public Mesh DistantSphere { get; } = Ball(12, 6);
+        public Mesh TierStrawberry { get; } = Berry(16, 8);
+        private readonly Dictionary<Vector3, Mesh> chocolateBars = new Dictionary<Vector3, Mesh>();
+        private readonly Dictionary<Vector3, Mesh> chocolateBackings = new Dictionary<Vector3, Mesh>();
         internal Mesh DistantSilhouette(Mesh source)
-            => source == Strawberry ? DistantStrawberry : source == Sphere ? DistantSphere : source == DoughnutSlice ? DoughnutSlice : null;
+            => source == null ? null : source == Strawberry || source == TierStrawberry ? DistantStrawberry : source == Sphere ? DistantSphere
+                : source == DoughnutSlice || source.name.StartsWith("Chocolate backing") || source.name.StartsWith("Embossed chocolate") ? source : null;
+
+        internal Mesh ChocolateBacking(Vector3 size, Mesh box)
+        {
+            if (chocolateBackings.TryGetValue(size, out var cached)) return cached;
+            var mesh = UnityEngine.Object.Instantiate(box); mesh.name = "Chocolate backing " + size;
+            var points = mesh.vertices; var normals = mesh.normals;
+            for (int i = 0; i < points.Length; i++)
+            { points[i].z = points[i].z * .25f - .35f; normals[i] = new Vector3(normals[i].x, normals[i].y, normals[i].z * 4).normalized; }
+            mesh.vertices = points; mesh.normals = normals; mesh.RecalculateBounds(); chocolateBackings[size] = mesh; return mesh;
+        }
+        internal Mesh ChocolateBar(Vector3 size)
+        {
+            if (chocolateBars.TryGetValue(size, out var cached)) return cached;
+            const int corners = 4, steps = 4, count = corners * (steps + 1);
+            var vertices = new List<Vector3>(); var uv = new List<Vector2>(); var triangles = new List<int>();
+            // Thick rounded shoulders, a raised lip, then a shallow recessed face.
+            float[] inset = { 0, 0, .06f, .15f, .25f, .31f };
+            float[] depth = { -.5f, -.12f, .30f, .5f, .5f, .29f };
+            float bevel = Mathf.Min(size.x, size.y) * .10f;
+            for (int ring = 0; ring < inset.Length; ring++)
+            {
+                float hx = size.x * .5f - inset[ring], hy = size.y * .5f - inset[ring];
+                float radius = Mathf.Min(bevel, Mathf.Min(hx, hy) * .35f);
+                for (int corner = 0; corner < corners; corner++) for (int step = 0; step <= steps; step++)
+                {
+                    float angle = (corner + (float)step / steps) * Mathf.PI / 2;
+                    float centerAngle = (corner + .5f) * Mathf.PI / 2;
+                    float x = Mathf.Sign(Mathf.Cos(centerAngle)) * (hx - radius) + Mathf.Cos(angle) * radius;
+                    float y = Mathf.Sign(Mathf.Sin(centerAngle)) * (hy - radius) + Mathf.Sin(angle) * radius;
+                    vertices.Add(new Vector3(x / size.x, y / size.y, depth[ring])); uv.Add(new Vector2(x + size.x / 2, y + size.y / 2));
+                }
+            }
+            for (int ring = 0; ring < inset.Length - 1; ring++) for (int i = 0; i < count; i++)
+            {
+                int a = ring * count + i, b = ring * count + (i + 1) % count, c = a + count, d = b + count;
+                triangles.Add(a); triangles.Add(b); triangles.Add(d); triangles.Add(a); triangles.Add(d); triangles.Add(c);
+            }
+            for (int cap = 0; cap < 2; cap++)
+            {
+                int ring = cap == 0 ? 0 : inset.Length - 1, center = vertices.Count;
+                vertices.Add(new Vector3(0, 0, depth[ring])); uv.Add(new Vector2(size.x / 2, size.y / 2));
+                for (int i = 0; i < count; i++)
+                { int a = ring * count + i, b = ring * count + (i + 1) % count; triangles.Add(center); triangles.Add(cap == 0 ? b : a); triangles.Add(cap == 0 ? a : b); }
+            }
+            var mesh = new Mesh { name = "Embossed chocolate " + size }; mesh.SetVertices(vertices); mesh.SetUVs(0, uv); mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateNormals(); mesh.RecalculateBounds(); chocolateBars[size] = mesh; return mesh;
+        }
 
         private static Mesh Grid(string name, int columns, int rows, Func<int, int, Vector3> point,
             Func<int, int, Vector3> normal, Func<int, int, Vector2> uv)
@@ -154,6 +205,10 @@ namespace TankTown
             var mesh = new Mesh { name = "Scalloped cream edge" }; mesh.SetVertices(vertices); mesh.SetNormals(normals); mesh.SetUVs(0, uv); mesh.SetTriangles(triangles, 0); mesh.RecalculateBounds(); return mesh;
         }
         public void Dispose()
-        { foreach (var mesh in new[] { Strawberry, DoughnutSlice, Sphere, SugarStick, CaneHook, CreamRibbon, DistantStrawberry, DistantSphere }) UnityEngine.Object.Destroy(mesh); }
+        {
+            foreach (var mesh in new[] { Strawberry, DoughnutSlice, Sphere, SugarStick, CaneHook, CreamRibbon, DistantStrawberry, DistantSphere, TierStrawberry }) UnityEngine.Object.Destroy(mesh);
+            foreach (var mesh in chocolateBars.Values) UnityEngine.Object.Destroy(mesh);
+            foreach (var mesh in chocolateBackings.Values) UnityEngine.Object.Destroy(mesh);
+        }
     }
 }

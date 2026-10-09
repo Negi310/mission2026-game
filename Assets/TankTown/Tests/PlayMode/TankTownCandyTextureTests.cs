@@ -46,6 +46,30 @@ namespace TankTown.Tests
             Assert.That(game.World.GetComponentsInChildren<Renderer>().SelectMany(x => x.sharedMaterials).Any(x => x != null && x.IsKeywordEnabled("_CANDY_TEXTURE")), Is.False);
         }
         [UnityTest]
+        public IEnumerator TierFruitAndEmbossedChocolateFollowTheirBrokenWalls()
+        {
+            TankTownGame.SelectedStage = TownStage.CandyTown; SceneManager.LoadScene("TankTown"); yield return null;
+            var game = Object.FindFirstObjectByType<TankTownGame>(); game.StartOrRestart(); game.Input.useHardware = true;
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            var cake = game.World.Buildings.First(x => x.Style == 0);
+            var wall = cake.Blocks.First(x => x.Kind == BuildingPart.Wall && x.Level == 1);
+            var berries = wall.GetComponentsInChildren<Transform>().Where(x => x.name == "Tier strawberry").ToArray();
+            Assert.That(berries.Length, Is.GreaterThanOrEqualTo(2));
+            Assert.That(berries.All(x => x.position.y < cake.transform.position.y + cake.Floors * game.Settings.floorHeight), Is.True, "Fruit must decorate lower cake tiers too");
+            wall.Break(wall.transform.position, 0);
+            foreach (var berry in berries) Assert.That(wall.DebrisBodies, Does.Contain(berry.GetComponentInParent<Rigidbody>()), "Tier fruit must fly with its wall fragments");
+            var chocolate = game.World.Buildings.First(x => x.Style == 1).Blocks.First(x => x.Kind == BuildingPart.Wall);
+            var cells = chocolate.GetComponentsInChildren<Transform>().Where(x => x.name == "Chocolate square").ToArray();
+            Assert.That(cells.Length, Is.InRange(2, 3));
+            Assert.That(cells.All(x => x.GetComponent<MeshFilter>().sharedMesh.name.StartsWith("Embossed chocolate") && x.lossyScale.z > .8f), Is.True);
+            Assert.That(cells.Select(x => x.GetComponent<MeshFilter>().sharedMesh).Distinct().Count(), Is.EqualTo(1), "Equal chocolate cells must reuse their shape");
+            chocolate.Break(chocolate.transform.position, 0);
+            foreach (var cell in cells) Assert.That(chocolate.DebrisBodies, Does.Contain(cell.GetComponentInParent<Rigidbody>()));
+            foreach (var fragment in chocolate.DebrisBodies)
+                Assert.That(fragment.GetComponent<MeshFilter>().sharedMesh.bounds.size.z, Is.LessThan(.3f), "The backing must not cover the embossed chocolate after splitting");
+            yield return null;
+        }
+        [UnityTest]
         public IEnumerator CandySilhouettesHaveCompleteUvsAndOutwardSmoothNormals()
         {
             var geometry = new CandyGeometry();
@@ -54,7 +78,7 @@ namespace TankTown.Tests
                 Assert.That(geometry.DistantSilhouette(geometry.Strawberry), Is.SameAs(geometry.DistantStrawberry));
                 Assert.That(geometry.DistantSilhouette(geometry.Sphere), Is.SameAs(geometry.DistantSphere));
                 Assert.That(geometry.DistantStrawberry.triangles.Length, Is.LessThan(geometry.Strawberry.triangles.Length / 2));
-                foreach (var mesh in new[] { geometry.Strawberry, geometry.Sphere, geometry.SugarStick, geometry.CaneHook, geometry.CreamRibbon, geometry.DoughnutSlice, geometry.DistantStrawberry, geometry.DistantSphere })
+                foreach (var mesh in new[] { geometry.Strawberry, geometry.TierStrawberry, geometry.Sphere, geometry.SugarStick, geometry.CaneHook, geometry.CreamRibbon, geometry.DoughnutSlice, geometry.DistantStrawberry, geometry.DistantSphere, geometry.ChocolateBar(new Vector3(3, 3.2f, .95f)) })
                 {
                     Assert.That(mesh.uv.Length, Is.EqualTo(mesh.vertexCount), mesh.name);
                     var points = mesh.vertices; var normals = mesh.normals; var triangles = mesh.triangles;

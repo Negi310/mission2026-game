@@ -100,7 +100,7 @@ namespace TankTown
             Vector3 pieceSize = new Vector3(size.x / divisions.x, size.y / divisions.y, size.z / divisions.z);
             // Shared metre-sized UVs retain the candy detail density after a large slab splits.
             var fragmentMesh = renderer.sharedMaterial != null && renderer.sharedMaterial.IsKeywordEnabled("_CANDY_TEXTURE")
-                ? game.World.FragmentBoxMesh(pieceSize) : mesh.sharedMesh;
+                ? game.World.FragmentBoxMesh(pieceSize, mesh.sharedMesh.name.StartsWith("Chocolate backing")) : mesh.sharedMesh;
             var properties = new MaterialPropertyBlock(); renderer.GetPropertyBlock(properties);
             for (int x = 0; x < divisions.x; x++) for (int y = 0; y < divisions.y; y++) for (int z = 0; z < divisions.z; z++)
             {

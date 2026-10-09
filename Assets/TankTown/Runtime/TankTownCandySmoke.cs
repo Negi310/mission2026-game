@@ -40,8 +40,15 @@ namespace TankTown
             game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true; game.CameraRig.enabled = false;
             View(cake.transform.position, new Vector3(-28, 21, -34), 12); yield return null; Capture(game, "candy-03-cake");
             View(cake.transform.position, new Vector3(-18, 8, -22), 7); yield return null; Capture(game, "candy-08-cake-texture");
+            View(cake.transform.position, new Vector3(-24, 5, -26), 10); yield return null; Capture(game, "candy-12-strawberry-tiers");
             var chocolate = game.World.Buildings.First(x => x.Style == 1);
             View(chocolate.transform.position, new Vector3(-17, 8, -22), 7); yield return null; Capture(game, "candy-09-chocolate-texture");
+            var facade = chocolate.Blocks.First(x => x.Kind == BuildingPart.Wall && x.Level == 1);
+            Camera.main.transform.position = facade.transform.position + facade.transform.forward * 12 - facade.transform.right * 4 + Vector3.up * 3;
+            Camera.main.transform.LookAt(facade.transform.position); yield return null; Capture(game, "candy-13-chocolate-relief");
+            var sideFacade = chocolate.Blocks.First(x => x.Kind == BuildingPart.Wall && x.Level == 1 && x.Column == 3);
+            Camera.main.transform.position = sideFacade.transform.position + sideFacade.transform.forward * 12 - sideFacade.transform.right * 4 + Vector3.up * 3;
+            Camera.main.transform.LookAt(sideFacade.transform.position); yield return null; Capture(game, "candy-15-chocolate-side");
             MoveTank(game, chocolate.transform.position + new Vector3(-4.6f, 0, -chocolate.Width / 2 - 19));
             View(chocolate.transform.position, new Vector3(-26, 16, -32), 9);
             int before = game.BrokenBlocks; game.Input.PulsePad(0); yield return new WaitForSeconds(.6f);
@@ -53,6 +60,8 @@ namespace TankTown
             View(chocolate.transform.position, new Vector3(-24, 16, -32), 2); Capture(game, "candy-05-reward");
             var biscuit = game.World.Buildings.First(x => x.Style == 2);
             View(biscuit.transform.position, new Vector3(-20, 12, -25), 7); yield return null; Capture(game, "candy-10-biscuit-texture");
+            var cupcake = game.World.GetComponentsInChildren<Transform>().First(x => x.name == "Crushable cupcake");
+            View(cupcake.position, new Vector3(-10, 6, -12), 2.5f); yield return null; Capture(game, "candy-14-cupcake-cream");
             var lollipop = game.World.GetComponentsInChildren<Transform>().First(x => x.name == "Lollipop tree");
             View(lollipop.position, new Vector3(-5, 4, -7), 2.5f); yield return null; Capture(game, "candy-11-lollipop-texture");
             var gate = game.World.Buildings.Single(x => x.Style == 3);
