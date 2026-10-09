@@ -124,7 +124,7 @@ namespace TankTown
             Box("Island", new Vector3(0, -.9f, 0), new Vector3(HalfExtent * 2, 1.8f, HalfExtent * 2), grass, solid: false);
             float paving = HalfExtent * 2 - 8;
             Terrain.Surface("Terraced ground", new Vector2(-HalfExtent, -HalfExtent), Vector2.one * HalfExtent * 2, 0, grass, true);
-            Terrain.Surface("Town paving", Vector2.one * -paving / 2, Vector2.one * paving, .015f, cream);
+            Terrain.Surface("Town paving", Vector2.one * -paving / 2, Vector2.one * paving, .015f, CandyTheme ? candyBiscuit : cream);
             float spacing = game.Settings.blockSpacing;
             int half = game.Settings.cityHalfBlocks;
             for (int i = -half; i <= half; i++)
@@ -141,7 +141,7 @@ namespace TankTown
             }
             var buildingPaints = new Material[6];
             for (int i = 0; i < 6; i++) buildingPaints[i] = MakeMaterial(ItemIcons.Color((ItemKind)i), ToySurface.Concrete);
-            if (CandyTheme) candyLollipops = buildingPaints;
+            if (CandyTheme) InitializeCandyAccents(buildingPaints);
             var random = new System.Random(unchecked(game.CitySeed ^ 0x4D190));
             foreach (var plot in Layout.Plots)
                 {
@@ -170,7 +170,8 @@ namespace TankTown
             var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
             proxyCube = Instantiate(source.GetComponent<MeshFilter>().sharedMesh); proxyCube.name = "Proxy cube";
             source.SetActive(false); Destroy(source);
-            foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube);
+            var distantCandy = CandyTheme ? new System.Func<Mesh, Mesh>(candyGeometry.DistantSilhouette) : null;
+            foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube, distantCandy);
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
                 if (renderer.gameObject.name != "Town paving" && renderer.gameObject.name != "North south ramp avenue" && renderer.gameObject.name != "East west ramp avenue") continue;
@@ -558,6 +559,8 @@ namespace TankTown
                 Box("Top", new Vector3(0, 2.7f, 0), label == "Street lamp" ? new Vector3(.9f, .5f, .9f) : new Vector3(1.8f, .9f, .25f), color, item.transform, true);
             }
         }
+
+        internal Mesh FragmentBoxMesh(Vector3 size) => geometry.RoundedBox(size);
 
         internal GameObject CreateCannonShell(Vector3 position, Vector3 direction)
         {

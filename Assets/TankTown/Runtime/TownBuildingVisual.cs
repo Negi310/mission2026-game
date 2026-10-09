@@ -11,6 +11,7 @@ namespace TankTown
         private readonly BlockBuilding building;
         private readonly List<(DestructibleBlock block, Renderer[] renderers)> parts = new List<(DestructibleBlock, Renderer[])>();
         private readonly Mesh cube;
+        private readonly System.Func<Mesh, Mesh> distantSilhouette;
         private Mesh mesh;
         private Mesh nearMesh;
         private readonly MeshFilter nearFilter;
@@ -24,9 +25,9 @@ namespace TankTown
         internal Mesh MapMesh => mesh;
         internal Mesh DetailMesh => nearMesh;
         internal bool NeedsDetailRefresh => detailed && (nearDetached != building.DetachedParts || nearDamage != building.DamageRevision);
-        internal TownBuildingVisual(BlockBuilding owner, Mesh box)
+        internal TownBuildingVisual(BlockBuilding owner, Mesh box, System.Func<Mesh, Mesh> candySilhouette = null)
         {
-            building = owner; cube = box;
+            building = owner; cube = box; distantSilhouette = candySilhouette;
             foreach (var block in building.Blocks) parts.Add((block, block.GetComponentsInChildren<Renderer>()));
             var near = new GameObject("Batched building mesh", typeof(MeshFilter), typeof(MeshRenderer)); near.transform.SetParent(building.transform, false);
             nearFilter = near.GetComponent<MeshFilter>(); nearRenderer = near.GetComponent<MeshRenderer>();
@@ -93,7 +94,10 @@ namespace TankTown
                     if (renderer == null || renderer.sharedMaterial == null) continue;
                     var material = renderer.sharedMaterial;
                     if (!groups.TryGetValue(material, out var list)) groups[material] = list = new List<CombineInstance>();
-                    list.Add(new CombineInstance { mesh = cube, transform = local * renderer.transform.localToWorldMatrix });
+                    // Candy fruit and sweets keep a cheap curved silhouette in the distance.
+                    var source = renderer.GetComponent<MeshFilter>();
+                    var shape = source != null ? distantSilhouette?.Invoke(source.sharedMesh) : null;
+                    list.Add(new CombineInstance { mesh = shape != null ? shape : cube, transform = local * renderer.transform.localToWorldMatrix });
                 }
             }
             var next = Combine(groups, "Lightweight " + building.name, out var materials);

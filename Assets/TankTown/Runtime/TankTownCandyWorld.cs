@@ -7,23 +7,57 @@ namespace TankTown
         internal bool CandyTheme => game.BuiltStage == TownStage.CandyTown;
         private CandyGeometry candyGeometry;
         private Material[] candyLollipops;
-        private Material candyCream, candySponge, candyWafer, candyChocolate, candyChocolateTile, candyStrawberry, candyLeaf, candyPink;
+        private Material candyCream, candySponge, candyWafer, candyBiscuit, candyChocolate, candyChocolateTile, candyStrawberry, candyLeaf, candyPink;
+        private Material candyDough, candyStripe, candyJam, candyLollipopPink, candyLollipopRed;
+        private void ApplyCandyTexture(Material material, string name, float tiling, float gloss, float relief)
+        {
+            var texture = Resources.Load<Texture2D>("CandyTextures/" + name);
+            if (texture == null) { Debug.LogError("Missing candy texture: " + name); return; }
+            material.name = "Candy " + name;
+            material.SetTexture("_BaseMap", texture);
+            material.SetTextureScale("_BaseMap", Vector2.one * tiling);
+            material.SetFloat("_TextureRelief", relief);
+            material.SetFloat("_Gloss", gloss);
+            material.SetFloat("_HighlightPower", gloss > .3f ? 48 : 24);
+            material.SetFloat("_SurfaceDetail", 0); material.SetFloat("_Brushed", 0);
+            material.EnableKeyword("_CANDY_TEXTURE");
+        }
+        private Material CandyMaterial(string name, float tiling, float gloss, float relief, Color? tint = null)
+        {
+            var material = MakeMaterial(tint ?? Color.white);
+            ApplyCandyTexture(material, name, tiling, gloss, relief); return material;
+        }
+        private void InitializeCandyAccents(Material[] colors)
+        {
+            candyLollipops = new Material[colors.Length];
+            for (int i = 0; i < colors.Length; i++)
+            {
+                ApplyCandyTexture(colors[i], "Glaze", .35f, .38f, .02f);
+                candyLollipops[i] = CandyMaterial("CandySwirl", 1, .42f, .02f, ItemIcons.Color((ItemKind)i));
+            }
+        }
         private void InitializeCandyPalette()
         {
             candyGeometry = new CandyGeometry();
-            candyCream = MakeMaterial(new Color(1, .98f, .9f), ToySurface.Organic);
-            candySponge = MakeMaterial(new Color(1, .74f, .36f), ToySurface.Organic);
-            candyWafer = MakeMaterial(new Color(.91f, .60f, .28f), ToySurface.Wood);
-            candyChocolate = MakeMaterial(new Color(.24f, .065f, .04f));
-            candyChocolateTile = MakeMaterial(new Color(.40f, .13f, .075f));
-            candyStrawberry = MakeMaterial(new Color(1, .045f, .17f));
-            candyLeaf = MakeMaterial(new Color(.13f, .77f, .25f), ToySurface.Organic);
-            candyPink = MakeMaterial(ItemIcons.Color(ItemKind.Magnet));
+            candyCream = CandyMaterial("Cream", .35f, .18f, .025f);
+            candySponge = CandyMaterial("Sponge", .16f, .045f, .055f);
+            candyWafer = CandyMaterial("Wafer", .25f, .08f, .10f);
+            candyBiscuit = CandyMaterial("Biscuit", .18f, .09f, .04f);
+            candyChocolate = CandyMaterial("Chocolate", .25f, .25f, .018f, new Color(.68f, .68f, .68f));
+            candyChocolateTile = CandyMaterial("Chocolate", .25f, .38f, .018f);
+            candyStrawberry = CandyMaterial("Strawberry", 1, .36f, .045f);
+            candyLeaf = CandyMaterial("Glaze", 1, .14f, .015f, new Color(.13f, .77f, .25f));
+            candyPink = CandyMaterial("Glaze", 1, .40f, .02f, ItemIcons.Color(ItemKind.Magnet));
+            candyDough = CandyMaterial("Dough", 1, .12f, .045f);
+            candyStripe = CandyMaterial("CandyStripe", 1, .32f, .015f);
+            candyJam = CandyMaterial("Glaze", 1, .40f, .02f, new Color(1, .07f, .16f));
+            candyLollipopPink = CandyMaterial("CandySwirl", 1, .42f, .02f, ItemIcons.Color(ItemKind.Magnet));
+            candyLollipopRed = CandyMaterial("CandySwirl", 1, .42f, .02f, new Color(1, .07f, .16f));
             road.SetColor("_BaseColor", new Color(.18f, .09f, .10f));
             grass.SetColor("_BaseColor", new Color(.48f, .93f, .71f));
             cream.SetColor("_BaseColor", new Color(1, .88f, .59f));
         }
-        private Material CandyWallMaterial(int style) => style == 0 ? candySponge : style == 1 ? candyChocolate : candyWafer;
+        private Material CandyWallMaterial(int style) => style == 0 ? candySponge : style == 1 ? candyChocolate : candyBiscuit;
 
         // Decorations retain metre-sized geometry even when their structural parent is a thin scaled panel.
         private GameObject CandyDetail(Transform parent, string label, Vector3 point, Vector3 size, Material material, Mesh shape = null)
@@ -42,10 +76,8 @@ namespace TankTown
             CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 - .12f, .20f), new Vector3(w + .10f, .45f, .48f), color);
             if (style == 0)
             {
-                CandyDetail(wall.transform, "Cream layer", new Vector3(0, h / 2 - .50f, .24f), new Vector3(w + .18f, .65f, .60f), candyCream);
-                foreach (int side in new[] { -1, 1 })
-                    CandyDetail(wall.transform, "Cream drip", new Vector3(side * w * .26f, h / 2 - .94f, .28f), new Vector3(1.5f, 1.30f, .65f), candyCream, geometry.LowPolyHead());
-                CandyDetail(wall.transform, "Strawberry filling", new Vector3(0, -.35f, .17f), new Vector3(w, .20f, .12f), candyStrawberry);
+                CandyDetail(wall.transform, "Cream layer", new Vector3(0, h / 2 - .65f, .28f), new Vector3(w + .18f, 1.0f, .65f), candyCream, candyGeometry.CreamRibbon);
+                CandyDetail(wall.transform, "Strawberry filling", new Vector3(0, -.35f, .17f), new Vector3(w, .20f, .12f), candyJam);
             }
             else if (style == 1)
             {
@@ -64,8 +96,6 @@ namespace TankTown
         private void DecorateBiscuitRoof(DestructibleBlock roof, Material color)
         {
             Vector3 size = roof.transform.localScale;
-            for (int i = -1; i <= 1; i++)
-                CandyDetail(roof.transform, "Wafer roof groove", new Vector3(i * size.x * .28f, .19f, 0), new Vector3(.12f, .10f, size.z), candyChocolateTile);
             CandyDetail(roof.transform, "Icing roof edge", new Vector3(0, .20f, -size.z * .45f), new Vector3(size.x, .28f, .36f), color);
         }
         private void DecorateCandyRoof(DestructibleBlock roof, int style, Material color, float width)
@@ -78,9 +108,8 @@ namespace TankTown
                     var berry = CandyDetail(roof.transform, "Roof strawberry", point, new Vector3(3.2f, 3.4f, 3.2f), candyStrawberry, candyGeometry.Strawberry);
                     CandyDetail(berry.transform, "Strawberry leaf", new Vector3(0, 1.65f, 0), new Vector3(1.8f, .22f, .7f), candyLeaf);
                     CandyDetail(berry.transform, "Strawberry leaf", new Vector3(0, 1.65f, 0), new Vector3(.7f, .22f, 1.8f), candyLeaf);
-                    foreach (int side in new[] { -1, 1 }) CandyDetail(berry.transform, "Strawberry seed", new Vector3(side * .65f, .15f, -1.2f), new Vector3(.15f, .25f, .08f), candyCream);
                 }
-                else CandyDetail(roof.transform, "Roof candy", point - Vector3.up * .8f, new Vector3(2, 1.2f, 2), color, geometry.LowPolyHead());
+                else CandyDetail(roof.transform, "Roof candy", point - Vector3.up * .8f, new Vector3(2, 1.2f, 2), color, candyGeometry.Sphere);
             }
         }
         private void CreateCandyProp(Vector3 point, string label, Material color, bool sign)
@@ -89,21 +118,19 @@ namespace TankTown
             item.transform.position = GroundPoint(point);
             var post = item.AddComponent<BoxCollider>(); post.center = Vector3.up * 1.5f; post.size = new Vector3(.4f, 3, .4f);
             AddBlock(item, true);
-            Box("Sugar stick", post.center, post.size, candyCream, item.transform, false);
-            for (int i = 0; i < 4; i++) Box("Candy stripe", new Vector3(0, .4f + i * .65f, 0), new Vector3(.43f, .25f, .43f), candyStrawberry, item.transform, false);
+            CandyDetail(item.transform, "Sugar stick", post.center, post.size, sign ? candyStripe : candyCream, candyGeometry.SugarStick);
             if (!sign)
             {
-                if (color == grass) color = candyLollipops[Mathf.Abs(Mathf.RoundToInt(point.x) + Mathf.RoundToInt(point.z) * 2) % candyLollipops.Length];
-                var lollipop = CandyDetail(item.transform, "Lollipop crown", Vector3.up * 3.4f, new Vector3(3.3f, 3.3f, 1.1f), color, geometry.LowPolyHead());
+                color = color == candyPink ? candyLollipopPink : color == candyStrawberry ? candyLollipopRed : candyLollipops[Mathf.Abs(Mathf.RoundToInt(point.x) + Mathf.RoundToInt(point.z) * 2) % candyLollipops.Length];
+                var lollipop = CandyDetail(item.transform, "Lollipop crown", Vector3.up * 3.4f, new Vector3(3.3f, 3.3f, 1.1f), color, candyGeometry.Sphere);
                 var sphere = lollipop.AddComponent<SphereCollider>(); sphere.radius = .5f;
-                CandyDetail(item.transform, "Lollipop swirl", new Vector3(0, 3.4f, -.6f), new Vector3(1.55f, 1.55f, .15f), candyCream, geometry.LowPolyHead());
             }
             else if (label == "Street lamp")
             {
-                for (int i = 0; i < 3; i++) Box("Candy cane hook", new Vector3(.35f + i * .30f, 3.05f - i * i * .12f, 0), new Vector3(.46f, .42f, .44f), i % 2 == 0 ? candyCream : candyStrawberry, item.transform, false);
-                CandyDetail(item.transform, "Candy lamp", new Vector3(.95f, 2.45f, 0), new Vector3(.9f, .8f, .9f), color, geometry.LowPolyHead());
+                CandyDetail(item.transform, "Candy cane hook", new Vector3(.55f, 3.0f, 0), new Vector3(1.1f, 1.1f, .4f), candyStripe, candyGeometry.CaneHook);
+                CandyDetail(item.transform, "Candy lamp", new Vector3(1.1f, 2.8f, 0), new Vector3(.9f, .8f, .9f), candyPink, candyGeometry.Sphere);
             }
-            else Box("Biscuit sign", new Vector3(0, 2.8f, 0), new Vector3(1.9f, 1.0f, .3f), candyWafer, item.transform, false);
+            else Box("Biscuit sign", new Vector3(0, 2.8f, 0), new Vector3(1.9f, 1.0f, .3f), candyBiscuit, item.transform, false);
         }
         private void CreateCandyPark(Vector3 center)
         {
@@ -111,8 +138,8 @@ namespace TankTown
             Terrain.Surface("Candy garden plaza", new Vector2(center.x - BuildingWidth / 2, center.z - BuildingWidth / 2), Vector2.one * BuildingWidth, .04f, grass);
             var muffin = Box("Crushable cupcake", center + Vector3.up * 1.1f, new Vector3(5, 2.2f, 5), candyWafer);
             AddBlock(muffin, true);
-            CandyDetail(muffin.transform, "Cupcake frosting", new Vector3(0, 1.9f, 0), new Vector3(6.2f, 2.8f, 6.2f), candyPink, geometry.LowPolyHead());
-            CandyDetail(muffin.transform, "Cupcake cherry", new Vector3(0, 3.7f, 0), new Vector3(1.6f, 1.6f, 1.6f), candyStrawberry, geometry.LowPolyHead());
+            CandyDetail(muffin.transform, "Cupcake frosting", new Vector3(0, 1.9f, 0), new Vector3(6.2f, 2.8f, 6.2f), candyPink, candyGeometry.Sphere);
+            CandyDetail(muffin.transform, "Cupcake cherry", new Vector3(0, 3.7f, 0), new Vector3(1.6f, 1.6f, 1.6f), candyJam, candyGeometry.Sphere);
             for (int i = 0; i < 4; i++)
             {
                 var direction = Quaternion.Euler(0, i * 90, 0) * Vector3.forward;
@@ -140,7 +167,7 @@ namespace TankTown
             for (int i = 0; i < slices.Length; i++)
             {
                 float angle = -82.5f + i * 15, radians = angle * Mathf.Deg2Rad;
-                var slice = Part("Doughnut slice", new Vector3(Mathf.Sin(radians) * 12, 6 + Mathf.Cos(radians) * 12, 0), new Vector3(3.8f, 4.2f, 4.2f), candyWafer, BuildingPart.Prop, 0, -1, building);
+                var slice = Part("Doughnut slice", new Vector3(Mathf.Sin(radians) * 12, 6 + Mathf.Cos(radians) * 12, 0), new Vector3(3.8f, 4.2f, 4.2f), candyDough, BuildingPart.Prop, 0, -1, building);
                 slice.PreserveShape = true;
                 slice.transform.localRotation = Quaternion.Euler(0, 0, -angle);
                 slice.GetComponent<MeshFilter>().sharedMesh = candyGeometry.DoughnutSlice;

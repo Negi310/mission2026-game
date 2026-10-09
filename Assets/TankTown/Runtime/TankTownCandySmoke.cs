@@ -39,7 +39,9 @@ namespace TankTown
             game.Tank.Warp(new Pose(game.World.SpawnPosition, Quaternion.identity));
             game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true; game.CameraRig.enabled = false;
             View(cake.transform.position, new Vector3(-28, 21, -34), 12); yield return null; Capture(game, "candy-03-cake");
+            View(cake.transform.position, new Vector3(-18, 8, -22), 7); yield return null; Capture(game, "candy-08-cake-texture");
             var chocolate = game.World.Buildings.First(x => x.Style == 1);
+            View(chocolate.transform.position, new Vector3(-17, 8, -22), 7); yield return null; Capture(game, "candy-09-chocolate-texture");
             MoveTank(game, chocolate.transform.position + new Vector3(-4.6f, 0, -chocolate.Width / 2 - 19));
             View(chocolate.transform.position, new Vector3(-26, 16, -32), 9);
             int before = game.BrokenBlocks; game.Input.PulsePad(0); yield return new WaitForSeconds(.6f);
@@ -49,6 +51,10 @@ namespace TankTown
             yield return new WaitForSeconds(4.9f);
             if (chocolate.Reward.Area == null) { Fail("full candy destruction did not release an area"); yield break; }
             View(chocolate.transform.position, new Vector3(-24, 16, -32), 2); Capture(game, "candy-05-reward");
+            var biscuit = game.World.Buildings.First(x => x.Style == 2);
+            View(biscuit.transform.position, new Vector3(-20, 12, -25), 7); yield return null; Capture(game, "candy-10-biscuit-texture");
+            var lollipop = game.World.GetComponentsInChildren<Transform>().First(x => x.name == "Lollipop tree");
+            View(lollipop.position, new Vector3(-5, 4, -7), 2.5f); yield return null; Capture(game, "candy-11-lollipop-texture");
             var gate = game.World.Buildings.Single(x => x.Style == 3);
             MoveTank(game, gate.transform.position + Vector3.back * 34);
             View(gate.transform.position, new Vector3(-26, 18, -36), 9); yield return null; Capture(game, "candy-06-doughnut");
@@ -56,7 +62,9 @@ namespace TankTown
             gate.ReleaseUnsupported(gate.transform.position, 0);
             yield return new WaitForSeconds(.4f); Capture(game, "candy-07-doughnut-collapse");
             if (!gate.FullyDestroyed || gate.Reward.Area == null) { Fail("unsupported doughnut did not collapse and release its reward"); yield break; }
-            Debug.Log($"CANDY SMOKE COMPLETE: stage={game.Stage}, buildings={game.World.Buildings.Count}, cakes={game.World.Buildings.Count(x => x.Style == 0)}, chocolate={game.World.Buildings.Count(x => x.Style == 1)}, biscuits={game.World.Buildings.Count(x => x.Style == 2)}, physicalGate=true, cannonLocalBreak=true, fullRewardArea=true, gameplayLogo=false");
+            int textureCount = game.World.GetComponentsInChildren<Renderer>().SelectMany(x => x.sharedMaterials).Where(x => x != null && x.IsKeywordEnabled("_CANDY_TEXTURE")).Select(x => x.GetTexture("_BaseMap")).Where(x => x != null).Distinct().Count();
+            if (textureCount != 10) { Fail("all ten candy textures must be used by the stage"); yield break; }
+            Debug.Log($"CANDY SMOKE COMPLETE: stage={game.Stage}, buildings={game.World.Buildings.Count}, cakes={game.World.Buildings.Count(x => x.Style == 0)}, chocolate={game.World.Buildings.Count(x => x.Style == 1)}, biscuits={game.World.Buildings.Count(x => x.Style == 2)}, candyTextures={textureCount}, physicalGate=true, cannonLocalBreak=true, fullRewardArea=true, gameplayLogo=false");
             Application.Quit(0);
         }
         private static void MoveTank(TankTownGame game, Vector3 point)

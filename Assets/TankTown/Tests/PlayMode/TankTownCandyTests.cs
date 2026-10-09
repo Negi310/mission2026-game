@@ -67,7 +67,7 @@ namespace TankTown.Tests
             var gate = game.World.Buildings.Single(x => x.Style == 3);
             Assert.That(gate.Blocks.Count, Is.EqualTo(16));
             Assert.That(gate.Blocks.All(x => x.GetComponent<Collider>() != null), Is.True);
-            Assert.That(gate.GetComponentsInChildren<MeshFilter>().Any(x => x.sharedMesh.name == "Faceted doughnut segment"), Is.True);
+            Assert.That(gate.GetComponentsInChildren<MeshFilter>().Any(x => x.sharedMesh.name == "Smooth doughnut segment"), Is.True);
             Assert.That(game.World.GetComponentsInChildren<Transform>().Any(x => x.name == "Lollipop tree"), Is.True);
             Assert.That(game.World.GetComponentsInChildren<Transform>().Any(x => x.name == "Roof strawberry"), Is.True);
             var cake = game.World.Buildings.First(x => x.Style == 0);

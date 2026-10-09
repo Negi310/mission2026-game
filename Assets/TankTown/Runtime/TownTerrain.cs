@@ -58,7 +58,7 @@ namespace TankTown
                 int i = z * (nx + 1) + x;
                 var p = new Vector3(minimum.x + size.x * x / nx, 0, minimum.y + size.y * z / nz);
                 p.y = HeightAt(p) + lift;
-                vertices[i] = p; uv[i] = new Vector2(p.x, p.z) * .05f;
+                vertices[i] = p; uv[i] = new Vector2(p.x, p.z);
             }
             for (int z = 0; z < nz; z++) for (int x = 0; x < nx; x++)
             {

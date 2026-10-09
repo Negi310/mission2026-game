@@ -63,6 +63,7 @@ namespace TankTown
             Vector3 half = size * .5f, inner = half - Vector3.one * radius;
             var vertices = new List<Vector3>();
             var normals = new List<Vector3>();
+            var uv = new List<Vector2>();
             var triangles = new List<int>();
             Vector3[] directions = { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
             foreach (var direction in directions)
@@ -88,6 +89,8 @@ namespace TankTown
                     vertices.Add(new Vector3(rounded.x / size.x, rounded.y / size.y, rounded.z / size.z));
                     // Inverse-transpose scaling then recovers the physical bevel normal.
                     normals.Add(Vector3.Scale(normal, size).normalized);
+                    // Metre-sized UVs survive building batching and follow moving fragments.
+                    uv.Add(new Vector2(xs[x] + du, ys[y] + dv));
                 }
                 for (int y = 0; y < 3; y++) for (int x = 0; x < 3; x++)
                 {
@@ -97,7 +100,7 @@ namespace TankTown
                 }
             }
             var mesh = new Mesh { name = (tapered ? "Toy sloped armor " : "Toy bevel ") + size };
-            mesh.SetVertices(vertices); mesh.SetNormals(normals); mesh.SetTriangles(triangles, 0);
+            mesh.SetVertices(vertices); mesh.SetNormals(normals); mesh.SetUVs(0, uv); mesh.SetTriangles(triangles, 0);
             // Keep shared geometry readable for per-building batching. One bevel strip
             // retains rounded highlights with 108 triangles instead of 300 per box.
             mesh.RecalculateBounds();

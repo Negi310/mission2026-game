@@ -98,6 +98,9 @@ namespace TankTown
             foreach (var child in decorations) child.SetParent(parent, true);
             var pieces = new List<Transform>();
             Vector3 pieceSize = new Vector3(size.x / divisions.x, size.y / divisions.y, size.z / divisions.z);
+            // Shared metre-sized UVs retain the candy detail density after a large slab splits.
+            var fragmentMesh = renderer.sharedMaterial != null && renderer.sharedMaterial.IsKeywordEnabled("_CANDY_TEXTURE")
+                ? game.World.FragmentBoxMesh(pieceSize) : mesh.sharedMesh;
             var properties = new MaterialPropertyBlock(); renderer.GetPropertyBlock(properties);
             for (int x = 0; x < divisions.x; x++) for (int y = 0; y < divisions.y; y++) for (int z = 0; z < divisions.z; z++)
             {
@@ -107,7 +110,7 @@ namespace TankTown
                 {
                     var item = new GameObject(name + " fragment", typeof(MeshFilter), typeof(MeshRenderer), typeof(BoxCollider));
                     piece = item.transform; piece.SetParent(parent, false);
-                    item.GetComponent<MeshFilter>().sharedMesh = mesh.sharedMesh;
+                    item.GetComponent<MeshFilter>().sharedMesh = fragmentMesh;
                     var fragmentRenderer = item.GetComponent<MeshRenderer>();
                     fragmentRenderer.sharedMaterials = renderer.sharedMaterials;
                     if (!properties.isEmpty) fragmentRenderer.SetPropertyBlock(properties);
@@ -116,6 +119,7 @@ namespace TankTown
                 var localCenter = new Vector3((x + .5f) / divisions.x - .5f, (y + .5f) / divisions.y - .5f, (z + .5f) / divisions.z - .5f);
                 piece.SetPositionAndRotation(original.MultiplyPoint3x4(localCenter), rotation);
                 piece.localScale = pieceSize;
+                piece.GetComponent<MeshFilter>().sharedMesh = fragmentMesh;
                 pieces.Add(piece);
             }
             // 窓などの装飾は元の世界位置を保って近い破片へ付け替える。

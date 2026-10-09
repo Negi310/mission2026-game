@@ -3,6 +3,8 @@ Shader "TankTown/Saturated Toon"
     Properties
     {
         _BaseColor("Color", Color) = (1,1,1,1)
+        _BaseMap("Candy albedo", 2D) = "white" {}
+        _TextureRelief("Candy texture relief", Range(0,.3)) = .04
         _Saturation("Saturation", Range(0,2)) = 1.05
         _Gloss("Toy highlight", Range(0,1)) = .26
         _HighlightPower("Highlight sharpness", Range(8,128)) = 48
@@ -22,6 +24,8 @@ Shader "TankTown/Saturated Toon"
         #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
         CBUFFER_START(UnityPerMaterial)
         half4 _BaseColor;
+        float4 _BaseMap_ST;
+        half _TextureRelief;
         half _Saturation;
         half _Gloss;
         half _HighlightPower;
@@ -33,8 +37,9 @@ Shader "TankTown/Saturated Toon"
         half _DebrisVisibility;
         half _StructuralDamage;
         CBUFFER_END
-        struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-        struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; float3 surfacePosition : TEXCOORD2; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
+        TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
+        struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+        struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; float3 surfacePosition : TEXCOORD2; float2 uv : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
         Varyings Vert(Attributes input)
         {
             Varyings output = (Varyings)0;
@@ -44,6 +49,7 @@ Shader "TankTown/Saturated Toon"
             output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
             output.positionCS = TransformWorldToHClip(output.positionWS);
             output.normalWS = TransformObjectToWorldNormal(input.normalOS);
+            output.uv = input.uv * _BaseMap_ST.xy + _BaseMap_ST.zw;
             // Grain follows a rotating fragment, with density measured in metres.
             float3x3 objectToWorld = (float3x3)GetObjectToWorldMatrix();
             float3 scale = float3(length(mul(objectToWorld, float3(1,0,0))), length(mul(objectToWorld, float3(0,1,0))), length(mul(objectToWorld, float3(0,0,1))));
@@ -94,9 +100,21 @@ Shader "TankTown/Saturated Toon"
             CameraClip(input.positionCS.xy);
             Light light = GetMainLight(TransformWorldToShadowCoord(input.positionWS));
             half3 normal = normalize(input.normalWS);
+            half3 albedo = _BaseColor.rgb;
+            #if defined(_CANDY_TEXTURE)
+                half3 texel = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).rgb;
+                albedo *= texel;
+                // Small texture relief changes the lighting, never the mesh or physics.
+                float height = dot(texel, float3(.2126, .7152, .0722));
+                float3 dx = ddx(input.positionWS), dy = ddy(input.positionWS);
+                float3 rx = cross(dy, normal), ry = cross(normal, dx);
+                float determinant = dot(dx, rx);
+                float3 gradient = (ddx(height) * rx + ddy(height) * ry) * sign(determinant) / max(abs(determinant), .00001);
+                normal = normalize(normal - clamp(gradient * _TextureRelief, -0.3, 0.3));
+            #endif
             half ndl = saturate(dot(normal, light.direction));
-            half gray = dot(_BaseColor.rgb, half3(.2126,.7152,.0722));
-            half3 color = saturate(lerp(gray.xxx, _BaseColor.rgb, _Saturation));
+            half gray = dot(albedo, half3(.2126,.7152,.0722));
+            half3 color = saturate(lerp(gray.xxx, albedo, _Saturation));
             half3 view = GetWorldSpaceNormalizeViewDir(input.positionWS);
             AmbientOcclusionFactor ao = GetScreenSpaceAmbientOcclusion(GetNormalizedScreenSpaceUV(input.positionCS));
             // Cool fill keeps shadow detail legible; warm sunlight carries the contrast.
@@ -113,7 +131,7 @@ Shader "TankTown/Saturated Toon"
             float footprint = max(length(ddx(grainPoint)), length(ddy(grainPoint)));
             half detailFade = (1 - smoothstep(.45, 1.4, footprint)) * (1 - smoothstep(12, 40, distance(input.positionWS, _WorldSpaceCameraPos)));
             // Distant grain already fades out; skip the noise work once it contributes nothing.
-            if (detailFade > 0)
+            if (detailFade > 0 && _SurfaceDetail + _GroundDetail > 0)
             {
                 float grain = SurfaceGrain(grainPoint);
                 if (_Brushed > 0)
@@ -175,6 +193,7 @@ Shader "TankTown/Saturated Toon"
             #pragma fragment Frag
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Fog.hlsl"
             #pragma multi_compile_instancing
+            #pragma multi_compile_local_fragment _ _CANDY_TEXTURE
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
             #pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
