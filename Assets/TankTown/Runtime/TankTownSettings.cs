@@ -7,7 +7,13 @@ namespace TankTown
     {
         [Min(1)] public float roundSeconds = 60;
         [Min(0)] public float respawnPenalty = 3;
-        [Min(0.1f)] public float respawnDelay = 1.2f;
+        [Min(0.1f)] public float respawnDelay = .45f;
+        [Header("Tank crash")]
+        [Min(1)] public float crashBlastRadius = 10;
+        [Min(0)] public float crashBlastImpulseMultiplier = 1.8f;
+        [Header("Pickup feedback")]
+        [Min(.1f)] public float pickupFlyTime = .28f;
+        [Min(.5f)] public float pickupDisplayDuration = 2.2f;
         [Min(1)] public float driveSpeed = 16;
         [Min(1)] public float turnSpeed = 85;
         [Header("Driving")]

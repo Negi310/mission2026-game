@@ -68,6 +68,7 @@ namespace TankTown
         }
     }
 
+    [DefaultExecutionOrder(80)]
     public sealed class TankPickup : MonoBehaviour
     {
         public UpgradeKind Kind { get; private set; }
@@ -77,12 +78,15 @@ namespace TankTown
         private Vector3 rest;
         private float phase;
         private Renderer visual;
+        private SphereCollider trigger;
+        private MaterialPropertyBlock displayProperties;
+        internal Transform Icon => icon;
         public void Initialize(TankTownGame owner, UpgradeKind kind, Material material)
         {
             game = owner; Kind = kind;
-            var collider = gameObject.AddComponent<SphereCollider>();
-            collider.isTrigger = true;
-            collider.radius = 1.9f;
+            trigger = gameObject.AddComponent<SphereCollider>();
+            trigger.isTrigger = true;
+            trigger.radius = 1.9f;
             var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
             quad.name = "Floating 2D icon";
             quad.GetComponent<Collider>().enabled = false;
@@ -117,10 +121,20 @@ namespace TankTown
             if (Collected || !game.IsPlaying || game.Tank.Respawning) return false;
             if (!game.Stats.Upgrade(Kind)) return false;
             Collected = true;
+            trigger.enabled = false;
             game.Effects.Pickup(transform.position + Vector3.up, TankStats.Color(Kind));
             game.PlayTone(520, .22f, .18f);
-            gameObject.SetActive(false);
+            game.PickupDisplay.Show(this);
             return true;
+        }
+
+        internal void Display(Vector3 position, Quaternion rotation, float size, float opacity)
+        {
+            icon.SetPositionAndRotation(position, rotation);
+            icon.localScale = Vector3.one * size;
+            if (displayProperties == null) displayProperties = new MaterialPropertyBlock();
+            displayProperties.SetColor("_Color", new Color(1, 1, 1, opacity));
+            visual.SetPropertyBlock(displayProperties);
         }
 
         public void Attract(Vector3 target, float speed)

@@ -14,7 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: TankTown.Runtime::TankTown.TankTownSettings
   roundSeconds: 60
   respawnPenalty: 3
-  respawnDelay: 1.2
+  respawnDelay: 0.45
+  crashBlastRadius: 10
+  crashBlastImpulseMultiplier: 1.8
+  pickupFlyTime: 0.28
+  pickupDisplayDuration: 2.2
   driveSpeed: 16
   turnSpeed: 85
   acceleration: 10

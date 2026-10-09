@@ -183,8 +183,8 @@ namespace TankTown
         }
         public void Crash(Vector3 position)
         {
-            Impact(position, 7);
-            Particles(position, new Color(1, .15f, .55f), 28, 8, .9f, .6f, Vector3.up);
+            SuperImpact(position, (settings != null ? settings.crashBlastRadius : 10) * .75f);
+            Particles(position, new Color(1, .15f, .55f), 48, 18, 1.2f, .45f, Vector3.up);
         }
         private void Particles(Vector3 position, Color color, int count, float speed, float size, float lifetime, Vector3 forward, bool isSmoke = false, bool streaks = false)
         {

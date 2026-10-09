@@ -142,7 +142,8 @@ namespace TankTown.Tests
             var body = game.Tank.GetComponent<Rigidbody>();
             body.position = game.World.Buildings[0].transform.position + new Vector3(-4.6f, 1, -game.World.Buildings[0].Width / 2 - 4);
             body.rotation = Quaternion.identity;
-            yield return new WaitForSeconds(1.3f);
+            float deadline = Time.time + 1.3f;
+            while (game.Crashes == 0 && Time.time < deadline) yield return null;
             Assert.That(game.Crashes, Is.EqualTo(1));
             Assert.That(game.Tank.Respawning, Is.True);
         }

@@ -275,13 +275,15 @@ namespace TankTown
         public void Explode()
         {
             if (!game.IsPlaying || Relocating || game.Items.Invincible) return;
+            respawnAt = Time.time + game.Settings.respawnDelay;
             game.Items.OnTankCrash();
+            game.PickupDisplay.Clear();
+            game.DamageSphere(transform.position + Vector3.up, game.Settings.crashBlastRadius, game.Settings.blastImpulse * game.Settings.crashBlastImpulseMultiplier);
             game.Effects.Crash(transform.position + Vector3.up);
             game.CameraRig.FadeOut(Mathf.Max(0, game.Settings.respawnDelay - .35f));
             game.Sound.BigExplosion(transform.position);
             game.ApplyPenalty();
             Visual.gameObject.SetActive(false);
-            respawnAt = Time.time + game.Settings.respawnDelay;
         }
     }
 

@@ -263,16 +263,14 @@ namespace TankTown
             bool edge = Mathf.Abs(game.Tank.transform.position.x) > game.World.HalfExtent - 13 && game.Tank.transform.position.x * game.Tank.transform.forward.x > 0
                 || Mathf.Abs(game.Tank.transform.position.z) > game.World.HalfExtent - 13 && game.Tank.transform.position.z * game.Tank.transform.forward.z > 0;
             bool respawning = game.Tank.Respawning;
-            notice.text = respawning ? "ドカーン！"
-                : edge ? "海が見えたら、街の内側へ曲がろう！"
+            notice.text = !respawning && edge ? "海が見えたら、街の内側へ曲がろう！"
                 : "";
             chainDisplay.SetObscured(respawning || edge);
-            notice.color = respawning ? new Color(1, .68f, .18f) : Color.white;
-            notice.fontSize = respawning ? 34 : 22;
+            notice.color = Color.white;
+            notice.fontSize = 22;
             notice.font = font;
-            noticeCaption.text = respawning ? $"安全な場所へもどるよ  −{game.Settings.respawnPenalty:0.#}秒" : "連鎖爆破！";
-            noticeCaption.color = respawning ? Color.white : yellow;
-            noticeCaption.gameObject.SetActive(respawning);
+            noticeCaption.text = "";
+            noticeCaption.gameObject.SetActive(false);
             noticePanel.SetActive(game.IsPlaying && notice.text.Length > 0);
             for (int i = 0; i < 4; i++)
             {

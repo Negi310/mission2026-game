@@ -29,6 +29,7 @@ namespace TankTown
         public bool HowToOpen { get; private set; }
         public TankInput Input { get; private set; }
         public TankStats Stats { get; private set; }
+        internal TankPickupDisplay PickupDisplay { get; private set; }
         public TankTownEffects Effects { get; private set; }
         public TankTownAudio Sound { get; private set; }
         public TankMotor Tank { get; private set; }
@@ -124,6 +125,8 @@ namespace TankTown
             Tank = World.CreateTank();
             Items = Tank.gameObject.AddComponent<TankItems>();
             Items.Initialize(this);
+            PickupDisplay = Tank.gameObject.AddComponent<TankPickupDisplay>();
+            PickupDisplay.Initialize(this);
             Input.PadPressed += HandlePad;
             Input.StartPressed += StartOrRestart;
             Input.PausePressed += TogglePause;
@@ -330,7 +333,7 @@ namespace TankTown
             if (Remaining <= 0)
             {
                 State = RoundState.Results; CameraRig.CancelTransition(); CameraRig.Paused = true;
-                Items.FinishRound(); Sound.StopAll(); speaker.Stop(); Time.timeScale = 0;
+                PickupDisplay.Clear(); Items.FinishRound(); Sound.StopAll(); speaker.Stop(); Time.timeScale = 0;
                 NewBest = RoundScore > BestScore;
                 BestScore = Mathf.Max(BestScore, RoundScore);
                 RoundRecord = Ranking.Submit(RoundScore, CitySeed, out int finalRank);
