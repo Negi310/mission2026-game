@@ -71,6 +71,10 @@ namespace TankTown
                 Pickup(kind, new Vector3(((int)kind - 2) * 2, 0, 5)).Collect();
             yield return new WaitForSeconds(.32f); Capture("04-multiple"); Capture("05-multiple-720", 1280, 720);
             if (game.PickupDisplay.Count != 4 || speed.Icon != original) throw new InvalidOperationException("Field icon continuity or simultaneous display failed");
+            foreach (var kind in new[] { UpgradeKind.Speed, UpgradeKind.Power, UpgradeKind.Rapid, UpgradeKind.Handling })
+                Pickup(kind, new Vector3(((int)kind - 1.5f) * 2, 0, 5)).Collect();
+            yield return new WaitForSeconds(.32f); Capture("09-eight");
+            if (game.PickupDisplay.Count != 8) throw new InvalidOperationException("Eight simultaneous pickup icons were not retained");
             body.isKinematic = false; game.Tank.enabled = true; game.Input.SetWheel(.45f);
             yield return new WaitForSeconds(.42f); Capture("06-driving"); game.Input.SetWheel(0);
             game.Tank.enabled = false; body.linearVelocity = Vector3.zero; body.isKinematic = true;
@@ -96,8 +100,28 @@ namespace TankTown
             if (game.Tank.Respawning || respawnSeconds > .65f || game.BrokenBlocks <= before)
                 throw new InvalidOperationException("Fast recovery or the crash blast failed");
             yield return new WaitForSeconds(.45f); Capture("08-recovered");
-            Debug.Log($"PICKUP FEEDBACK SMOKE COMPLETE: captures=8, reused=True, simultaneous=4, flyTime={game.Settings.pickupFlyTime:F2}s, iconSize={game.Settings.pickupIconSize:F2}, respawn={respawnSeconds:F3}s, crashDamage={game.BrokenBlocks - before}, crashes={game.Crashes}, seed={game.CitySeed}");
+            game.Tank.enabled = false; body.linearVelocity = Vector3.zero; body.isKinematic = true;
+            TankTownSmokeCapture.Capture(Path.Combine(output, "upgrade-feedback-10-ui-background.png"), false, 1920, 1080);
+            var previewAssets = Path.Combine(output, "ui-proposal-assets"); Directory.CreateDirectory(previewAssets);
+            game.GetComponent<TankTownHUD>().Minimap?.RenderNow();
+            ExportTexture(game.GetComponent<TankTownHUD>().Minimap.Texture, Path.Combine(previewAssets, "map.png"));
+            for (int i = 0; i < 4; i++) ExportTexture(game.World.Icons.Material((UpgradeKind)i).mainTexture, Path.Combine(previewAssets, $"upgrade-{i}.png"));
+            for (int i = 0; i < 6; i++) ExportTexture(game.World.SpecialIcons.Material((ItemKind)i).mainTexture, Path.Combine(previewAssets, $"special-{i}.png"));
+            Debug.Log($"PICKUP FEEDBACK SMOKE COMPLETE: captures=10, reused=True, simultaneous=8, flyTime={game.Settings.pickupFlyTime:F2}s, iconSize={game.Settings.pickupIconSize:F2}, respawn={respawnSeconds:F3}s, crashDamage={game.BrokenBlocks - before}, crashes={game.Crashes}, seed={game.CitySeed}");
             Application.Quit(0);
+        }
+        private static void ExportTexture(Texture source, string path)
+        {
+            var target = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
+            var previous = RenderTexture.active; Texture2D pixels = null;
+            try
+            {
+                Graphics.Blit(source, target); RenderTexture.active = target;
+                pixels = new Texture2D(source.width, source.height, TextureFormat.RGBA32, false);
+                pixels.ReadPixels(new Rect(0, 0, source.width, source.height), 0, 0); pixels.Apply();
+                File.WriteAllBytes(path, pixels.EncodeToPNG());
+            }
+            finally { RenderTexture.active = previous; RenderTexture.ReleaseTemporary(target); if (pixels != null) Destroy(pixels); }
         }
     }
 }

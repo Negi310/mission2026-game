@@ -64,6 +64,15 @@ namespace TankTown.Tests
             yield return null;
             Assert.That(pickups[0].Icon.position.z - before.z, Is.GreaterThan(3));
             foreach (var pickup in pickups) Assert.That(Vector3.Angle(pickup.Icon.forward, game.CameraRig.transform.forward), Is.LessThan(.05f));
+            float oldSpan = Vector3.Dot(pickups[3].Icon.position - pickups[0].Icon.position, game.CameraRig.transform.right);
+            var more = Enumerable.Range(0, 4).Select(i => Pickup((UpgradeKind)i, new Vector3(i - 1.5f, 0, 4))).ToArray();
+            foreach (var pickup in more) Assert.That(pickup.Collect(), Is.True);
+            yield return new WaitForSeconds(game.Settings.pickupFlyTime + .2f);
+            var all = pickups.Concat(more).ToArray();
+            Assert.That(game.PickupDisplay.Count, Is.EqualTo(8));
+            float height = game.Tank.transform.position.y + game.Settings.pickupIconHeight * game.Tank.VehicleScale;
+            foreach (var pickup in all) Assert.That(pickup.Icon.position.y, Is.InRange(height - .12f, height + .12f), "More than four pickups must stay in the same row");
+            Assert.That(Vector3.Dot(all[7].Icon.position - all[0].Icon.position, game.CameraRig.transform.right), Is.LessThanOrEqualTo(oldSpan + .05f), "Additional icons must overlap within the same strip");
         }
         [UnityTest]
         public IEnumerator PickupDisplayPausesFadesAndExpiresWithoutLosingTheUpgrade()
