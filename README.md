@@ -74,7 +74,7 @@ Unity **6000.3.19f1** で開き、メニュー **Tank Town → Create or open pl
 
 [取得アイコンと短い復帰の検証](docs/pickup-feedback-validation.md)、[低い位置・大きな重なるアイコンへの調整](docs/pickup-icon-motion-validation.md)、[8個も一列へ重ねる検証](docs/pickup-row-validation.md)。更新版は`Builds/TankTown-PickupFeedback/TankTown.exe`から起動できます。
 
-[新しいプレイ画面UIの提案](docs/ui-proposal.md)と[操作できる見本](docs/ui-proposal/preview.html)を用意しました。取得・レベルのカウントアップ・所持武器・複数の効果時間を確認できます。画面案はUnityへの反映前です。
+[新しいプレイ画面UIの提案](docs/ui-proposal.md)と[操作できる見本](docs/ui-proposal/preview.html)を用意しました。取得・レベルのカウントアップ・所持武器・複数の効果時間を確認できます。常設の操作案内を外し、スペシャルの場所を戦車の真下と右下で比較できます。画面案はUnityへの反映前です。
 
 |色・アイコン|効果（1レベルごと）|
 |---|---|

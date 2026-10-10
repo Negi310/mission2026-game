@@ -12,11 +12,24 @@
 .effect{height:144px}.effect .seconds{top:84px}.effect .title{bottom:10px;font-size:14px;line-height:1.2}
 .special-area .use:disabled{background:#436673;color:#c5dce2;box-shadow:0 4px #284a58;cursor:default}
 [hidden]{display:none!important}
+/* Put the held weapon just below the tank, and its active effects alongside it. */
+.special-area{left:790px;right:auto;bottom:30px;width:362px;height:122px}
+.special-area .icon{left:16px;top:20px;width:78px;height:78px}
+.special-area .label{left:113px;top:12px;font-size:12px}
+.special-area .name{left:113px;top:35px;font-size:23px}
+.special-area .use{left:113px;top:77px;padding:5px 11px;font-size:16px;min-width:190px}
+.special-area .hint{left:113px;top:82px;font-size:14px}
+.active-effects{left:1176px;right:auto;bottom:30px;justify-content:flex-start}
+.effects-caption{left:1178px;right:auto;bottom:182px}
+/* Alternative: a small group beside the tank, with the timers above the weapon. */
+.scene[data-special-layout="near"] .special-area{left:1168px}
+.scene[data-special-layout="near"] .active-effects{left:1168px;bottom:174px}
+.scene[data-special-layout="near"] .effects-caption{left:1170px;bottom:326px}
 </style>
 <header><div><h1>プレイ画面 UI案 — 取得と発動がつながるHUD</h1><p>実際のゲーム画面とアイコンを使用。下のボタンで取得・カウントアップ・発動・残り時間を確認できます。</p></div><span class="tag">デザイン案 / Unityへの反映前</span></header>
 <main>
 <div class="viewport" role="region" aria-label="戦車ゲームの新しいHUDの動作見本">
- <div class="scene">
+ <div class="scene" data-special-layout="center">
   <img class="background" src="assets/background.png" alt="現在のゲーム画面、お菓子の街">
   <div class="hud">
    <section class="score panel"><div class="top">破壊度 <span class="rank" id="rank">2 位</span></div><div class="percent"><span id="destruction">24.8</span><small>%</small></div><div class="points" id="points">24,800 pt</div><div class="track"><div class="fill" id="fill"></div></div><div class="next">次の順位まで <strong id="next">1,200</strong> pt</div></section>
@@ -27,11 +40,11 @@
    <div class="count-caption">パワーアップ</div><section class="upgrades" id="upgrades" aria-label="パワーアップのレベル"></section>
    <div class="effects-caption" id="effects-caption">発動中</div><section class="active-effects" id="effects" aria-label="効果の残り時間"></section>
    <section class="special-area panel" id="special"><img class="icon" id="held-icon" src="assets/special-0.png" alt="メガビーム"><svg class="icon" id="empty-slot" hidden viewBox="0 0 116 116" aria-label="空のスペシャル枠"><path d="M30 8H86L112 58L86 108H30L4 58Z" fill="#244b5d" stroke="#b7d5df" stroke-width="4"/><text x="58" y="81" text-anchor="middle" fill="#b7d5df" font-size="65" font-weight="900">?</text></svg><span class="label">所持スペシャル</span><strong class="name" id="held-name">メガビーム</strong><button class="use" id="use">SPACE でつかう ▶</button><span class="hint" id="held-hint" hidden>ビルを全壊でゲット！</span></section>
-   <div class="controls-hint"><kbd>A</kbd><kbd>D</kbd> ハンドル　 <kbd>SPACE</kbd> 砲撃</div>
   </div>
  </div>
 </div>
 <div class="toolbar" aria-label="演出の確認">
+ <select id="layout-select" aria-label="スペシャルの配置"><option value="center">配置：戦車の真下（おすすめ）</option><option value="near">配置：戦車の右下</option></select>
  <button class="primary" id="collect">強化を取る</button><button id="burst">8個まとめて取る</button><button id="chain-demo">連鎖表示</button>
  <select id="special-select" aria-label="スペシャルの種類"><option value="0">メガビーム</option><option value="1">追尾ミサイル</option><option value="2">マグネット</option><option value="3">ブルドーザー</option><option value="4">ギガント爆弾</option><option value="5">ハイスピード</option></select>
  <button id="collect-special">スペシャル取得</button><button id="activate">SPACE 発動</button><button id="extend">マグネット再取得</button><button id="impact">爆弾を着弾</button>
@@ -62,6 +75,7 @@ function paintClock(){const seconds=Math.ceil(model.time);$('time').textContent=
 function reset(){queueTimers.forEach(clearTimeout);fxTimers.forEach(clearTimeout);queueTimers=[];fxTimers=[];receipts=[];$('pickups').replaceChildren();model={levels:[2,3,1,2],held:0,time:37,effects:new Map([[1,{remaining:5.2,duration:6}],[2,{remaining:6.4,duration:8}],[5,{remaining:3.8,duration:6}]])};shown=[...model.levels];queues=[false,false,false,false];nextKind=0;running=false;$('tick').textContent='時間を進める ▶';buildStats();paintHeld();$('effects').replaceChildren();paintEffects();paintClock()}
 $('collect').onclick=()=>collect(nextKind++%4);$('burst').onclick=()=>{const before=model.levels.reduce((a,b)=>a+b,0);for(let i=0;i<4;i++)collect(i,2);const total=model.levels.reduce((a,b)=>a+b,0)-before;$('pickup-caption').textContent=total?total+'個 GET!':'すべてMAX！';restartClass($('pickup-caption'),'show')};$('chain-demo').onclick=()=>restartClass($('chain'),'pop');$('collect-special').onclick=()=>collectSpecial(Number($('special-select').value));$('activate').onclick=useHeld;$('use').onclick=useHeld;$('extend').onclick=()=>collectSpecial(2);$('impact').onclick=()=>{model.effects.delete(4);paintEffects()};$('tick').onclick=()=>{running=!running;$('tick').textContent=running?'時間を止める Ⅱ':'時間を進める ▶';last=performance.now()};$('reset').onclick=reset;
 window.addEventListener('keydown',event=>{if(event.code==='Space'&&!['BUTTON','SELECT','INPUT'].includes(event.target.tagName)){event.preventDefault();useHeld()}});
+$('layout-select').onchange=()=>{document.querySelector('.scene').dataset.specialLayout=$('layout-select').value};
 function frame(now){if(running)advance(Math.min(.1,(now-last)/1000));last=now;requestAnimationFrame(frame)}reset();requestAnimationFrame(frame);
 window.uiDemo={collect,collectSpecial,useHeld,advance,reset,get snapshot(){return{levels:[...model.levels],shown:[...shown],held:model.held,effects:[...model.effects].map(([kind,effect])=>({kind,...effect})),receipts:receipts.length}}};
 </script>
