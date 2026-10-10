@@ -22,6 +22,7 @@ namespace TankTown
         private float until, changedAt, countAt, recordUntil;
         private bool obscured;
         private const float Lifetime = 2;
+        private const float Top = 142;
         private Color accent;
 
         internal void Initialize(TankTownGame owner, Font font, Font displayFont, ToyHudStyle style)
@@ -29,7 +30,7 @@ namespace TankTown
             game = owner; rect = (RectTransform)transform; group = gameObject.AddComponent<CanvasGroup>();
             group.alpha = 0; group.blocksRaycasts = group.interactable = false;
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, 1);
-            rect.anchoredPosition = new Vector2(0, -73); rect.sizeDelta = new Vector2(350, 122);
+            rect.anchoredPosition = new Vector2(0, -Top); rect.sizeDelta = new Vector2(350, 122);
             var background = gameObject.AddComponent<Image>(); background.sprite = style.Rounded; background.type = Image.Type.Sliced;
             background.color = new Color(.05f, .13f, .2f, .95f); background.raycastTarget = false;
             style.Card(gameObject, new Color(1, .78f, .14f));
@@ -103,7 +104,7 @@ namespace TankTown
             float punch = Mathf.Sin(Mathf.Clamp01(age / .3f) * Mathf.PI) * Mathf.Exp(-age * 5);
             number.rectTransform.localScale = Vector3.one * (1 + punch * .2f);
             rect.localScale = Vector3.one * (1 + punch * .045f);
-            rect.anchoredPosition = new Vector2(0, -73 - (1 - Mathf.Clamp01(age / .18f)) * 8);
+            rect.anchoredPosition = new Vector2(0, -Top - (1 - Mathf.Clamp01(age / .18f)) * 8);
             glow.color = new Color(accent.r, accent.g, accent.b, Mathf.Clamp01(1 - age / .4f) * .18f);
             addition.text = delta > 0 && age < .55f ? "+" + delta : "";
             addition.color = new Color(accent.r, accent.g, accent.b, Mathf.Clamp01(1 - age / .55f));

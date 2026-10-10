@@ -74,7 +74,7 @@ Unity **6000.3.19f1** で開き、メニュー **Tank Town → Create or open pl
 
 [取得アイコンと短い復帰の検証](docs/pickup-feedback-validation.md)、[低い位置・大きな重なるアイコンへの調整](docs/pickup-icon-motion-validation.md)、[8個も一列へ重ねる検証](docs/pickup-row-validation.md)。更新版は`Builds/TankTown-PickupFeedback/TankTown.exe`から起動できます。
 
-[新しいプレイ画面UIの提案](docs/ui-proposal.md)と[操作できる見本](docs/ui-proposal/preview.html)を用意しました。取得・レベルのカウントアップ・所持武器・複数の効果時間を確認できます。常設の操作案内を外し、スペシャルの場所を戦車の真下と右下で比較できます。画面案はUnityへの反映前です。
+[新しいプレイ画面UI](docs/gameplay-ui-validation.md)をUnityへ反映しました。左上に破壊度・得点・順位、上中央に残り時間、左下に数字がカウントアップする強化4種類を表示します。Spaceで使う武器は戦車の真下、使用中の武器の表示はその右横です。自動発動する4種類は幅を広げたカードで右下へ並び、円ゲージ・秒数・再取得で実際に延びた時間を表示します。下の常設操作案内は削除しました。[比較時のデザイン案](docs/ui-proposal.md)と[操作できる見本](docs/ui-proposal/preview.html)も残しています。更新版は`Builds/TankTown-GameplayUI/TankTown.exe`から起動できます。
 
 |色・アイコン|効果（1レベルごと）|
 |---|---|
@@ -185,6 +185,8 @@ Development Buildを `TankTown.exe -batchmode -force-d3d11 --tank-town-smoke` �
 `--tank-town-entrance-smoke` は各建物に入口が1つあることを確認し、3種類の建物の入口をWindows実画面で保存します。`--tank-town-entrance-stage=Town`、`BigCity`、`CandyTown`で対象を選べます（既定はお菓子の街）。シード2026、固定した戦車と診断用のカメラを使い、ランキングは保存しません。
 
 `--tank-town-pickup-feedback-smoke` は取得前・移動途中・戦車上・4個の同時取得・1280×720・旋回中・建物との実衝突・復帰・8個の一列表示・HUDなしの10画面を保存し、UI案用に既存のアイコンとミニマップも書き出します。取得には診断用アイテムを配置して同じ取得処理を使い、衝突は実際の物理接触で起こします。爆発物と通行人を無効にし、シード2026のお菓子の街と診断用の戦車配置を使います。ランキングは保存しません。
+
+`--tank-town-hud-smoke`は更新した実際のHUDを13画面で確認します。空の所持枠、数字が変わる途中、8個取得、所持と自動発動4種類、1280×720・1440×900、効果時間の更新、レーザー中の待機武器、レーザー終了、爆弾の飛行表示、停止、効果終了を撮影します。`--hud-town`・`--hud-big`を追加すると各ステージを確認できます。[実画面の一覧](docs/ui-proposal/native-review.html)と[検証記録](docs/gameplay-ui-validation.md)を用意しています。
 
 `--tank-town-city-smoke` はタイトル・通常走行・島の全景・車・実砲撃による車の誘爆・破壊前の建物・燃料の連鎖・全壊後の報酬エリアと接触回収・2秒ビーム・結果の13画面を保存します。全景・破壊・報酬の画面は診断用カメラです。狙いを固定するため車と戦車を移動し、建物の支持を追加で外す操作も含みます。`--tank-town-title-wide-smoke` は1920×1080のタイトルと通常HUDを保存します。手動プレイ全体の代わりにはなりません。
 

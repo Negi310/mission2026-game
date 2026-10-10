@@ -6,7 +6,9 @@ namespace TankTown
     internal sealed class ToyHudStyle
     {
         private readonly Texture2D texture;
+        private readonly Texture2D ringTexture;
         public Sprite Rounded { get; }
+        public Sprite Ring { get; }
         public ToyHudStyle()
         {
             const int size = 64;
@@ -20,6 +22,14 @@ namespace TankTown
             }
             texture.SetPixels(pixels); texture.Apply(false, true);
             Rounded = Sprite.Create(texture, new Rect(0, 0, size, size), Vector2.one * .5f, 100, 0, SpriteMeshType.FullRect, Vector4.one * 20);
+            ringTexture = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "HUD duration ring", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            for (int y = 0; y < size; y++) for (int x = 0; x < size; x++)
+            {
+                float radius = new Vector2(x + .5f - 32, y + .5f - 32).magnitude;
+                pixels[y * size + x] = new Color(1, 1, 1, Mathf.Clamp01(31 - radius) * Mathf.Clamp01(radius - 27));
+            }
+            ringTexture.SetPixels(pixels); ringTexture.Apply(false, true);
+            Ring = Sprite.Create(ringTexture, new Rect(0, 0, size, size), Vector2.one * .5f, 100, 0, SpriteMeshType.FullRect);
         }
         public void Card(GameObject target, Color border)
         {
@@ -27,6 +37,6 @@ namespace TankTown
             var shadow = target.AddComponent<Shadow>(); shadow.effectColor = new Color(.02f, .07f, .12f, .38f); shadow.effectDistance = new Vector2(0, -5);
             var outline = target.AddComponent<Outline>(); outline.effectColor = border; outline.effectDistance = new Vector2(2, -2);
         }
-        public void Dispose() { Object.Destroy(Rounded); Object.Destroy(texture); }
+        public void Dispose() { Object.Destroy(Rounded); Object.Destroy(texture); Object.Destroy(Ring); Object.Destroy(ringTexture); }
     }
 }

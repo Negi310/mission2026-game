@@ -29,7 +29,7 @@ namespace TankTown
             var root = menu.Panel(parent, "Minimap", Vector2.zero, new Vector2(244, 286), TankTownMenuLayout.Ink);
             panel = (RectTransform)root.transform;
             panel.anchorMin = panel.anchorMax = panel.pivot = new Vector2(1, 1);
-            panel.anchoredPosition = new Vector2(-28, -127);
+            panel.anchoredPosition = new Vector2(-28, -24);
             style.Card(root, new Color(.83f, .93f, 1));
             menu.Label(panel, "Minimap heading", "STREET MAP", new Vector2(12, -7), new Vector2(185, 26), 17, Color.white);
             menu.Label(panel, "Minimap north", "N ↑", new Vector2(193, -7), new Vector2(43, 26), 16, TankTownMenuLayout.Lime);
@@ -69,7 +69,7 @@ namespace TankTown
         internal void Tick()
         {
             if (!panel.gameObject.activeInHierarchy) return;
-            float scale = Mathf.Clamp((((RectTransform)hud).rect.height - 285 - 142) / 286, .65f, 1);
+            float scale = Mathf.Clamp((((RectTransform)hud).rect.height - 24 - 155) / 286, .65f, .8f);
             panel.localScale = Vector3.one * scale;
             Vector2 point = MapPoint(game.Tank.transform.position);
             float margin = viewport.rect.width * .5f - 12;

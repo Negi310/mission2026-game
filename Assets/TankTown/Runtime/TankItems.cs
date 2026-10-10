@@ -8,6 +8,7 @@ namespace TankTown
     {
         public ItemKind Held { get; private set; } = ItemKind.None;
         public ItemKind Weapon { get; private set; } = ItemKind.None;
+        internal event System.Action<ItemKind, float> Received;
         public bool MissilesActive => missileTime > 0;
         public bool StopsForward => Weapon == ItemKind.MegaBeam;
         public bool Invincible => bulldozer > 0 || highSpeed > 0;
@@ -97,10 +98,11 @@ namespace TankTown
         public bool Receive(ItemKind kind)
         {
             if (!game.IsPlaying || game.Tank.Respawning || (int)kind < 0 || (int)kind >= 6) return false;
+            float previous = Remaining(kind);
             if (!ItemIcons.Automatic(kind))
             {
                 if (Held != ItemKind.None) return false;
-                Held = kind; return true;
+                Held = kind; Received?.Invoke(kind, 0); return true;
             }
             if (kind == ItemKind.Missiles)
             {
@@ -123,6 +125,7 @@ namespace TankTown
                 highSpeed = Duration(kind); shield.SetActive(true);
                 foreach (var trail in dashTrails) { trail.Clear(); trail.emitting = true; }
             }
+            Received?.Invoke(kind, previous);
             return true;
         }
 

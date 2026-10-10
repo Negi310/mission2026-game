@@ -71,6 +71,10 @@ namespace TankTown.Tests
             Assert.That(display.TargetDepth, Is.EqualTo(3)); Assert.That(display.DisplayedDepth, Is.LessThan(3), "The number should animate toward the new depth");
             Assert.That(GameObject.Find("Chain addition").GetComponent<Text>().text, Is.EqualTo("+1"));
             yield return new WaitForSeconds(.25f); Canvas.ForceUpdateCanvases();
+            var clock = (RectTransform)GameObject.Find("Clock").transform;
+            var chainCorners = new Vector3[4]; var clockCorners = new Vector3[4];
+            ((RectTransform)display.transform).GetWorldCorners(chainCorners); clock.GetWorldCorners(clockCorners);
+            Assert.That(chainCorners[1].y, Is.LessThan(clockCorners[0].y), "The chain celebration must sit below the centered clock");
             Assert.That(display.DisplayedDepth, Is.EqualTo(3)); Assert.That(display.DisplayedExplosions, Is.EqualTo(4));
             Assert.That(game.LongestChain, Is.EqualTo(3)); Assert.That(game.ChainExplosions, Is.EqualTo(4));
             Assert.That(GameObject.Find("Chain totals").GetComponent<Text>().text, Does.Contain("誘爆合計 4回"));
