@@ -27,7 +27,7 @@ namespace TankTown
         private static void Configure()
         {
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-performance-smoke") < 0) return;
-            TankTownGame.SelectedStage = TownStage.BigCity; TankTownGame.GenerationSeedOverride = 2026;
+            TankTownGame.SelectedStage = Array.IndexOf(Environment.GetCommandLineArgs(), "--performance-candy") >= 0 ? TownStage.CandyTown : TownStage.BigCity; TankTownGame.GenerationSeedOverride = 2026;
             TankTownGame.SkipIntroForTests = true; TankTownGame.DisableRecordSavingForTests = true;
         }
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]

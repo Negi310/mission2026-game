@@ -17,7 +17,7 @@ namespace TankTown
         public TownStage Stage { get; private set; }
         internal TownStage BuiltStage { get; private set; }
         internal TownTitlePreview TitlePreview { get; private set; }
-        public int StageScale => Stage == TownStage.BigCity ? 2 : 1;
+        public int StageScale => Stage == TownStage.Town ? 1 : 2;
         public string StageLabel => Stage == TownStage.CandyTown ? "お菓子の街" : Stage == TownStage.BigCity ? "大きな街" : "いつもの街";
         internal string StageStorageSuffix => Stage == TownStage.CandyTown ? ".CandyTown" : Stage == TownStage.BigCity ? ".BigCity" : "";
         internal float PlayCameraFarClip => Mathf.Max(500, World.HalfExtent * 3.2f);
@@ -87,7 +87,7 @@ namespace TankTown
             ownedSettings = true;
             Stage = SelectedStage == TownStage.BigCity || SelectedStage == TownStage.CandyTown ? SelectedStage : TownStage.Town;
             BuiltStage = Stage;
-            if (Stage == TownStage.BigCity)
+            if (Stage == TownStage.BigCity || Stage == TownStage.CandyTown)
             {
                 Time.fixedDeltaTime = Mathf.Max(previousFixedStep, 1f / 30);
                 Time.maximumDeltaTime = Mathf.Min(previousMaximumStep, .1f);

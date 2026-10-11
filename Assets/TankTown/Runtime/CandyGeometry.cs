@@ -16,11 +16,14 @@ namespace TankTown
         public Mesh DistantStrawberry { get; } = Berry(12, 6);
         public Mesh DistantSphere { get; } = Ball(12, 6);
         public Mesh TierStrawberry { get; } = Berry(16, 8);
+        public Mesh Cone { get; } = WaferCone(24);
+        public Mesh DistantCone { get; } = WaferCone(12);
+        public Mesh RewardSign { get; } = Sign();
         private readonly Dictionary<Vector3, Mesh> chocolateBars = new Dictionary<Vector3, Mesh>();
         private readonly Dictionary<Vector3, Mesh> chocolateBackings = new Dictionary<Vector3, Mesh>();
         internal Mesh DistantSilhouette(Mesh source)
             => source == null ? null : source == Strawberry || source == TierStrawberry ? DistantStrawberry : source == Sphere ? DistantSphere
-                : source == DoughnutSlice || source.name.StartsWith("Chocolate backing") || source.name.StartsWith("Embossed chocolate") ? source : null;
+                : source == Cone ? DistantCone : source == RewardSign || source == DoughnutSlice || source.name.StartsWith("Chocolate backing") || source.name.StartsWith("Embossed chocolate") ? source : null;
 
         internal Mesh ChocolateBacking(Vector3 size, Mesh box)
         {
@@ -110,6 +113,25 @@ namespace TankTown
             }
             return Grid("Smooth textured strawberry", sides, rings, Point, Normal,
                 (x, y) => new Vector2((float)x / sides * 2, 1 - (float)y / rings));
+        }
+        private static Mesh WaferCone(int sides)
+        {
+            Vector3 Point(int x, int y)
+            {
+                float angle = x * Mathf.PI * 2 / sides, radius = y == 0 ? .5f : .035f;
+                return new Vector3(Mathf.Sin(angle) * radius, .5f - y, Mathf.Cos(angle) * radius);
+            }
+            return Grid("Smooth wafer cone", sides, 1, Point,
+                (x, y) => new Vector3(Mathf.Sin(x * Mathf.PI * 2 / sides), -.465f, Mathf.Cos(x * Mathf.PI * 2 / sides)),
+                (x, y) => new Vector2((float)x / sides * 4, (1 - y) * 3));
+        }
+        private static Mesh Sign()
+        {
+            var mesh = new Mesh { name = "Candy reward sign" };
+            mesh.vertices = new[] { new Vector3(-.5f, -.5f, 0), new Vector3(.5f, -.5f, 0), new Vector3(.5f, .5f, 0), new Vector3(-.5f, .5f, 0) };
+            mesh.normals = new[] { Vector3.forward, Vector3.forward, Vector3.forward, Vector3.forward };
+            mesh.uv = new[] { Vector2.zero, Vector2.right, Vector2.one, Vector2.up }; mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
+            mesh.RecalculateBounds(); return mesh;
         }
         private static Mesh Cylinder()
         {
@@ -206,7 +228,7 @@ namespace TankTown
         }
         public void Dispose()
         {
-            foreach (var mesh in new[] { Strawberry, DoughnutSlice, Sphere, SugarStick, CaneHook, CreamRibbon, DistantStrawberry, DistantSphere, TierStrawberry }) UnityEngine.Object.Destroy(mesh);
+            foreach (var mesh in new[] { Strawberry, DoughnutSlice, Sphere, SugarStick, CaneHook, CreamRibbon, DistantStrawberry, DistantSphere, TierStrawberry, Cone, DistantCone, RewardSign }) UnityEngine.Object.Destroy(mesh);
             foreach (var mesh in chocolateBars.Values) UnityEngine.Object.Destroy(mesh);
             foreach (var mesh in chocolateBackings.Values) UnityEngine.Object.Destroy(mesh);
         }

@@ -35,7 +35,7 @@ namespace TankTown
             menu.Label(card.transform, "Stage heading", "あそぶ街をえらぼう", new Vector2(34, -470), new Vector2(502, 26), 19, Cyan);
             StageButton(card.transform, TownStage.Town, "Town stage button", 34, "いつもの街 [1]\n268 × 268");
             StageButton(card.transform, TownStage.BigCity, "Large stage button", 205, "大きな街 [2]\n面積４倍");
-            StageButton(card.transform, TownStage.CandyTown, "Candy stage button", 376, "お菓子の街 [3]\nケーキ＆チョコ");
+            StageButton(card.transform, TownStage.CandyTown, "Candy stage button", 376, "お菓子の街 [3]\n面積４倍・６種類");
             start = menu.Button(card.transform, "Title play button", "あそぶ    →    SPACE", new Vector2(34, -579), new Vector2(502, 63), Lime, game.StartOrRestart);
             menu.Button(card.transform, "How to button", "あそびかた    H", new Vector2(34, -658), new Vector2(502, 48), new Color(.09f, .28f, .37f), game.ToggleHowTo);
             menu.Label(card.transform, "Title input hint", "1 / 2 / 3 で街選択・SPACE でスタート", new Vector2(34, -712), new Vector2(502, 24), 15, new Color(.69f, .82f, .89f)).alignment = TextAnchor.MiddleCenter;

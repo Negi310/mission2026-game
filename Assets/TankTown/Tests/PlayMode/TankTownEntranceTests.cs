@@ -22,7 +22,7 @@ namespace TankTown.Tests
                 game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
                 foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
                 var houses = game.World.Buildings.Where(x => x.Style != 3).ToArray();
-                Assert.That(houses.Length, Is.EqualTo(stage == TownStage.BigCity ? 132 : 33));
+                Assert.That(houses.Length, Is.EqualTo(stage == TownStage.Town ? 33 : 132));
                 foreach (var house in houses)
                 {
                     var doors = house.GetComponentsInChildren<Transform>().Where(x => x.name == "Building entrance").ToArray();

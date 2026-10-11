@@ -45,18 +45,18 @@ namespace TankTown.Tests
             }
             game.StartOrRestart(); yield return null; yield return null; game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.IsPlaying && game.World.CandyTheme, Is.True); Assert.That(game.CitySeed, Is.EqualTo(seed));
-            Assert.That(game.Settings.roundSeconds, Is.EqualTo(60)); Assert.That(game.World.HalfExtent, Is.EqualTo(134));
+            Assert.That(game.Settings.roundSeconds, Is.EqualTo(60)); Assert.That(game.World.HalfExtent, Is.EqualTo(268));
             game.AdvanceTime(1000); game.StartOrRestart(); yield return null; yield return null; game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.Stage, Is.EqualTo(TownStage.CandyTown)); Assert.That(game.IsPlaying, Is.True);
             game.TogglePause(); game.ReturnToTitle(); yield return null; yield return null; game = Object.FindFirstObjectByType<TankTownGame>();
             game.SelectStage(TownStage.Town); Assert.That(game.StageStorageSuffix, Is.Empty);
         }
         [UnityTest]
-        public IEnumerator CandyWorldHasThreeHouseTypesPhysicalGateAndNoGameplayLogo()
+        public IEnumerator ExpandedCandyWorldHasSixHouseTypesPhysicalGateAndNoGameplayLogo()
         {
             yield return PlayCandy();
-            Assert.That(game.World.Buildings.Count, Is.EqualTo(34)); Assert.That(game.World.ParkCount, Is.EqualTo(3));
-            foreach (var name in new[] { "Shortcake tower", "Chocolate house", "Biscuit house", "Doughnut gate" })
+            Assert.That(game.World.Buildings.Count, Is.EqualTo(133)); Assert.That(game.World.ParkCount, Is.EqualTo(12));
+            foreach (var name in new[] { "Shortcake tower", "Chocolate house", "Biscuit house", "Pink candy shop", "Aqua ice cream shop", "Cupcake cafe", "Doughnut gate" })
                 Assert.That(game.World.Buildings.Any(x => x.name == name), Is.True, name);
             Assert.That(game.World.ItemPickups.Select(x => x.Kind).Distinct().Count(), Is.EqualTo(6));
             foreach (var building in game.World.Buildings)
@@ -74,6 +74,28 @@ namespace TankTown.Tests
             Assert.That(cake.Blocks.First(x => x.Kind == BuildingPart.Slab && x.Level == cake.Floors - 1).transform.localScale.x,
                 Is.LessThan(cake.Blocks.First(x => x.Kind == BuildingPart.Slab && x.Level == 0).transform.localScale.x), "Cake tiers must get smaller above the base");
             Assert.That(GameObject.Find("Gameplay HUD").GetComponentsInChildren<Text>(true).Any(x => x.text == "TANK" || x.text == "TOWN"), Is.False);
+        }
+        [UnityTest]
+        public IEnumerator NewPastelHousesKeepEntrancesTexturesAndLocalDestruction()
+        {
+            yield return PlayCandy();
+            foreach (int style in new[] { 4, 5, 6 })
+            {
+                var building = game.World.Buildings.First(x => x.Style == style);
+                Assert.That(building.GetComponentsInChildren<Transform>().Count(x => x.name == "Building entrance"), Is.EqualTo(1));
+                var sign = building.GetComponentsInChildren<Transform>().Single(x => x.name == "Candy reward sign");
+                Assert.That(sign.GetComponent<Renderer>().sharedMaterial, Is.SameAs(game.World.SpecialIcons.Material(building.RewardKind)));
+                var wall = building.Blocks.First(x => x.Kind == BuildingPart.Wall);
+                Assert.That(wall.GetComponent<Renderer>().sharedMaterial.IsKeywordEnabled("_CANDY_TEXTURE"), Is.True);
+                var window = wall.GetComponentsInChildren<Transform>().First(x => x.name == "Pastel candy window");
+                Assert.That(window.GetComponentsInChildren<Collider>().Any(x => x.enabled), Is.False);
+                wall.Break(wall.transform.position, 0); building.ReleaseUnsupported(wall.transform.position, 0);
+                Assert.That(wall.DebrisBodies, Does.Contain(window.GetComponentInParent<Rigidbody>()));
+                Assert.That(building.FullyDestroyed || building.Reward.Available, Is.False, "A local hit must not unlock the whole building");
+                foreach (var part in building.Blocks) if (!part.Detached) part.Break(part.transform.position, 0);
+                yield return null;
+                Assert.That(building.FullyDestroyed && building.Reward.Available, Is.True, "New houses must release the normal full-destruction reward");
+            }
         }
         [UnityTest]
         public IEnumerator ChocolateBreaksLocallyAndOnlyFullDestructionReleasesItsReward()

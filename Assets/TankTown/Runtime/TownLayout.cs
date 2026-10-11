@@ -24,7 +24,7 @@ namespace TankTown
         private readonly float[,] heights;
         private readonly int half;
 
-        public TownLayout(TankTownSettings settings, int seed, float roadWidth)
+        public TownLayout(TankTownSettings settings, int seed, float roadWidth, TownStage stage = TownStage.Town)
         {
             Seed = seed; half = settings.cityHalfBlocks;
             int count = half * half * 4;
@@ -39,14 +39,24 @@ namespace TankTown
             var rewardRandom = new System.Random(unchecked(seed ^ 0x1B023));
             for (int i = rewards.Length - 1; i > 0; i--) { int j = rewardRandom.Next(i + 1); var swap = rewards[i]; rewards[i] = rewards[j]; rewards[j] = swap; }
             var shapeRandom = new System.Random(unchecked(seed ^ 42137));
+            // Candy has six shared silhouettes; shape and reward color are independent.
+            int[] candyStyles = null;
+            if (stage == TownStage.CandyTown)
+            {
+                var kinds = new[] { 0, 1, 2, 4, 5, 6 }; // Style 3 is reserved for the physical doughnut gate.
+                candyStyles = new int[rewards.Length];
+                for (int i = 0; i < candyStyles.Length; i++) candyStyles[i] = kinds[i % kinds.Length];
+                var candyRandom = new System.Random(unchecked(seed ^ 0x6C412));
+                for (int i = candyStyles.Length - 1; i > 0; i--) { int j = candyRandom.Next(i + 1); int swap = candyStyles[i]; candyStyles[i] = candyStyles[j]; candyStyles[j] = swap; }
+            }
             float padWidth = Mathf.Max(10, settings.blockSpacing - roadWidth - 4);
             float baseWidth = Mathf.Clamp(settings.buildingWidth, 10, padWidth);
             int plotIndex = 0, rewardIndex = 0;
             for (int x = -half; x < half; x++) for (int z = -half; z < half; z++, plotIndex++)
             {
-                int style = shapeRandom.Next(3);
-                int floors = style == 0 ? shapeRandom.Next(6, 9) : style == 1 ? shapeRandom.Next(4, 7) : shapeRandom.Next(2, 4);
-                float width = Mathf.Max(10, baseWidth * (style == 0 ? .72f : style == 2 ? .88f : 1));
+                int style = candyStyles != null && !parks[plotIndex] ? candyStyles[rewardIndex] : shapeRandom.Next(3);
+                int floors = style == 0 ? shapeRandom.Next(6, 9) : style == 1 ? shapeRandom.Next(4, 7) : style == 4 || style == 5 ? shapeRandom.Next(3, 5) : shapeRandom.Next(2, 4);
+                float width = Mathf.Max(10, baseWidth * (style == 0 ? .72f : style == 2 ? .88f : style >= 4 ? .92f : 1));
                 // Keep the entire footprint on its level pad, including gable overhang.
                 float movement = Mathf.Max(0, (padWidth - width - .5f) * .5f);
                 var center = new Vector3((x + .5f) * settings.blockSpacing, 0, (z + .5f) * settings.blockSpacing);

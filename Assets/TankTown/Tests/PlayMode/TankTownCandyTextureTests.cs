@@ -56,6 +56,19 @@ namespace TankTown.Tests
             var berries = wall.GetComponentsInChildren<Transform>().Where(x => x.name == "Tier strawberry").ToArray();
             Assert.That(berries.Length, Is.GreaterThanOrEqualTo(2));
             Assert.That(berries.All(x => x.position.y < cake.transform.position.y + cake.Floors * game.Settings.floorHeight), Is.True, "Fruit must decorate lower cake tiers too");
+            float creamTop = wall.transform.position.y + wall.transform.lossyScale.y / 2 + .35f;
+            foreach (var berry in berries)
+            {
+                var bounds = berry.GetComponent<Renderer>().bounds;
+                Assert.That((creamTop - bounds.min.y) / bounds.size.y, Is.InRange(.44f, .54f), "About half the tier berry must be inside the icing");
+            }
+            var roof = cake.Blocks.First(x => x.name == "Candy roof topper");
+            float roofTop = roof.transform.position.y + roof.transform.lossyScale.y / 2;
+            foreach (var berry in roof.GetComponentsInChildren<Transform>().Where(x => x.name == "Roof strawberry"))
+            {
+                var bounds = berry.GetComponent<Renderer>().bounds;
+                Assert.That((roofTop - bounds.min.y) / bounds.size.y, Is.InRange(.44f, .54f), "Roof fruit must be seated in the cream, too");
+            }
             wall.Break(wall.transform.position, 0);
             foreach (var berry in berries) Assert.That(wall.DebrisBodies, Does.Contain(berry.GetComponentInParent<Rigidbody>()), "Tier fruit must fly with its wall fragments");
             var chocolate = game.World.Buildings.First(x => x.Style == 1).Blocks.First(x => x.Kind == BuildingPart.Wall);
@@ -78,7 +91,7 @@ namespace TankTown.Tests
                 Assert.That(geometry.DistantSilhouette(geometry.Strawberry), Is.SameAs(geometry.DistantStrawberry));
                 Assert.That(geometry.DistantSilhouette(geometry.Sphere), Is.SameAs(geometry.DistantSphere));
                 Assert.That(geometry.DistantStrawberry.triangles.Length, Is.LessThan(geometry.Strawberry.triangles.Length / 2));
-                foreach (var mesh in new[] { geometry.Strawberry, geometry.TierStrawberry, geometry.Sphere, geometry.SugarStick, geometry.CaneHook, geometry.CreamRibbon, geometry.DoughnutSlice, geometry.DistantStrawberry, geometry.DistantSphere, geometry.ChocolateBar(new Vector3(3, 3.2f, .95f)) })
+                foreach (var mesh in new[] { geometry.Strawberry, geometry.TierStrawberry, geometry.Sphere, geometry.SugarStick, geometry.CaneHook, geometry.CreamRibbon, geometry.DoughnutSlice, geometry.DistantStrawberry, geometry.DistantSphere, geometry.Cone, geometry.DistantCone, geometry.RewardSign, geometry.ChocolateBar(new Vector3(3, 3.2f, .95f)) })
                 {
                     Assert.That(mesh.uv.Length, Is.EqualTo(mesh.vertexCount), mesh.name);
                     var points = mesh.vertices; var normals = mesh.normals; var triangles = mesh.triangles;

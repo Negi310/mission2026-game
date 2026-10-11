@@ -119,7 +119,7 @@ namespace TankTown
             if (CandyTheme) InitializeCandyPalette();
             Icons = new UpgradeIcons();
             SpecialIcons = new ItemIcons();
-            Layout = new TownLayout(game.Settings, game.CitySeed, RoadWidth);
+            Layout = new TownLayout(game.Settings, game.CitySeed, RoadWidth, game.BuiltStage);
             Terrain = new TownTerrain(game.Settings, transform, RoadWidth, Layout);
             Box("Island", new Vector3(0, -.9f, 0), new Vector3(HalfExtent * 2, 1.8f, HalfExtent * 2), grass, solid: false);
             float paving = HalfExtent * 2 - 8;
@@ -443,7 +443,7 @@ namespace TankTown
 
         private void CreateBuilding(Vector3 center, int floors, Material color, float width, int style, ItemKind reward)
         {
-            var root = new GameObject(CandyTheme ? (style == 0 ? "Shortcake tower" : style == 1 ? "Chocolate house" : "Biscuit house") : style == 0 ? "Tower frame" : style == 1 ? "Apartment frame" : "Shop frame");
+            var root = new GameObject(CandyTheme ? CandyHouseName(style) : style == 0 ? "Tower frame" : style == 1 ? "Apartment frame" : "Shop frame");
             root.transform.SetParent(transform);
             root.transform.position = center;
             var building = root.AddComponent<BlockBuilding>();
@@ -468,7 +468,7 @@ namespace TankTown
                 var slabs = new DestructibleBlock[4];
                 for (int i = 0; i < 4; i++)
                 {
-                    pillars[i] = Part("Pillar", corners[i] + Vector3.up * (y + height / 2), new Vector3(pillar, height - .12f, pillar), CandyTheme ? style == 0 ? candySponge : candyWafer : frame, BuildingPart.Pillar, level, i, building);
+                    pillars[i] = Part("Pillar", corners[i] + Vector3.up * (y + height / 2), new Vector3(pillar, height - .12f, pillar), CandyTheme ? style == 0 ? candySponge : style >= 4 ? candyCream : candyWafer : frame, BuildingPart.Pillar, level, i, building);
                     pillars[i].Foundation = level == 0;
                     if (CandyTheme && style == 0)
                     {
@@ -478,7 +478,7 @@ namespace TankTown
                     }
                     if (level > 0) BlockBuilding.Connect(pillars[i], CandyTheme && style == 0 ? previousSlabs[i] : previous[i]);
                     var middle = (corners[i] + corners[(i + 1) % 4]) / 2;
-                    beams[i] = Part("Beam", middle + Vector3.up * (y + height - .25f), i % 2 == 0 ? new Vector3(levelWidth - pillar, .5f, .65f) : new Vector3(.65f, .5f, levelWidth - pillar), CandyTheme ? style == 0 ? candyCream : style == 1 ? candyWafer : color : frame, BuildingPart.Beam, level, i, building);
+                    beams[i] = Part("Beam", middle + Vector3.up * (y + height - .25f), i % 2 == 0 ? new Vector3(levelWidth - pillar, .5f, .65f) : new Vector3(.65f, .5f, levelWidth - pillar), CandyTheme ? style == 0 || style >= 4 ? candyCream : style == 1 ? candyWafer : color : frame, BuildingPart.Beam, level, i, building);
                     float q = (levelWidth - pillar) / 4;
                     slabs[i] = Part("Floor slab", new Vector3(Mathf.Sign(corners[i].x) * q, y + height - .12f, Mathf.Sign(corners[i].z) * q), new Vector3(q * 2 - .05f, .24f, q * 2 - .05f), CandyTheme ? candyCream : level == floors - 1 ? cream : frame, BuildingPart.Slab, level, i, building);
                 }
@@ -501,7 +501,11 @@ namespace TankTown
                         if (CandyTheme)
                         {
                             DecorateCandyPanel(wall, style, color);
-                            if (level == 0 && i == 0 && panel == -1) AddBuildingEntrance(wall, color);
+                            if (level == 0 && i == 0 && panel == -1)
+                            {
+                                AddBuildingEntrance(wall, color);
+                                if (style >= 4) AddCandyRewardSign(wall, reward);
+                            }
                             continue;
                         }
                         BlockBuilding.Connect(wall, beams[i]);

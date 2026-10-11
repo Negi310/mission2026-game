@@ -9,6 +9,7 @@ namespace TankTown
         private Material[] candyLollipops;
         private Material candyCream, candySponge, candyWafer, candyBiscuit, candyChocolate, candyChocolateTile, candyStrawberry, candyLeaf, candyPink;
         private Material candyDough, candyStripe, candyJam, candyLollipopPink, candyLollipopRed;
+        private Material candyPastelPink, candyAqua, candyMint;
         private void ApplyCandyTexture(Material material, string name, float tiling, float gloss, float relief)
         {
             var texture = Resources.Load<Texture2D>("CandyTextures/" + name);
@@ -53,11 +54,17 @@ namespace TankTown
             candyJam = CandyMaterial("Glaze", 1, .40f, .02f, new Color(1, .07f, .16f));
             candyLollipopPink = CandyMaterial("CandySwirl", 1, .42f, .02f, ItemIcons.Color(ItemKind.Magnet));
             candyLollipopRed = CandyMaterial("CandySwirl", 1, .42f, .02f, new Color(1, .07f, .16f));
+            candyPastelPink = CandyMaterial("Glaze", .35f, .38f, .02f, new Color(1, .34f, .57f));
+            candyAqua = CandyMaterial("Glaze", .35f, .36f, .02f, new Color(.10f, .82f, 1));
+            candyMint = CandyMaterial("Glaze", .35f, .32f, .02f, new Color(.45f, .97f, .80f));
             road.SetColor("_BaseColor", new Color(.18f, .09f, .10f));
             grass.SetColor("_BaseColor", new Color(.48f, .93f, .71f));
             cream.SetColor("_BaseColor", new Color(1, .88f, .59f));
         }
-        private Material CandyWallMaterial(int style) => style == 0 ? candySponge : style == 1 ? candyChocolate : candyBiscuit;
+        private Material CandyWallMaterial(int style) => style == 0 ? candySponge : style == 1 ? candyChocolate
+            : style == 4 ? candyPastelPink : style == 5 ? candyAqua : style == 6 ? candyWafer : candyBiscuit;
+        private static string CandyHouseName(int style) => style == 0 ? "Shortcake tower" : style == 1 ? "Chocolate house"
+            : style == 4 ? "Pink candy shop" : style == 5 ? "Aqua ice cream shop" : style == 6 ? "Cupcake cafe" : "Biscuit house";
 
         // Decorations retain metre-sized geometry even when their structural parent is a thin scaled panel.
         private GameObject CandyDetail(Transform parent, string label, Vector3 point, Vector3 size, Material material, Mesh shape = null)
@@ -86,7 +93,7 @@ namespace TankTown
                     int count = w >= 7 ? 3 : 2;
                     float diameter = Mathf.Min(2.2f, w / count * .82f), berryHeight = diameter * 1.12f;
                     for (int i = 0; i < count; i++)
-                        CandyDetail(wall.transform, "Tier strawberry", new Vector3(((i + .5f) / count - .5f) * w, h / 2 + .35f + berryHeight / 2, 1.05f),
+                        CandyDetail(wall.transform, "Tier strawberry", new Vector3(((i + .5f) / count - .5f) * w, h / 2 + .35f + berryHeight * .02f, .40f),
                             new Vector3(diameter, berryHeight, diameter), candyStrawberry, candyGeometry.TierStrawberry);
                 }
             }
@@ -102,6 +109,10 @@ namespace TankTown
                     CandyDetail(cell.transform, "Chocolate inset", new Vector3(0, 0, size.z * .29f + .015f), insetSize, candyChocolate, geometry.RoundedBox(insetSize));
                 }
                 CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 - .04f, .17f), new Vector3(w + .12f, .18f, 1.1f), color);
+            }
+            else if (style >= 4)
+            {
+                DecoratePastelShop(wall, style, color);
             }
             else
             {
@@ -121,6 +132,35 @@ namespace TankTown
                 }
             }
         }
+        private void DecoratePastelShop(DestructibleBlock wall, int style, Material rewardColor)
+        {
+            float w = wall.transform.localScale.x, h = wall.transform.localScale.y;
+            var frameColor = style == 5 ? candyPastelPink : candyCream;
+            var windowColor = style == 4 ? candyAqua : candyMint;
+            float windowWidth = w * .66f, windowHeight = h * .63f;
+            // Pastry texture, generous shop windows and sugar frames, with no extra physics bodies.
+            CandyDetail(wall.transform, "Pastel candy window", new Vector3(0, -.05f, .24f), new Vector3(windowWidth, windowHeight, .10f), windowColor);
+            foreach (int side in new[] { -1, 1 })
+                CandyDetail(wall.transform, "Sugar window jamb", new Vector3(side * (windowWidth / 2 + .08f), -.05f, .32f), new Vector3(.20f, windowHeight + .35f, .20f), frameColor);
+            foreach (int side in new[] { -1, 1 })
+                CandyDetail(wall.transform, "Sugar window sill", new Vector3(0, -.05f + side * (windowHeight / 2 + .08f), .32f), new Vector3(windowWidth + .35f, .20f, .20f), frameColor);
+            CandyDetail(wall.transform, "Candy window mullion", new Vector3(0, -.05f, .34f), new Vector3(.16f, windowHeight, .16f), frameColor);
+            CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 - .08f, .27f), new Vector3(w + .12f, .35f, .65f), rewardColor);
+            if (style == 6)
+                CandyDetail(wall.transform, "Cupcake wrapper trim", new Vector3(0, -h / 2 + .14f, .25f), new Vector3(w + .1f, .28f, .40f), candyPastelPink);
+            if (wall.Level != 0) return;
+            float canopyWidth = w * .86f, stripeWidth = canopyWidth / 5;
+            for (int stripe = 0; stripe < 5; stripe++)
+                CandyDetail(wall.transform, "Pastel shop awning", new Vector3((stripe - 2) * stripeWidth, h * .25f, 1), new Vector3(stripeWidth + .015f, .20f, 1.65f), stripe % 2 == 0 ? rewardColor : candyCream);
+            CandyDetail(wall.transform, "Pastel awning fringe", new Vector3(0, h * .25f - .16f, 1.74f), new Vector3(canopyWidth, .48f, .24f), frameColor, candyGeometry.CreamRibbon);
+        }
+        private void AddCandyRewardSign(DestructibleBlock wall, ItemKind reward)
+        {
+            float center = (wall.Building.Width - 1.6f) / 4;
+            // Fixed shop palettes still communicate the independently randomized reward.
+            CandyDetail(wall.transform, "Candy reward sign", new Vector3(center, wall.transform.localScale.y / 2 + .8f, 1),
+                new Vector3(2.2f, 2.2f, 1), SpecialIcons.Material(reward), candyGeometry.RewardSign);
+        }
         private void DecorateBiscuitRoof(DestructibleBlock roof, Material color)
         {
             Vector3 size = roof.transform.localScale;
@@ -128,9 +168,10 @@ namespace TankTown
         }
         private void DecorateCandyRoof(DestructibleBlock roof, int style, Material color, float width)
         {
+            if (style >= 4) { DecoratePastelRoof(roof, style, color, width); return; }
             foreach (int x in new[] { -1, 1 }) foreach (int z in new[] { -1, 1 })
             {
-                Vector3 point = new Vector3(x * width * .20f, style == 0 ? roof.transform.localScale.y / 2 + 1.6f : 1.6f, z * width * .20f);
+                Vector3 point = new Vector3(x * width * .20f, style == 0 ? roof.transform.localScale.y / 2 + .12f : 1.6f, z * width * .20f);
                 if (style == 0)
                 {
                     var berry = CandyDetail(roof.transform, "Roof strawberry", point, new Vector3(3.2f, 3.4f, 3.2f), candyStrawberry, candyGeometry.Strawberry);
@@ -138,6 +179,39 @@ namespace TankTown
                     CandyDetail(berry.transform, "Strawberry leaf", new Vector3(0, 1.65f, 0), new Vector3(.7f, .22f, 1.8f), candyLeaf);
                 }
                 else CandyDetail(roof.transform, "Roof candy", point - Vector3.up * .8f, new Vector3(2, 1.2f, 2), color, candyGeometry.Sphere);
+            }
+        }
+        private void DecoratePastelRoof(DestructibleBlock roof, int style, Material rewardColor, float width)
+        {
+            float surface = roof.transform.localScale.y / 2;
+            if (style == 6)
+            {
+                CandyDetail(roof.transform, "Cupcake icing cap", new Vector3(0, surface + .40f, 0), new Vector3(width * 1.04f, 2.5f, width * 1.04f), candyPastelPink, candyGeometry.Sphere);
+                CandyDetail(roof.transform, "Cupcake cream lower", new Vector3(0, surface + 1.55f, 0), new Vector3(width * .88f, 2.8f, width * .88f), candyCream, candyGeometry.Sphere);
+                CandyDetail(roof.transform, "Cupcake cream upper", new Vector3(.25f, surface + 2.95f, 0), new Vector3(width * .65f, 2.6f, width * .65f), candyCream, candyGeometry.Sphere);
+                CandyDetail(roof.transform, "Cupcake cream peak", new Vector3(.5f, surface + 4.10f, 0), new Vector3(width * .38f, 2.3f, width * .38f), candyCream, candyGeometry.Sphere);
+                CandyDetail(roof.transform, "Cafe cherry", new Vector3(.55f, surface + 5.25f, 0), new Vector3(2.4f, 2.4f, 2.4f), candyJam, candyGeometry.Sphere);
+                return;
+            }
+            CandyDetail(roof.transform, "Pastel roof icing", new Vector3(0, surface, 0), new Vector3(width * .82f, 1.2f, width * .82f), style == 4 ? candyPastelPink : candyAqua, candyGeometry.Sphere);
+            if (style == 5)
+            {
+                CandyDetail(roof.transform, "Ice cream wafer cone", new Vector3(0, surface + 2.6f, 0), new Vector3(4.6f, 5.2f, 4.6f), candyWafer, candyGeometry.Cone);
+                CandyDetail(roof.transform, "Ice cream scoop", new Vector3(0, surface + 5.35f, 0), new Vector3(6.1f, 3.8f, 6.1f), candyCream, candyGeometry.Sphere);
+                CandyDetail(roof.transform, "Ice cream swirl", new Vector3(.25f, surface + 7.1f, 0), new Vector3(4.1f, 2.6f, 4.1f), candyPastelPink, candyGeometry.Sphere);
+                CandyDetail(roof.transform, "Ice cream peak", new Vector3(.45f, surface + 8.2f, 0), new Vector3(2.3f, 1.9f, 2.3f), candyCream, candyGeometry.Sphere);
+            }
+            else
+            {
+                CandyDetail(roof.transform, "Candy dome", new Vector3(0, surface + 1.4f, 0), new Vector3(width * .55f, 3.2f, width * .55f), candyCream, candyGeometry.Sphere);
+                CandyDetail(roof.transform, "Candy shop cherry", new Vector3(0, surface + 3.05f, 0), new Vector3(2.5f, 2.5f, 2.5f), candyJam, candyGeometry.Sphere);
+            }
+            foreach (int side in new[] { -1, 1 })
+            {
+                var point = new Vector3(side * width * .30f, surface + 1.8f, -width * .27f);
+                CandyDetail(roof.transform, "Shop candy cane", point, new Vector3(.50f, 3.6f, .50f), candyStripe, candyGeometry.SugarStick);
+                CandyDetail(roof.transform, "Shop candy hook", point + new Vector3(.52f, 1.72f, 0), new Vector3(1.1f, 1.1f, .50f), candyStripe, candyGeometry.CaneHook);
+                CandyDetail(roof.transform, "Reward sugar drop", new Vector3(side * width * .30f, surface + .35f, width * .25f), new Vector3(2, 1.4f, 2), rewardColor, candyGeometry.Sphere);
             }
         }
         private void CreateCandyProp(Vector3 point, string label, Material color, bool sign)
