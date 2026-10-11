@@ -98,6 +98,37 @@ namespace TankTown.Tests
             }
         }
         [UnityTest]
+        public IEnumerator CandyAndTownWallsKeepTheirSupportsUntilTheAttachedBeamBreaks()
+        {
+            game.StartOrRestart(); game.Input.useHardware = true;
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
+            foreach (var building in game.World.Buildings.GroupBy(x => x.Style).Select(x => x.First())) VerifyWallSupport(building);
+            TankTownGame.SelectedStage = TownStage.CandyTown; SceneManager.LoadScene("TankTown"); yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>(); game.StartOrRestart(); game.Input.useHardware = true;
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);
+            foreach (var building in game.World.Buildings.Where(x => x.Style != 3).GroupBy(x => x.Style).Select(x => x.First())) VerifyWallSupport(building);
+        }
+        private static void VerifyWallSupport(BlockBuilding building)
+        {
+            var walls = building.Blocks.Where(x => x.Kind == BuildingPart.Wall).ToArray();
+            foreach (var wall in walls)
+                Assert.That(wall.Links.Any(x => x.Kind == BuildingPart.Beam && x.Level == wall.Level && x.Column == wall.Column), Is.True, building.name + " / wall has its own beam");
+            building.ReleaseUnsupported(building.transform.position, 0);
+            Assert.That(building.DetachedParts, Is.Zero, building.name + ": an intact building must not shed walls during the first support check");
+            var hit = walls.First(x => x.Level == 0 && x.Column == 0);
+            hit.Break(hit.transform.position, 0); building.ReleaseUnsupported(hit.transform.position, 0);
+            Assert.That(building.DetachedParts, Is.EqualTo(1), "Breaking one wall must not release the other facades");
+            var beam = hit.Links.Single(x => x.Kind == BuildingPart.Beam);
+            beam.Break(beam.transform.position, 0); building.ReleaseUnsupported(beam.transform.position, 0);
+            Assert.That(walls.Where(x => x.Level == beam.Level && x.Column == beam.Column).All(x => x.Detached), Is.True, "The damaged beam releases its own walls");
+            Assert.That(walls.Where(x => x.Level != beam.Level || x.Column != beam.Column).All(x => !x.Detached), Is.True, "Other walls still have their own supports");
+            foreach (var support in building.Blocks.Where(x => x.Foundation).Take(3).ToArray()) support.Break(support.transform.position, 0);
+            building.ReleaseUnsupported(building.transform.position, 0);
+            Assert.That(building.FullyDestroyed && building.Reward.Available, Is.True, "Loss of real structural support must still collapse the building and release its reward");
+        }
+        [UnityTest]
         public IEnumerator ChocolateBreaksLocallyAndOnlyFullDestructionReleasesItsReward()
         {
             yield return PlayCandy();

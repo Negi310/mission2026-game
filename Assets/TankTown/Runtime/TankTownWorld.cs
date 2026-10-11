@@ -497,6 +497,7 @@ namespace TankTown
                         var wall = Part("Facade panel", rotation * new Vector3(panel * (levelWidth - 1.6f) / 4, 0, levelWidth / 2 - .2f) + Vector3.up * (y + height / 2 - (dessert ? .025f : .12f)),
                             new Vector3((levelWidth - 1.6f) / 2 - .08f, dessert && style == 0 ? height : height - (dessert ? .10f : .65f), dessert ? style == 1 ? 1.4f : .6f : .28f), CandyTheme ? CandyWallMaterial(style) : color, BuildingPart.Wall, level, i, building);
                         wall.transform.localRotation = rotation;
+                        BlockBuilding.Connect(wall, beams[i]);
                         if (CandyTheme && style == 0) wall.GetComponent<MeshFilter>().sharedMesh = geometry.RoundedBox(wall.transform.localScale, false, .035f);
                         if (CandyTheme)
                         {
@@ -508,7 +509,6 @@ namespace TankTown
                             }
                             continue;
                         }
-                        BlockBuilding.Connect(wall, beams[i]);
                         // Normalized local sizes keep these windows attached to thin facade panels.
                         for (int window = -1; window <= 1; window += 2)
                         {

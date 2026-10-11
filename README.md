@@ -42,6 +42,8 @@ Unity **6000.3.19f1** で開き、メニュー **Tank Town → Create or open pl
 
 現在の拡大と建物の追加は[検証記録](docs/candy-expansion-validation.md)と[実画面の一覧](docs/candy-variety-review.html)を参照してください。更新版は`Builds/TankTown-CandyExpansion/TankTown.exe`です。
 
+お菓子版で無傷の外壁まで一斉に外れていた支持接続の漏れを修正しました。材質の耐久は通常版と共通の3です。外壁を梁へつなぎ、壊れた支持に属する部分だけが外れるようにしました。[原因と検証](docs/candy-wall-support-validation.md)、[修正前後の実画面](docs/candy-wall-support-comparison.html)。更新版は`Builds/TankTown-WallSupport/TankTown.exe`です。
+
 お菓子の街にはスポンジ・ウエハース・ビスケット・チョコ・クリーム・糖衣・イチゴ・キャンディの縞と渦巻き・ドーナツ生地の10種類のテクスチャを使用します。気泡・種・細い格子などは画像で表現し、果物・飴・ドーナツの輪郭と法線を滑らかにしています。材質と画像は破片にも共有されます。[素材一覧と生成プロンプト](docs/candy-materials.md)。
 
 遠景でも果物・飴・ドーナツの輪郭を維持します。[実画面と検証記録](docs/candy-textures-validation.md)。更新版は`Builds/TankTown-CandyTextures/TankTown.exe`から起動できます。

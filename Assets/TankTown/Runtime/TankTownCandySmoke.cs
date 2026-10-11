@@ -66,6 +66,10 @@ namespace TankTown
             int before = game.BrokenBlocks; game.Input.PulsePad(0); yield return new WaitForSeconds(.6f);
             if (game.BrokenBlocks <= before || chocolate.FullyDestroyed) { Fail("the cannon must break candy locally"); yield break; }
             Capture(game, "candy-04-chocolate-hit");
+            int standingWalls = chocolate.Blocks.Count(x => x.Kind == BuildingPart.Wall && !x.Detached);
+            if (standingWalls == 0 || chocolate.Blocks.Where(x => x.Kind == BuildingPart.Wall && x.Level == chocolate.Floors - 1).Any(x => x.Detached))
+            { Fail("a local facade shot must leave the remote supported walls attached"); yield break; }
+            Debug.Log($"CANDY WALL SUPPORT CHECK: durability={game.Settings.buildingDurability}, detached={chocolate.DetachedParts}/{chocolate.Blocks.Count}, standingWalls={standingWalls}, upperWallsIntact=True");
             foreach (var part in chocolate.Blocks.Where(x => !x.Detached).ToArray()) part.Break(part.transform.position, 0);
             yield return new WaitForSeconds(4.9f);
             if (chocolate.Reward.Area == null) { Fail("full candy destruction did not release an area"); yield break; }
