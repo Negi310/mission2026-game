@@ -33,6 +33,14 @@ namespace TankTown
         private GameObject card, noticePanel, modalShade;
         private readonly Color ink = new Color(.08f, .17f, .22f);
         private readonly Color yellow = new Color(.81f, 1, .14f);
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        internal void RefreshLayoutForCapture()
+        {
+            if (game.State == RoundState.Ready) titleView.Fit();
+            if (game.State == RoundState.Results) ResultsView.Tick(0);
+            UpgradesView.Tick(0); SpecialsView.Tick(0); LateUpdate();
+        }
+#endif
         public void Initialize(TankTownGame owner)
         {
             game = owner;
@@ -274,12 +282,13 @@ namespace TankTown
             aim.enabled = game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
             // Project the actual muzzle direction after the comfort camera has moved.
             if (!game.IsPlaying || Camera.main == null) return;
+            var viewportSize = Camera.main.targetTexture != null ? new Vector2(Camera.main.pixelWidth, Camera.main.pixelHeight) : new Vector2(Screen.width, Screen.height);
             float pickupHeight = game.Settings.pickupIconHeight * game.Tank.VehicleScale + game.Settings.pickupIconSize * .75f + .35f;
             Vector3 receipt = Camera.main.WorldToScreenPoint(game.Tank.transform.position + Vector3.up * pickupHeight);
             pickupText.enabled = receipt.z > 0 && game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
-            pickupText.rectTransform.anchoredPosition = ((Vector2)receipt - new Vector2(Screen.width, Screen.height) * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
+            pickupText.rectTransform.anchoredPosition = ((Vector2)receipt - viewportSize * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
             Vector3 projected = Camera.main.WorldToScreenPoint(game.Tank.Muzzle.position + game.Tank.Muzzle.forward * 70);
-            aim.rectTransform.anchoredPosition = ((Vector2)projected - new Vector2(Screen.width, Screen.height) * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
+            aim.rectTransform.anchoredPosition = ((Vector2)projected - viewportSize * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
         }
     }
 }
