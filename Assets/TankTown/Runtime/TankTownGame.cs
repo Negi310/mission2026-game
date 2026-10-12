@@ -78,6 +78,17 @@ namespace TankTown
         private float previousFixedStep, previousMaximumStep;
         private double clockAt;
 
+#if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void StartFullscreen()
+        {
+            if (Application.isBatchMode) return;
+            // Override an older windowed player preference once, at startup.
+            var desktop = Screen.currentResolution;
+            Screen.SetResolution(desktop.width, desktop.height, FullScreenMode.FullScreenWindow);
+        }
+#endif
+
         private void Awake()
         {
             Time.timeScale = 1;

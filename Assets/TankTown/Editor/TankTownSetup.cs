@@ -47,7 +47,9 @@ namespace TankTown.Editor
             PlayerSettings.productName = "Tank Town";
             PlayerSettings.defaultScreenWidth = 1600;
             PlayerSettings.defaultScreenHeight = 900;
-            PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
+            PlayerSettings.defaultIsNativeResolution = true;
+            PlayerSettings.fullScreenMode = FullScreenMode.FullScreenWindow;
+            PlayerSettings.allowFullscreenSwitch = true;
             AssetDatabase.SaveAssets();
         }
 
