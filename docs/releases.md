@@ -2,6 +2,8 @@
 
 [最新リリース](https://github.com/Negi310/mission2026-game/releases/latest)の`TankTown-vX.Y.Z-Windows-x64.zip`をダウンロードし、すべて展開して`TankTown/TankTown.exe`を起動します。Unityは不要です。Source codeのZIPはUnityプロジェクトであり、ゲームの実行ファイルは含みません。
 
+現在のリポジトリは非公開です。リリースを開くときはアクセス権のあるGitHubアカウントでログインしてください。
+
 exeと同梱フォルダを一緒に保持してください。更新時は新しいZIPを別フォルダに展開します。記録はWindowsユーザーのローカルデータへ保存されるため、同じPC・同じユーザーならランキングを引き継ぎます。ZIP形式なのでインストーラー・自動更新機能はありません。対応はWindows x64です。
 
 ## 配布ビルドの作成
@@ -10,8 +12,8 @@ Unity **6000.3.19f1**とWindows Build Supportを使います。Editorを閉じ�
 
 ```powershell
 $env:TANKTOWN_BUILD_COMMIT = git rev-parse HEAD
-& 'D:/Unity/Editor/6000.3.19f1/Editor/Unity.exe' -batchmode -projectPath '<検証用プロジェクト>' -executeMethod TankTown.Editor.TankTownSetup.BuildWindowsRelease -quit -logFile '<ビルドログ>'
-# Unityの終了コード・ログ・ビルド結果を確認してから梱包する。
+$unity = Start-Process -FilePath 'D:/Unity/Editor/6000.3.19f1/Editor/Unity.exe' -ArgumentList @('-batchmode', '-projectPath', '"<検証用プロジェクト>"', '-executeMethod', 'TankTown.Editor.TankTownSetup.BuildWindowsRelease', '-quit', '-logFile', '"<ビルドログ>"') -Wait -PassThru -WindowStyle Hidden
+if ($unity.ExitCode -ne 0) { throw '配布ビルドが失敗しました。ログを確認してください。' }
 ./scripts/Package-TankTownRelease.ps1 -BuildPath '<検証用プロジェクト>/Builds/TankTown-Release' -OutputDirectory './Builds/Releases'
 ```
 
@@ -27,4 +29,4 @@ $env:TANKTOWN_BUILD_COMMIT = git rev-parse HEAD
 gh release create v0.1.0 './Builds/Releases/TankTown-v0.1.0-Windows-x64.zip' './Builds/Releases/TankTown-v0.1.0-Windows-x64.zip.sha256' --repo Negi310/mission2026-game --target '<公開対象のmainコミット>' --title 'Tank Town v0.1.0 — Windows版' --notes-file './Builds/Releases/release-notes.md' --latest
 ```
 
-ビルドはローカルで実行します。GitHub ActionsによるUnityビルド、自動更新・署名付きインストーラーは今回の配布には含めません。
+次のバージョンも手元でビルドと検証を行い、同じ手順で公開します。[初回配布版の検証記録](release-v0.1.0-validation.md)。
