@@ -174,5 +174,5 @@ LightingData.asset     binary
 # 既存の実体ファイルと合わせ、新規取得時のLFS変換の差をなくす。
 Assets/TankTown/**/*.png -filter -diff -merge -text
 Assets/TankTown/**/*.mp3 -filter -diff -merge -text
-docs/images/** -filter -diff -merge -text
+docs/**/*.png -filter -diff -merge -text
 output/imagegen/*.png -filter -diff -merge -text
