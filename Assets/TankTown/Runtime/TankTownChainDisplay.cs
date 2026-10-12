@@ -1,0 +1,123 @@
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace TankTown
+{
+    [DefaultExecutionOrder(150)]
+    public sealed class TankTownChainDisplay : MonoBehaviour
+    {
+        public int DisplayedDepth { get; private set; }
+        public int DisplayedExplosions { get; private set; }
+        public int TargetDepth { get; private set; }
+        public bool Visible => group != null && group.alpha > .01f;
+        internal bool ActiveSequence => Time.time < until;
+        private TankTownGame game;
+        private CanvasGroup group;
+        private RectTransform rect;
+        private Text number, heading, detail, addition;
+        private Image glow, progress;
+        private Outline border;
+        private readonly Image[] sparks = new Image[10];
+        private int startDepth, startExplosions, targetExplosions, seenBest, delta;
+        private float until, changedAt, countAt, recordUntil;
+        private bool obscured;
+        private const float Lifetime = 2;
+        private const float Top = 142;
+        private Color accent;
+
+        internal void Initialize(TankTownGame owner, Font font, Font displayFont, ToyHudStyle style)
+        {
+            game = owner; rect = (RectTransform)transform; group = gameObject.AddComponent<CanvasGroup>();
+            group.alpha = 0; group.blocksRaycasts = group.interactable = false;
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, 1);
+            rect.anchoredPosition = new Vector2(0, -Top); rect.sizeDelta = new Vector2(350, 122);
+            var background = gameObject.AddComponent<Image>(); background.sprite = style.Rounded; background.type = Image.Type.Sliced;
+            background.color = new Color(.05f, .13f, .2f, .95f); background.raycastTarget = false;
+            style.Card(gameObject, new Color(1, .78f, .14f));
+            border = GetComponent<Outline>();
+            glow = Box("Chain glow", new Vector2(2, -2), new Vector2(346, 118), Color.clear, style);
+            heading = Label("Chain heading", font, new Vector2(15, -5), new Vector2(320, 24), 16, TextAnchor.MiddleCenter);
+            number = Label("Chain number", displayFont, new Vector2(25, -27), new Vector2(100, 65), 55, TextAnchor.MiddleRight);
+            number.rectTransform.pivot = Vector2.one * .5f; number.rectTransform.anchoredPosition = new Vector2(75, -59.5f);
+            var word = Label("Chain word", displayFont, new Vector2(135, -35), new Vector2(191, 52), 34, TextAnchor.MiddleLeft); word.text = "CHAIN!";
+            word.gameObject.AddComponent<Shadow>().effectColor = new Color(0, 0, 0, .6f);
+            detail = Label("Chain totals", font, new Vector2(15, -93), new Vector2(320, 24), 16, TextAnchor.MiddleCenter);
+            addition = Label("Chain addition", displayFont, new Vector2(289, -8), new Vector2(56, 25), 19, TextAnchor.MiddleCenter);
+            progress = Box("Chain remaining", new Vector2(15, -119), new Vector2(320, 3), Color.white, style);
+            for (int i = 0; i < sparks.Length; i++)
+            {
+                sparks[i] = Box("Chain spark " + i, Vector2.zero, Vector2.one * (i % 2 == 0 ? 9 : 5), Color.clear, style);
+                sparks[i].rectTransform.anchorMin = sparks[i].rectTransform.anchorMax = sparks[i].rectTransform.pivot = Vector2.one * .5f;
+                sparks[i].rectTransform.localRotation = Quaternion.Euler(0, 0, 45);
+            }
+            game.ChainBurst += Show;
+        }
+        private Image Box(string name, Vector2 position, Vector2 size, Color color, ToyHudStyle style)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(Image)); root.transform.SetParent(transform, false);
+            var image = root.GetComponent<Image>(); image.sprite = style.Rounded; image.type = Image.Type.Sliced; image.color = color; image.raycastTarget = false;
+            Layout(image.rectTransform, position, size); return image;
+        }
+        private Text Label(string name, Font font, Vector2 position, Vector2 size, int fontSize, TextAnchor alignment)
+        {
+            var root = new GameObject(name, typeof(RectTransform), typeof(Text)); root.transform.SetParent(transform, false);
+            var text = root.GetComponent<Text>(); text.font = font; text.fontSize = fontSize; text.fontStyle = FontStyle.Bold;
+            text.color = Color.white; text.alignment = alignment; text.raycastTarget = false;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow; text.verticalOverflow = VerticalWrapMode.Truncate;
+            Layout(text.rectTransform, position, size); return text;
+        }
+        private static void Layout(RectTransform target, Vector2 position, Vector2 size)
+        { target.anchorMin = target.anchorMax = target.pivot = new Vector2(0, 1); target.anchoredPosition = position; target.sizeDelta = size; }
+        internal void SetObscured(bool value) => obscured = value;
+        private void Show(int depth)
+        {
+            bool fresh = Time.time >= until;
+            int oldDepth = fresh ? 0 : TargetDepth;
+            startDepth = fresh ? 1 : Mathf.Max(1, DisplayedDepth);
+            TargetDepth = fresh ? depth : Mathf.Max(TargetDepth, depth);
+            int gain = Mathf.Max(0, TargetDepth - oldDepth);
+            startExplosions = DisplayedExplosions;
+            targetExplosions = game.ChainExplosions + game.DebrisExplosions;
+            countAt = Time.time;
+            // Simultaneous branches may arrive out of order; keep the greatest depth visible.
+            if (fresh || gain > 0) { changedAt = Time.time; delta = gain; }
+            until = Time.time + Lifetime;
+            if (depth > seenBest) { seenBest = depth; recordUntil = Time.time + .9f; }
+            accent = TargetDepth >= 5 ? new Color(1, .38f, .83f) : TargetDepth >= 3 ? new Color(1, .65f, .08f) : new Color(1, .87f, .22f);
+            border.effectColor = accent;
+        }
+        private void Update()
+        {
+            if (game == null) return;
+            bool active = game.IsPlaying && !obscured && Time.time < until;
+            float remaining = until - Time.time;
+            group.alpha = active ? Mathf.Clamp01(remaining / .3f) : 0;
+            if (!active) return;
+            float age = Time.time - changedAt;
+            float count = 1 - Mathf.Pow(1 - Mathf.Clamp01((Time.time - countAt) / .2f), 3);
+            DisplayedDepth = Mathf.RoundToInt(Mathf.Lerp(startDepth, TargetDepth, count));
+            DisplayedExplosions = Mathf.RoundToInt(Mathf.Lerp(startExplosions, targetExplosions, count));
+            number.text = Mathf.Max(1, DisplayedDepth).ToString(); number.color = accent;
+            number.fontSize = TargetDepth >= 100 ? 38 : TargetDepth >= 10 ? 46 : 55;
+            heading.text = Time.time < recordUntil ? "最高連鎖更新！" : "連鎖爆破！"; heading.color = accent;
+            detail.text = $"連鎖 {TargetDepth}段  ・  誘爆合計 {DisplayedExplosions}回";
+            float punch = Mathf.Sin(Mathf.Clamp01(age / .3f) * Mathf.PI) * Mathf.Exp(-age * 5);
+            number.rectTransform.localScale = Vector3.one * (1 + punch * .2f);
+            rect.localScale = Vector3.one * (1 + punch * .045f);
+            rect.anchoredPosition = new Vector2(0, -Top - (1 - Mathf.Clamp01(age / .18f)) * 8);
+            glow.color = new Color(accent.r, accent.g, accent.b, Mathf.Clamp01(1 - age / .4f) * .18f);
+            addition.text = delta > 0 && age < .55f ? "+" + delta : "";
+            addition.color = new Color(accent.r, accent.g, accent.b, Mathf.Clamp01(1 - age / .55f));
+            addition.rectTransform.anchoredPosition = new Vector2(289, -8 + age * 18);
+            progress.color = accent; progress.rectTransform.sizeDelta = new Vector2(320 * Mathf.Clamp01(remaining / Lifetime), 3);
+            for (int i = 0; i < sparks.Length; i++)
+            {
+                float angle = (i + .5f) * Mathf.PI * 2 / sparks.Length;
+                sparks[i].rectTransform.anchoredPosition = new Vector2(Mathf.Cos(angle) * (155 + age * 38), Mathf.Sin(angle) * (47 + age * 30));
+                sparks[i].color = new Color(accent.r, accent.g, accent.b, Mathf.Clamp01(1 - age / .45f));
+            }
+        }
+        private void OnDisable() { if (group != null) group.alpha = 0; }
+        private void OnDestroy() { if (game != null) game.ChainBurst -= Show; }
+    }
+}

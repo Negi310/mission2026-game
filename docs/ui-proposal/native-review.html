@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tank Town — 実装したUIの実画面</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b1720;color:#ecf5fa;font:15px/1.6 'Yu Gothic',Meiryo,sans-serif}main{max-width:1500px;margin:auto;padding:28px}h1{font-size:25px;margin:0 0 8px}p{color:#b8d1dd;margin:0 0 20px}a{color:#82e7ff}select,button{font:inherit}select{padding:8px 12px;margin-bottom:22px;background:#173445;color:white;border:1px solid #83b0c1;border-radius:9px}.shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:20px}.shot{padding:0;overflow:hidden;border:1px solid #436574;background:#173445;color:white;border-radius:13px;text-align:left;cursor:zoom-in}.shot img{display:block;width:100%;height:auto}.shot strong{display:block;padding:12px 14px}[hidden]{display:none!important}dialog{padding:14px;border:1px solid #83b0c1;border-radius:13px;background:#102431;color:white;max-width:96vw;max-height:95vh}dialog::backdrop{background:#000c}dialog img{display:block;max-width:calc(96vw - 32px);max-height:calc(95vh - 86px);width:auto;height:auto}dialog button{float:right;cursor:pointer;background:#d2ff47;border:0;border-radius:9px;padding:7px 14px}dialog p{margin:8px 0}footer{margin-top:24px;color:#9bbbc8;font-size:13px}
+</style>
+<main>
+<h1>実装したUIの実画面</h1>
+<p>UnityのWindowsプレイヤーで撮影した画像です。下中央に所持武器、右下に横長の自動発動カードを配置しています。画像を押すと拡大できます。<br>取得・スペシャル・戦車の位置は診断用の設定です。<a href="../gameplay-ui-validation.md">実装と検証の記録</a> ／ <a href="preview.html">比較時のデザイン案</a></p>
+<select id="filter" aria-label="表示するステージ"><option value="all">全ステージ</option><option value="CandyTown">お菓子の街</option><option value="Town">いつもの街</option><option value="BigCity">大きな街</option></select>
+<div class="shots" id="shots"></div>
+<footer>1920×1080・1280×720・1440×900。カウントアップ、一列の8個取得、4効果と所持の同時表示、時間更新、レーザー中の待機、爆弾の飛行状態、停止、終了を確認しています。画像自体にブラウザ上の演出やUIを重ねていません。</footer>
+</main>
+<dialog id="zoom"><button id="close">閉じる</button><p id="caption"></p><img id="large" alt=""></dialog>
+<script>
+const shots=[
+['CandyTown','01-empty','通常画面：空の所持枠'],
+['CandyTown','02-level-roll','強化：数字の変化途中'],
+['CandyTown','03-eight-pickups','8個取得：同じ一列と種類別 +2'],
+['CandyTown','04-held-and-auto','所持武器と自動発動4種類'],
+['CandyTown','05-held-and-auto-720','1280×720：右下の横長カード'],
+['CandyTown','06-held-and-auto-900','1440×900：配置の確認'],
+['CandyTown','07-duration-reset','マグネット再取得：増えた秒数'],
+['CandyTown','08-beam-and-queued-bomb','レーザー中：次の爆弾は待機'],
+['CandyTown','09-beam-720','1280×720：レーザー専用カメラ'],
+['CandyTown','11-bomb-flight','巨大爆弾：飛行中'],
+['CandyTown','12-paused','停止中：アニメーションも止まる'],
+['CandyTown','13-expired','全効果の終了'],
+['Town','04-held-and-auto','いつもの街：所持と4効果'],
+['BigCity','04-held-and-auto','大きな街：所持と4効果']];
+const root=document.getElementById('shots'),zoom=document.getElementById('zoom');
+for(const [stage,file,title] of shots){const button=document.createElement('button');button.className='shot';button.dataset.stage=stage;const image=document.createElement('img');image.src=`../images/tank-town-hud-${stage}-${file}.png`;image.alt=title;const caption=document.createElement('strong');caption.textContent=title;button.append(image,caption);root.append(button);button.onclick=()=>{document.getElementById('large').src=image.src;document.getElementById('large').alt=title;document.getElementById('caption').textContent=title;zoom.showModal()}}
+document.getElementById('filter').onchange=event=>{for(const shot of root.children)shot.hidden=event.target.value!=='all'&&shot.dataset.stage!==event.target.value};document.getElementById('close').onclick=()=>zoom.close();zoom.onclick=event=>{if(event.target===zoom)zoom.close()};
+</script>
+</html>

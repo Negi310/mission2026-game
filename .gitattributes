@@ -169,3 +169,10 @@ Packages/packages-lock.json linguist-generated
 
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
+
+# Tank Townの小さな画像・音声は通常のGitバイナリとして保存する。
+# 既存の実体ファイルと合わせ、新規取得時のLFS変換の差をなくす。
+Assets/TankTown/**/*.png -filter -diff -merge -text
+Assets/TankTown/**/*.mp3 -filter -diff -merge -text
+docs/**/*.png -filter -diff -merge -text
+output/imagegen/*.png -filter -diff -merge -text

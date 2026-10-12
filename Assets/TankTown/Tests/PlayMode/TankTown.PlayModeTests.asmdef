@@ -1,0 +1,13 @@
+{
+  "name": "TankTown.PlayModeTests",
+  "references": [
+    "TankTown.Runtime",
+    "Unity.InputSystem"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ]
+}
