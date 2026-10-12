@@ -53,13 +53,48 @@ namespace TankTown.Editor
 
         public static void BuildWindows()
         {
+            BuildWindowsPlayer("Builds/TankTown/TankTown.exe", BuildOptions.Development);
+        }
+
+        public static void BuildWindowsRelease()
+        {
+            const string outputPath = "Builds/TankTown-Release/TankTown.exe";
+            string sourceCommit = System.Environment.GetEnvironmentVariable("TANKTOWN_BUILD_COMMIT");
+            if (string.IsNullOrEmpty(sourceCommit) ||
+                !System.Text.RegularExpressions.Regex.IsMatch(sourceCommit, "^[0-9a-f]{40}$"))
+                throw new System.Exception("Set TANKTOWN_BUILD_COMMIT to the verified source commit before building a release.");
+
+            BuildWindowsPlayer(outputPath, BuildOptions.None);
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(outputPath), "build-info.json"),
+                JsonUtility.ToJson(new ReleaseBuildInfo
+                {
+                    version = PlayerSettings.bundleVersion,
+                    sourceCommit = sourceCommit,
+                    unityVersion = Application.unityVersion,
+                    platform = "Windows-x64",
+                    developmentBuild = false
+                }, true));
+        }
+
+        [System.Serializable]
+        private sealed class ReleaseBuildInfo
+        {
+            public string version;
+            public string sourceCommit;
+            public string unityVersion;
+            public string platform;
+            public bool developmentBuild;
+        }
+
+        private static void BuildWindowsPlayer(string outputPath, BuildOptions options)
+        {
             EnsureAssets();
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
             {
                 scenes = new[] { ScenePath },
-                locationPathName = "Builds/TankTown/TankTown.exe",
+                locationPathName = outputPath,
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.Development
+                options = options
             });
             if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 throw new System.Exception("Tank Town build failed: " + report.summary.result);
