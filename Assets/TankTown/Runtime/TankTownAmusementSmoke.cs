@@ -28,6 +28,7 @@ namespace TankTown
             Application.runInBackground = true; Time.captureDeltaTime = 1f / 60;
             output = Path.Combine(Application.dataPath, "..", "Captures"); Directory.CreateDirectory(output);
             yield return new WaitForSecondsRealtime(.4f);
+            Debug.Log($"PLAYER DISPLAY: mode={Screen.fullScreenMode}, size={Screen.width}x{Screen.height}, desktop={Screen.currentResolution.width}x{Screen.currentResolution.height}, batch={Application.isBatchMode}");
             var game = FindFirstObjectByType<TankTownGame>(); Capture(game, "amusement-01-title");
             game.StartOrRestart(); game.Input.useHardware = true; yield return new WaitForSeconds(.3f);
             Capture(game, "amusement-02-play");

@@ -10,6 +10,8 @@ Windowsで遊ぶ場合は[最新リリース](https://github.com/Negi310/mission
 
 [配布ビルドの作成・公開手順](docs/releases.md)。
 
+現行ソースから作ったWindows版は、起動時にモニターの解像度に合わせた枠なし全画面になります。以前のウィンドウ表示設定が残っていても全画面へ切り替えます。Alt+Enterでウィンドウ表示と切り替えられます。Unity EditorのGameビューは通常のままです。
+
 現在は非公開リポジトリのため、ダウンロードにはアクセス権のあるGitHubアカウントでログインしてください。
 
 公開済みのv0.1.0は既存3ステージの配布ビルドです。遊園地の試作はUnityプロジェクト、またはローカルの`Builds/TankTown-Amusement/TankTown.exe`で確認できます。[必要素材の一覧](docs/amusement-assets.md)、[元画像と実画面](docs/amusement-review.html)。
