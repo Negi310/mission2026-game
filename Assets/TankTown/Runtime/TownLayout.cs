@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace TankTown
 {
-    public enum TownStage { Town, BigCity, CandyTown }
+    public enum TownStage { Town, BigCity, CandyTown, AmusementPark }
 
     // Streets stay connected; only occupied plots and their content are shuffled.
     public sealed class TownLayout
@@ -33,7 +33,23 @@ namespace TankTown
             // Keep the entry corner occupied, so the first avenue always has a landmark.
             int parkCount = 0;
             int desiredParks = Mathf.Clamp(settings.cityParks, 0, count - 6);
-            while (parkCount < desiredParks) { int index = parkRandom.Next(1, count); if (!parks[index]) { parks[index] = true; parkCount++; } }
+            if (stage == TownStage.AmusementPark)
+            {
+                int available = 0;
+                for (int i = 1; i < count; i++)
+                {
+                    int x = i / (half * 2) - half, z = i % (half * 2) - half;
+                    if (!((x == -1 || x == 0) && z < -half + 3)) available++;
+                }
+                desiredParks = Mathf.Min(desiredParks, available);
+            }
+            while (parkCount < desiredParks)
+            {
+                int index = parkRandom.Next(1, count);
+                int x = index / (half * 2) - half, z = index % (half * 2) - half;
+                if (stage == TownStage.AmusementPark && (x == -1 || x == 0) && z < -half + 3) continue;
+                if (!parks[index]) { parks[index] = true; parkCount++; }
+            }
             var rewards = new ItemKind[count - parkCount];
             for (int i = 0; i < rewards.Length; i++) rewards[i] = (ItemKind)(i % 6);
             var rewardRandom = new System.Random(unchecked(seed ^ 0x1B023));
@@ -55,8 +71,20 @@ namespace TankTown
             for (int x = -half; x < half; x++) for (int z = -half; z < half; z++, plotIndex++)
             {
                 int style = candyStyles != null && !parks[plotIndex] ? candyStyles[rewardIndex] : shapeRandom.Next(3);
+                if (stage == TownStage.AmusementPark)
+                {
+                    // Small booths keep the park open, with four readable ride silhouettes.
+                    int kind = rewardIndex % 12;
+                    style = kind < 4 ? kind : 4 + rewardIndex % 2;
+                    if (x == -1 && z == -half) style = 2;
+                    if (x == 0 && z == -half) style = 5;
+                    if (x == -1 && z == -half + 1) style = 0;
+                    if (x == 0 && z == -half + 1) style = 1;
+                    if (x == 0 && z == -half + 2) style = 3;
+                }
                 int floors = style == 0 ? shapeRandom.Next(6, 9) : style == 1 ? shapeRandom.Next(4, 7) : style == 4 || style == 5 ? shapeRandom.Next(3, 5) : shapeRandom.Next(2, 4);
                 float width = Mathf.Max(10, baseWidth * (style == 0 ? .72f : style == 2 ? .88f : style >= 4 ? .92f : 1));
+                if (stage == TownStage.AmusementPark) { floors = 1; width = baseWidth; }
                 // Keep the entire footprint on its level pad, including gable overhang.
                 float movement = Mathf.Max(0, (padWidth - width - .5f) * .5f);
                 var center = new Vector3((x + .5f) * settings.blockSpacing, 0, (z + .5f) * settings.blockSpacing);

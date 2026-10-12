@@ -443,6 +443,8 @@ namespace TankTown
             var previousMode = canvas.renderMode;
             var previousCamera = canvas.worldCamera;
             float previousDistance = canvas.planeDistance;
+            var previousCameraTarget = camera.targetTexture;
+            float previousScaleFactor = canvas.scaleFactor;
             Texture2D pixels = null;
             try
             {
@@ -451,6 +453,19 @@ namespace TankTown
                 canvas.renderMode = RenderMode.ScreenSpaceCamera;
                 canvas.worldCamera = camera;
                 canvas.planeDistance = camera.nearClipPlane + .01f;
+                // Give layout the destination viewport before a render request. Otherwise
+                // a hidden player's backbuffer can crop UI at the capture's edges.
+                camera.targetTexture = target;
+                var scaler = canvas.GetComponent<UnityEngine.UI.CanvasScaler>();
+                if (scaler != null && scaler.uiScaleMode == UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize)
+                {
+                    float x = width / scaler.referenceResolution.x, y = height / scaler.referenceResolution.y;
+                    canvas.scaleFactor = scaler.screenMatchMode == UnityEngine.UI.CanvasScaler.ScreenMatchMode.Expand ? Mathf.Min(x, y)
+                        : scaler.screenMatchMode == UnityEngine.UI.CanvasScaler.ScreenMatchMode.Shrink ? Mathf.Max(x, y)
+                        : Mathf.Pow(2, Mathf.Lerp(Mathf.Log(x, 2), Mathf.Log(y, 2), scaler.matchWidthOrHeight));
+                }
+                Canvas.ForceUpdateCanvases();
+                FindFirstObjectByType<TankTownHUD>()?.RefreshLayoutForCapture();
                 Canvas.ForceUpdateCanvases();
                 var request = new RenderPipeline.StandardRequest { destination = target };
                 if (!RenderPipeline.SupportsRenderRequest(camera, request))
@@ -468,6 +483,8 @@ namespace TankTown
                 canvas.renderMode = previousMode;
                 canvas.worldCamera = previousCamera;
                 canvas.planeDistance = previousDistance;
+                camera.targetTexture = previousCameraTarget;
+                canvas.scaleFactor = previousScaleFactor;
                 RenderTexture.active = previousTarget;
                 RenderTexture.ReleaseTemporary(target);
                 if (pixels != null) Destroy(pixels);

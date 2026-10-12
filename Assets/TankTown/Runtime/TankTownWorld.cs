@@ -117,6 +117,7 @@ namespace TankTown
                 MakeMaterial(new Color(1, .68f, .10f), ToySurface.Metal)
             };
             if (CandyTheme) InitializeCandyPalette();
+            if (AmusementTheme) InitializeAmusementPalette();
             Icons = new UpgradeIcons();
             SpecialIcons = new ItemIcons();
             Layout = new TownLayout(game.Settings, game.CitySeed, RoadWidth, game.BuiltStage);
@@ -162,6 +163,7 @@ namespace TankTown
             // The first straight has all four upgrades, so their effect is easy to try.
             for (int i = 0; i < 4; i++) CreatePickup(SpawnPosition + new Vector3(0, .2f, 8 + i * 7), (UpgradeKind)i, false);
             if (CandyTheme) CreateDoughnutGate();
+            if (AmusementTheme) CreateAmusementGate();
             CreateTraffic();
             var scenery = gameObject.AddComponent<TownScenery>();
             SkyMaterial = scenery.Build(this, game);
@@ -171,6 +173,7 @@ namespace TankTown
             proxyCube = Instantiate(source.GetComponent<MeshFilter>().sharedMesh); proxyCube.name = "Proxy cube";
             source.SetActive(false); Destroy(source);
             var distantCandy = CandyTheme ? new System.Func<Mesh, Mesh>(candyGeometry.DistantSilhouette) : null;
+            if (AmusementTheme) distantCandy = amusementGeometry.DistantSilhouette;
             foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube, distantCandy);
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
@@ -443,6 +446,7 @@ namespace TankTown
 
         private void CreateBuilding(Vector3 center, int floors, Material color, float width, int style, ItemKind reward)
         {
+            if (AmusementTheme) { CreateAmusementBuilding(center, width, style, reward); return; }
             var root = new GameObject(CandyTheme ? CandyHouseName(style) : style == 0 ? "Tower frame" : style == 1 ? "Apartment frame" : "Shop frame");
             root.transform.SetParent(transform);
             root.transform.position = center;
@@ -558,6 +562,7 @@ namespace TankTown
 
         private void CreateProp(Vector3 position, string label, Material color, bool sign)
         {
+            if (AmusementTheme) { CreateAmusementProp(position, label); return; }
             if (CandyTheme) { CreateCandyProp(position, label, color, sign); return; }
             position = GroundPoint(position);
             var item = new GameObject(label);
@@ -655,6 +660,7 @@ namespace TankTown
             Terrain?.Dispose();
             geometry.Dispose();
             candyGeometry?.Dispose();
+            amusementGeometry?.Dispose();
             foreach (var material in materials) if (material != null) Destroy(material);
             Icons?.Dispose();
             SpecialIcons?.Dispose();

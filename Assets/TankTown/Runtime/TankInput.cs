@@ -45,6 +45,7 @@ namespace TankTown
                 if (keyboard.digit1Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.Town);
                 if (keyboard.digit2Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.BigCity);
                 if (keyboard.digit3Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.CandyTown);
+                if (keyboard.digit4Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.AmusementPark);
                 if (!useHardware)
                 {
                     if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) Steering = -1;
