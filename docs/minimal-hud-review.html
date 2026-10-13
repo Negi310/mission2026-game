@@ -8,22 +8,23 @@
 </style>
 <main>
 <h1>文字を減らしたプレイ画面UI</h1>
-<p>Unityの実ビルドを撮影した比較です。最新の調整では大きさを少し抑え、ptと時間に細い縁・淡い陰影・ハイライトを付けています。</p>
+<p>Unityの実ビルドを撮影した比較です。最新の調整では枠のデザインを保ち、ptと時間の文字の上下余白を揃えています。</p>
 <div class="controls">
 <button id="current" aria-pressed="true">整理後</button><button id="previous" aria-pressed="false">以前</button>
 <select id="state" aria-label="確認する場面">
-<optgroup label="最新"><option value="refined">通常</option><option value="refinedchain">チェイン</option><option value="refinedeffects">所持＋4効果</option><option value="refined720">1280×720</option></optgroup>
+<optgroup label="最新"><option value="centered">通常</option><option value="centeredchain">チェイン</option></optgroup>
+<optgroup label="直前のデザイン"><option value="refined">通常</option><option value="refinedchain">チェイン</option><option value="refinedeffects">所持＋4効果</option><option value="refined720">1280×720</option></optgroup>
 <optgroup label="以前の比較"><option value="soft">淡い背景：通常</option><option value="softchain">淡い背景：チェイン</option><option value="empty">枠なし：通常</option><option value="effects">所持＋4効果</option><option value="720">1280×720</option><option value="beam">レーザー＋待機武器</option><option value="narrow">1280×1024</option><option value="chain">背景カード付き：チェイン</option><option value="amusement">遊園地</option></optgroup>
 </select>
 </div>
 <figure><a id="full-size"><img id="capture" alt="整理後の通常のプレイ画面"></a><figcaption id="caption"></figcaption></figure>
-<small>取得と効果の同時表示を確認するため、シード2026、停止した戦車、診断用の取得処理を使っています。最新の通常／チェインは以前／現在で直前の淡い背景と比較できます。以前の比較画像も残しています。</small>
+<small>取得と効果の同時表示を確認するため、シード2026、停止した戦車、診断用の取得処理を使っています。最新の通常／チェインは以前／現在で文字の位置の調整前後を比較できます。以前の比較画像も残しています。</small>
 </main>
 <script>
-const scenes={refined:['refined-empty','最新：通常'],refinedchain:['refined-chain','最新：チェイン'],refinedeffects:['refined-effects','最新：所持＋4効果'],refined720:['refined-720','最新：1280×720'],soft:['soft-empty','淡い背景：通常'],softchain:['soft-chain','淡い背景：チェイン'],empty:['empty','枠なし：通常'],effects:['effects','所持＋4効果'],'720':['720','1280×720'],beam:['beam','レーザー＋待機武器'],narrow:['5x4','1280×1024'],chain:['chain','背景カード付き：チェイン'],amusement:['amusement','遊園地']};
+const scenes={centered:['centered-empty','最新：通常'],centeredchain:['centered-chain','最新：チェイン'],refined:['refined-empty','直前：通常'],refinedchain:['refined-chain','直前：チェイン'],refinedeffects:['refined-effects','所持＋4効果'],refined720:['refined-720','1280×720'],soft:['soft-empty','淡い背景：通常'],softchain:['soft-chain','淡い背景：チェイン'],empty:['empty','枠なし：通常'],effects:['effects','所持＋4効果'],'720':['720','1280×720'],beam:['beam','レーザー＋待機武器'],narrow:['5x4','1280×1024'],chain:['chain','背景カード付き：チェイン'],amusement:['amusement','遊園地']};
 const state=document.querySelector('#state'),picture=document.querySelector('#capture'),caption=document.querySelector('#caption'),link=document.querySelector('#full-size'),current=document.querySelector('#current'),previous=document.querySelector('#previous');
 let old=false;
-function update(){const scene=scenes[state.value],prior={refined:'soft-empty',refinedchain:'soft-chain',refinedeffects:'effects',refined720:'720',soft:'empty',softchain:'chain'},before=prior[state.value]?'images/tank-town-minimal-hud-'+prior[state.value]+'.png':'images/tank-town-hud-CandyTown-04-held-and-auto.png',src=old?before:'images/tank-town-minimal-hud-'+scene[0]+'.png';picture.src=src;picture.alt=(old?'以前：':'整理後：')+scene[1].replace('最新：','');link.href=src;caption.textContent=picture.alt+'（画像をクリックすると原寸表示）';current.setAttribute('aria-pressed',String(!old));previous.setAttribute('aria-pressed',String(old));state.disabled=old;}
+function update(){const scene=scenes[state.value],prior={centered:'refined-empty',centeredchain:'refined-chain',refined:'soft-empty',refinedchain:'soft-chain',refinedeffects:'effects',refined720:'720',soft:'empty',softchain:'chain'},before=prior[state.value]?'images/tank-town-minimal-hud-'+prior[state.value]+'.png':'images/tank-town-hud-CandyTown-04-held-and-auto.png',src=old?before:'images/tank-town-minimal-hud-'+scene[0]+'.png';picture.src=src;picture.alt=(old?'以前：':'整理後：')+scene[1].replace('最新：','');link.href=src;caption.textContent=picture.alt+'（画像をクリックすると原寸表示）';current.setAttribute('aria-pressed',String(!old));previous.setAttribute('aria-pressed',String(old));state.disabled=old;}
 current.onclick=()=>{old=false;update()};previous.onclick=()=>{old=true;update()};state.onchange=update;update();
 </script>
 </html>
