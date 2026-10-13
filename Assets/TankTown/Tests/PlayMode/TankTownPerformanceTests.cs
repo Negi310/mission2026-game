@@ -58,7 +58,7 @@ namespace TankTown.Tests
         }
         [UnityTest] public IEnumerator MapUsesLightweightMeshesAndKeepsThemUntilTheCityChanges()
         {
-            var map = game.GetComponent<TankTownHUD>().Minimap;
+            var map = game.GetComponent<TankTownHUD>().EnableDiagnosticMinimap();
             Assert.That(map.View.cullingMask, Is.EqualTo((1 << TownPhysics.MapLayer) | TownPhysics.GroundMask));
             Assert.That(Camera.main.cullingMask & (1 << TownPhysics.MapLayer), Is.Zero);
             var building = game.World.Buildings[0]; var mesh = building.Presentation.MapMesh;

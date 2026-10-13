@@ -34,7 +34,7 @@ namespace TankTown.Tests
             var root = (RectTransform)GameObject.Find("Gameplay HUD").transform;
             Rect screen = Bounds(root);
             Rect drivingView = new Rect(screen.x + screen.width * .34f, screen.y + screen.height * .25f, screen.width * .32f, screen.height * .5f);
-            foreach (string name in new[] { "Destruction", "Clock", "Upgrades", "Special items", "Live ranking", "Minimap" })
+            foreach (string name in new[] { "Points", "Clock", "Upgrades" })
             {
                 Rect panel = Bounds((RectTransform)GameObject.Find(name).transform);
                 Assert.That(screen.Contains(panel.min) && screen.Contains(panel.max), Is.True, name + " must fit on screen");
@@ -43,6 +43,10 @@ namespace TankTown.Tests
             var chip = GameObject.Find("Upgrade chip 1");
             Assert.That(chip.GetComponentsInChildren<Text>().Any(x => x.name == "Level digit" && x.text == "2"), Is.True);
             Assert.That(GameObject.Find("Controls"), Is.Null);
+            Assert.That(GameObject.Find("Minimap camera"), Is.Null);
+            Assert.That(game.GetComponent<TankTownHUD>().Minimap, Is.Null);
+            Assert.That(GameObject.Find("Clock").GetComponent<Image>(), Is.Null);
+            Assert.That(root.GetComponentsInChildren<Text>().Any(x => System.Text.RegularExpressions.Regex.IsMatch(x.text, @"[\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}]")), Is.False);
             Assert.That(chip.GetComponentsInChildren<Image>().Any(x => x.sprite == game.World.Icons.Sprite(UpgradeKind.Power)), Is.True);
         }
 
@@ -55,21 +59,16 @@ namespace TankTown.Tests
             Assert.That(game.Tank.Respawning, Is.True);
             Assert.That(game.Remaining, Is.LessThanOrEqualTo(remaining - game.Settings.respawnPenalty));
             var texts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            var heading = texts.Single(x => x.name == "Action heading");
-            var caption = texts.Single(x => x.name == "Action caption");
-            foreach (var text in new[] { heading, caption })
-            {
-                Assert.That(text.text, Is.Empty);
-                Assert.That(text.gameObject.activeInHierarchy, Is.False, "The crash must leave the view free of action text");
-            }
+            Assert.That(texts.Any(x => (x.name == "Action heading" || x.name == "Action caption") && x.gameObject.activeInHierarchy), Is.False);
         }
 
         [UnityTest]
         public IEnumerator SpecialCardSeparatesHeldWeaponsFromWideAutomaticEffects()
         {
             Assert.That(game.Items.Receive(ItemKind.Missiles), Is.True); yield return null;
-            var card = GameObject.Find("Special items");
-            Assert.That(card.GetComponentsInChildren<Text>().Any(x => x.text == "ビルを全壊でゲット"), Is.True);
+            var hud = game.GetComponent<TankTownHUD>();
+            var card = hud.SpecialsView.HeldRoot.gameObject;
+            Assert.That(card.activeSelf, Is.False);
             Assert.That(card.GetComponentsInChildren<Image>().Any(x => x.sprite == game.World.SpecialIcons.Sprite(ItemKind.Missiles)), Is.False);
             Assert.That(game.Items.MissilesActive, Is.True); Assert.That(game.Items.Held, Is.EqualTo(ItemKind.None)); yield return null;
             Assert.That(game.Items.Receive(ItemKind.Magnet), Is.True);
@@ -77,8 +76,9 @@ namespace TankTown.Tests
             Assert.That(game.Items.Receive(ItemKind.Bulldozer), Is.True);
             Assert.That(game.Items.Receive(ItemKind.MegaBeam), Is.True);
             yield return null; Canvas.ForceUpdateCanvases();
-            var hud = game.GetComponent<TankTownHUD>();
-            Assert.That(card.GetComponentsInChildren<Text>().Any(x => x.text == "メガビーム"), Is.True);
+            Assert.That(card.activeSelf, Is.True);
+            Assert.That(card.GetComponentsInChildren<Image>().Any(x => x.sprite == game.World.SpecialIcons.Sprite(ItemKind.MegaBeam)), Is.True);
+            Assert.That(GameObject.Find("Held special hint").GetComponent<Text>().text, Is.EqualTo("SPACE"));
             Assert.That(hud.SpecialsView.HeldRoot.anchorMin, Is.EqualTo(new Vector2(.5f, 0)));
             Assert.That(hud.SpecialsView.AutomaticRoot.anchorMin, Is.EqualTo(new Vector2(1, 0)));
             foreach (var kind in new[] { ItemKind.Missiles, ItemKind.Magnet, ItemKind.Bulldozer, ItemKind.HighSpeed })
@@ -93,7 +93,7 @@ namespace TankTown.Tests
             Assert.That(game.Items.UseHeld(), Is.True); Assert.That(game.Items.Receive(ItemKind.GigantBomb), Is.True);
             yield return null;
             Assert.That(GameObject.Find("Effect MegaBeam").transform.parent, Is.SameAs(hud.SpecialsView.WeaponRoot));
-            Assert.That(card.GetComponentsInChildren<Text>().Any(x => x.text == "効果終了まで待機"), Is.True);
+            Assert.That(GameObject.Find("Special use prompt").GetComponent<Image>().color, Is.Not.EqualTo(TankTownMenuLayout.Lime));
             Rect held = Bounds(hud.SpecialsView.HeldRoot), automatic = Bounds(hud.SpecialsView.AutomaticRoot), weapon = Bounds(hud.SpecialsView.WeaponRoot);
             Assert.That(held.Overlaps(automatic) || held.Overlaps(weapon) || automatic.Overlaps(weapon), Is.False);
         }
@@ -128,13 +128,13 @@ namespace TankTown.Tests
             float before = game.Items.Remaining(ItemKind.Magnet);
             Assert.That(game.Items.Receive(ItemKind.Magnet), Is.True); yield return null;
             var magnet = GameObject.Find("Effect Magnet");
-            string expected = $"+{game.Items.Duration(ItemKind.Magnet) - before:0.0}秒";
+            string expected = $"+{game.Items.Duration(ItemKind.Magnet) - before:0.0}s";
             Assert.That(magnet.GetComponentsInChildren<Text>().Single(x => x.name == "Effect extension").text, Is.EqualTo(expected));
             var ring = magnet.GetComponentsInChildren<Image>().Single(x => x.name == "Effect remaining ring");
             Assert.That(ring.fillAmount, Is.GreaterThan(.99f));
             Assert.That(game.Items.Receive(ItemKind.GigantBomb) && game.Items.UseHeld(), Is.True); yield return null;
             var bomb = GameObject.Find("Effect GigantBomb");
-            Assert.That(bomb.GetComponentsInChildren<Text>().Single(x => x.name == "Effect time").text, Is.EqualTo("飛行中"));
+            Assert.That(bomb.GetComponentsInChildren<Text>().Single(x => x.name == "Effect time").text, Is.EqualTo("↗"));
             Assert.That(bomb.GetComponentsInChildren<Image>().Any(x => x.name == "Effect remaining ring"), Is.False);
             game.Items.FinishRound(); yield return null;
             Assert.That(GameObject.Find("Effect Magnet"), Is.Null); Assert.That(GameObject.Find("Effect GigantBomb"), Is.Null);

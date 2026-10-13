@@ -432,7 +432,7 @@ namespace TankTown
             Camera.main.transform.LookAt(target);
         }
 
-        internal static void Capture(string path, bool showHud = true, int width = 1440, int height = 900)
+        internal static void Capture(string path, bool showHud = true, int width = 1440, int height = 900, Action validateLayout = null)
         {
             var camera = Camera.main;
             var canvas = FindFirstObjectByType<Canvas>();
@@ -467,6 +467,7 @@ namespace TankTown
                 Canvas.ForceUpdateCanvases();
                 FindFirstObjectByType<TankTownHUD>()?.RefreshLayoutForCapture();
                 Canvas.ForceUpdateCanvases();
+                validateLayout?.Invoke();
                 var request = new RenderPipeline.StandardRequest { destination = target };
                 if (!RenderPipeline.SupportsRenderRequest(camera, request))
                     throw new InvalidOperationException("Render pipeline does not support visual smoke capture");
