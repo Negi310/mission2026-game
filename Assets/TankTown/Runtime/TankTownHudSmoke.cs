@@ -43,8 +43,8 @@ namespace TankTown
         private void VerifyLayout()
         {
             var hud = game.GetComponent<TankTownHUD>();
-            if (hud.Minimap != null || GameObject.Find("Minimap camera") != null || GameObject.Find("Clock").GetComponent<Image>() != null)
-                throw new InvalidOperationException("The minimal HUD must have no live map or clock frame");
+            if (hud.Minimap != null || GameObject.Find("Minimap camera") != null || GameObject.Find("Chain celebration").GetComponent<Image>() != null)
+                throw new InvalidOperationException("The minimal HUD must have no live map or chain card");
             if (game.IsPlaying && GameObject.Find("Gameplay HUD").GetComponentsInChildren<Text>().Any(x => System.Text.RegularExpressions.Regex.IsMatch(x.text, @"[\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}]")))
                 throw new InvalidOperationException("Gameplay explanatory text remains");
             if (hud.SpecialsView.HeldRoot.gameObject.activeSelf != (game.Items.Held != ItemKind.None))

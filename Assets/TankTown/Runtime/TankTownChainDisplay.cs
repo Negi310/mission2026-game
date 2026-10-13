@@ -15,8 +15,7 @@ namespace TankTown
         private CanvasGroup group;
         private RectTransform rect;
         private Text number, addition;
-        private Image glow, progress;
-        private Outline border;
+        private Image progress;
         private readonly Image[] sparks = new Image[10];
         private int startDepth, startExplosions, targetExplosions, delta;
         private float until, changedAt, countAt;
@@ -31,15 +30,9 @@ namespace TankTown
             group.alpha = 0; group.blocksRaycasts = group.interactable = false;
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, 1);
             rect.anchoredPosition = new Vector2(0, -Top); rect.sizeDelta = new Vector2(270, 78);
-            var background = gameObject.AddComponent<Image>(); background.sprite = style.Rounded; background.type = Image.Type.Sliced;
-            background.color = new Color(.05f, .13f, .2f, .95f); background.raycastTarget = false;
-            style.Card(gameObject, new Color(1, .78f, .14f));
-            border = GetComponent<Outline>();
-            glow = Box("Chain glow", new Vector2(2, -2), new Vector2(266, 74), Color.clear, style);
             number = Label("Chain number", displayFont, new Vector2(10, -4), new Vector2(90, 65), 55, TextAnchor.MiddleRight);
             number.rectTransform.pivot = Vector2.one * .5f; number.rectTransform.anchoredPosition = new Vector2(55, -36.5f);
             var word = Label("Chain word", displayFont, new Vector2(110, -12), new Vector2(149, 52), 27, TextAnchor.MiddleLeft); word.text = "CHAIN!";
-            word.gameObject.AddComponent<Shadow>().effectColor = new Color(0, 0, 0, .6f);
             addition = Label("Chain addition", displayFont, new Vector2(219, 20), new Vector2(56, 25), 19, TextAnchor.MiddleCenter);
             progress = Box("Chain remaining", new Vector2(15, -73), new Vector2(240, 3), Color.white, style);
             for (int i = 0; i < sparks.Length; i++)
@@ -62,6 +55,10 @@ namespace TankTown
             var text = root.GetComponent<Text>(); text.font = font; text.fontSize = fontSize; text.fontStyle = FontStyle.Bold;
             text.color = Color.white; text.alignment = alignment; text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Overflow; text.verticalOverflow = VerticalWrapMode.Truncate;
+            var outline = root.AddComponent<Outline>(); outline.effectColor = new Color(.025f, .07f, .11f, .95f);
+            outline.effectDistance = new Vector2(2, -2);
+            var shadow = root.AddComponent<Shadow>(); shadow.effectColor = new Color(0, 0, 0, .35f);
+            shadow.effectDistance = new Vector2(1, -3);
             Layout(text.rectTransform, position, size); return text;
         }
         private static void Layout(RectTransform target, Vector2 position, Vector2 size)
@@ -81,7 +78,6 @@ namespace TankTown
             if (fresh || gain > 0) { changedAt = Time.time; delta = gain; }
             until = Time.time + Lifetime;
             accent = TargetDepth >= 5 ? new Color(1, .38f, .83f) : TargetDepth >= 3 ? new Color(1, .65f, .08f) : new Color(1, .87f, .22f);
-            border.effectColor = accent;
         }
         private void Update()
         {
@@ -100,7 +96,6 @@ namespace TankTown
             number.rectTransform.localScale = Vector3.one * (1 + punch * .2f);
             rect.localScale = Vector3.one * (1 + punch * .045f);
             rect.anchoredPosition = new Vector2(0, -Top - (1 - Mathf.Clamp01(age / .18f)) * 8);
-            glow.color = new Color(accent.r, accent.g, accent.b, Mathf.Clamp01(1 - age / .4f) * .18f);
             addition.text = delta > 0 && age < .55f ? "+" + delta : "";
             addition.color = new Color(accent.r, accent.g, accent.b, Mathf.Clamp01(1 - age / .55f));
             addition.rectTransform.anchoredPosition = new Vector2(219, 20 + age * 18);

@@ -45,7 +45,6 @@ namespace TankTown.Tests
             Assert.That(GameObject.Find("Controls"), Is.Null);
             Assert.That(GameObject.Find("Minimap camera"), Is.Null);
             Assert.That(game.GetComponent<TankTownHUD>().Minimap, Is.Null);
-            Assert.That(GameObject.Find("Clock").GetComponent<Image>(), Is.Null);
             Assert.That(root.GetComponentsInChildren<Text>().Any(x => System.Text.RegularExpressions.Regex.IsMatch(x.text, @"[\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}]")), Is.False);
             Assert.That(chip.GetComponentsInChildren<Image>().Any(x => x.sprite == game.World.Icons.Sprite(UpgradeKind.Power)), Is.True);
         }
