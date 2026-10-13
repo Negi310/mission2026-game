@@ -10,7 +10,7 @@ namespace TankTown
         private readonly Font font, numbers;
         private readonly ToyHudStyle style;
         internal static readonly Color Ink = new Color(.045f, .12f, .18f, .95f);
-        internal static float BottomScale(Transform parent) => Mathf.Min(1, ((RectTransform)parent).rect.width / 1440);
+        internal static float BottomScale(Transform parent) => .94f * Mathf.Min(1, ((RectTransform)parent).rect.width / 1440);
         internal TankTownHudWidgets(Font font, Font numbers, ToyHudStyle style)
         { this.font = font; this.numbers = numbers; this.style = style; }
         internal RectTransform Root(Transform parent, string name, Vector2 anchor, Vector2 pivot, Vector2 point, Vector2 size)
