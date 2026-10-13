@@ -22,6 +22,7 @@ namespace TankTown
         private ToyHudStyle style;
         private Image viewFade;
         private Image pointsBacking;
+        private readonly TextGenerator timerMetrics = new TextGenerator(), pointsMetrics = new TextGenerator();
         private Text aim;
         internal TankTownUpgradeHud UpgradesView { get; private set; }
         internal TankTownSpecialHud SpecialsView { get; private set; }
@@ -240,9 +241,34 @@ namespace TankTown
             if (displayFont != null) Destroy(displayFont);
             style?.Dispose();
             Minimap?.Dispose();
+            ((System.IDisposable)timerMetrics).Dispose(); ((System.IDisposable)pointsMetrics).Dispose();
+        }
+        private static void CenterHeaderText(Text label, TextGenerator metrics, string reference, float baseY)
+        {
+            var rect = label.rectTransform;
+            var settings = label.GetGenerationSettings(rect.rect.size);
+            settings.resizeTextForBestFit = false;
+            settings.fontSize = label.resizeTextForBestFit ? label.resizeTextMaxSize : label.fontSize;
+            if (!metrics.Populate(reference, settings)) return;
+            float bottom = float.PositiveInfinity, top = float.NegativeInfinity;
+            var vertices = metrics.verts;
+            for (int i = 0; i + 3 < vertices.Count; i += 4)
+            {
+                float low = vertices[i].position.y, high = low;
+                for (int j = 1; j < 4; j++) { low = Mathf.Min(low, vertices[i + j].position.y); high = Mathf.Max(high, vertices[i + j].position.y); }
+                if (high - low < .001f) continue; // Spaces and the generator's trailing empty quad.
+                bottom = Mathf.Min(bottom, low); top = Mathf.Max(top, high);
+            }
+            if (float.IsInfinity(bottom)) return;
+            // A fixed sample keeps changing digits on one baseline, including the "pt" descender.
+            float offset = rect.rect.center.y - (bottom + top) * .5f / label.pixelsPerUnit;
+            var position = rect.anchoredPosition;
+            rect.anchoredPosition = new Vector2(position.x, baseY + offset);
         }
         private void LateUpdate()
         {
+            CenterHeaderText(timer, timerMetrics, "00:00", 0);
+            CenterHeaderText(score, pointsMetrics, "0 pt", -24);
             Minimap?.Tick();
             viewFade.color = new Color(.02f, .065f, .10f, Mathf.Max(game.CameraRig.FadeOpacity, game.Presentation.CoverOpacity));
             aim.enabled = game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
