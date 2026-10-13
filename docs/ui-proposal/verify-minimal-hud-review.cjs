@@ -8,7 +8,7 @@ const {chromium}=require(process.env.TANKTOWN_PLAYWRIGHT_MODULE||'playwright');
     await page.goto(pathToFileURL(path.join(__dirname,'../minimal-hud-review.html')).href);
     const loaded=()=>page.waitForFunction(()=>{const image=document.querySelector('#capture');return image.complete&&image.naturalWidth>0});
     await loaded();
-    for(const scene of ['empty','effects','720','beam','narrow','chain','amusement']){
+    for(const scene of ['soft','softchain','empty','effects','720','beam','narrow','chain','amusement']){
       await page.selectOption('#state',scene);await loaded();
       const size=await page.locator('#capture').evaluate(image=>[image.naturalWidth,image.naturalHeight]);
       assert.deepEqual(size,scene==='720'?[1280,720]:scene==='narrow'?[1280,1024]:[1920,1080]);
@@ -18,9 +18,12 @@ const {chromium}=require(process.env.TANKTOWN_PLAYWRIGHT_MODULE||'playwright');
     assert(await page.locator('#state').isDisabled());
     assert((await page.locator('#capture').getAttribute('src')).includes('tank-town-hud-CandyTown-04-held-and-auto'));
     await page.locator('#current').click();await loaded();assert(await page.locator('#state').isEnabled());
+    await page.selectOption('#state','softchain');await loaded();await page.locator('#previous').click();await loaded();
+    assert((await page.locator('#capture').getAttribute('src')).endsWith('tank-town-minimal-hud-chain.png'));
+    await page.locator('#current').click();await loaded();
     for(const width of [1920,1280,720,390]){await page.setViewportSize({width,height:1080});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));}
     await page.selectOption('#state','effects');await loaded();await page.locator('#full-size').click();await page.waitForLoadState();
     assert(page.url().endsWith('tank-town-minimal-hud-effects.png'));assert.deepEqual(errors,[]);
-    console.log('MINIMAL HUD BROWSER PASS: seven current Unity captures; previous/current toggle; 1920/1280/720/390 widths; full-size link; no errors');
+    console.log('MINIMAL HUD BROWSER PASS: nine Unity captures; previous/current and soft-frame comparison; 1920/1280/720/390 widths; full-size link; no errors');
   }finally{await browser.close()}
 })().catch(error=>{console.error(error);process.exitCode=1});

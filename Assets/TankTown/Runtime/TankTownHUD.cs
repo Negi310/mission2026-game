@@ -21,6 +21,7 @@ namespace TankTown
         private Text timer, score, cardTitle, cardBody, buttonText;
         private ToyHudStyle style;
         private Image viewFade;
+        private Image pointsBacking;
         private Text aim;
         internal TankTownUpgradeHud UpgradesView { get; private set; }
         internal TankTownSpecialHud SpecialsView { get; private set; }
@@ -77,18 +78,24 @@ namespace TankTown
             var clockRect = (RectTransform)clock.transform;
             clockRect.anchorMin = clockRect.anchorMax = clockRect.pivot = new Vector2(.5f, 1);
             clockRect.anchoredPosition = new Vector2(0, -20); clockRect.sizeDelta = new Vector2(300, 96);
+            AddSoftBacking(clock);
             timer = Label(clock.transform, "01:00", Vector2.zero, new Vector2(300, 96), 74, Color.white);
             timer.name = "Round time";
             timer.font = displayFont; timer.alignment = TextAnchor.MiddleCenter;
             timer.fontStyle = FontStyle.Bold;
-            TextOutline(timer, ink, 3);
+            TextOutline(timer, ink, 2);
             timer.gameObject.AddComponent<Shadow>().effectColor = new Color(0, 0, 0, .45f);
+            var pointsPlate = new GameObject("Points backing", typeof(RectTransform)); pointsPlate.transform.SetParent(hud, false);
+            var pointsRect = (RectTransform)pointsPlate.transform;
+            pointsRect.anchorMin = pointsRect.anchorMax = pointsRect.pivot = new Vector2(0, 1);
+            pointsRect.anchoredPosition = new Vector2(20, -20); pointsRect.sizeDelta = new Vector2(170, 96);
+            pointsBacking = AddSoftBacking(pointsPlate);
             score = Label(hud, "0 pt", new Vector2(28, -20), new Vector2(430, 96), 64, Color.white);
             score.name = "Points";
             score.font = displayFont;
             score.fontStyle = FontStyle.Bold;
             score.resizeTextForBestFit = true; score.resizeTextMinSize = 48; score.resizeTextMaxSize = 64;
-            TextOutline(score, ink, 3);
+            TextOutline(score, ink, 2);
             score.gameObject.AddComponent<Shadow>().effectColor = new Color(0, 0, 0, .45f);
             var widgets = new TankTownHudWidgets(font, displayFont, style);
             UpgradesView = new TankTownUpgradeHud(game, hud, widgets);
@@ -162,6 +169,15 @@ namespace TankTown
             return item;
         }
 
+        private Image AddSoftBacking(GameObject target)
+        {
+            var image = target.AddComponent<Image>(); image.sprite = style.Rounded; image.type = Image.Type.Sliced;
+            image.color = new Color(.025f, .075f, .11f, .32f); image.raycastTarget = false;
+            var edge = target.AddComponent<Outline>(); edge.effectColor = new Color(.88f, .95f, 1, .2f);
+            edge.effectDistance = new Vector2(.65f, -.65f);
+            return image;
+        }
+
         private static void TextOutline(Text target, Color color, float width)
         {
             var outline = target.gameObject.AddComponent<Outline>();
@@ -202,6 +218,7 @@ namespace TankTown
             timer.text = $"{seconds / 60:00}:{seconds % 60:00}";
             timer.color = seconds <= 20 ? new Color(1, .55f, .35f) : Color.white;
             score.text = $"{game.RoundScore:N0} pt";
+            pointsBacking.rectTransform.sizeDelta = new Vector2(Mathf.Min(score.preferredWidth, score.rectTransform.rect.width) + 24, 96);
             bool respawning = game.Tank.Respawning;
             chainDisplay.SetObscured(respawning);
             float uiDelta = game.IsPlaying ? Time.deltaTime : 0;
