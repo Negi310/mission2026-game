@@ -43,7 +43,7 @@ namespace TankTown
             game.StartOrRestart(); game.Input.useHardware = true;
             yield return new WaitForSecondsRealtime(.5f);
             FreezeTank(game);
-            var hud = game.GetComponent<TankTownHUD>(); hud.Minimap.Tick(); hud.Minimap.RenderNow();
+            var hud = game.GetComponent<TankTownHUD>(); hud.EnableDiagnosticMinimap(); hud.Minimap.Tick(); hud.Minimap.RenderNow();
             if (hud.Minimap.RenderCount == 0 || Camera.main != game.CameraRig.GetComponent<Camera>()) { Fail("missing live map or main camera changed"); yield break; }
             var before = Pixels(hud.Minimap.Texture);
             Capture("ranking-map-01-play", 1920, 1080);
@@ -74,7 +74,7 @@ namespace TankTown
             game = FindFirstObjectByType<TankTownGame>();
             if (game == null || game.GetInstanceID() == oldGame || !game.IsPlaying || game.CitySeed != 67541 || oldMapCamera != null || game.Ranking.Records.All(x => x.Id != recordId)) { Fail("Space replay, saved ranking or old map cleanup"); yield break; }
             game.Input.useHardware = true; FreezeTank(game); SetTank(game, new Vector3(0, 0, -40), 0);
-            yield return null; game.GetComponent<TankTownHUD>().Minimap.Tick(); game.GetComponent<TankTownHUD>().Minimap.RenderNow();
+            yield return null; game.GetComponent<TankTownHUD>().EnableDiagnosticMinimap(); game.GetComponent<TankTownHUD>().Minimap.Tick(); game.GetComponent<TankTownHUD>().Minimap.RenderNow();
             Capture("ranking-map-07-new-city", 1920, 1080);
             Debug.Log($"RANKING MINIMAP SMOKE COMPLETE: score={scoreNow}, rank={rank}, records={game.Ranking.Records.Count}, changedMapPixels={changed}, replaySeed={game.CitySeed}, oldCameraReleased={oldMapCamera == null}, mapResolution={TankTownMinimap.TextureSize}, northFixed=true, persistedAcrossReplay=true");
             Clean(); Application.Quit(0);

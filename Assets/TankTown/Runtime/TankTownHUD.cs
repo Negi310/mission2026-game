@@ -16,12 +16,10 @@ namespace TankTown
         private TankTownTitleScreen titleView;
         internal TankTownResultsScreen ResultsView { get; private set; }
         internal TankTownMinimap Minimap { get; private set; }
-        private Text liveRank, livePoints, nextRecord;
         private Text countdown;
         private CanvasGroup countdownGroup;
-        private Text timer, score, notice, noticeCaption, cardTitle, cardBody, buttonText;
+        private Text timer, score, cardTitle, cardBody, buttonText;
         private ToyHudStyle style;
-        private Image fill;
         private Image viewFade;
         private Text aim;
         internal TankTownUpgradeHud UpgradesView { get; private set; }
@@ -30,10 +28,14 @@ namespace TankTown
         private float pickupUntil, lastPickupAt = -10;
         private int pickupCount;
         private TankTownChainDisplay chainDisplay;
-        private GameObject card, noticePanel, modalShade;
+        private GameObject card, modalShade;
         private readonly Color ink = new Color(.08f, .17f, .22f);
         private readonly Color yellow = new Color(.81f, 1, .14f);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // Retain the map only for explicit legacy map/performance diagnostics.
+        internal TankTownMinimap EnableDiagnosticMinimap()
+            => Minimap ??= new TankTownMinimap(game, gameplay.transform, font, style);
+
         internal void RefreshLayoutForCapture()
         {
             if (game.State == RoundState.Ready) titleView.Fit();
@@ -70,34 +72,24 @@ namespace TankTown
             gameplayRect.offsetMin = gameplayRect.offsetMax = Vector2.zero;
             var hud = gameplay.transform;
 
-            var clock = Panel("Clock", hud, new Vector2(0, -24), new Vector2(230, 92), ink);
+            var clock = new GameObject("Clock", typeof(RectTransform));
+            clock.transform.SetParent(hud, false);
             var clockRect = (RectTransform)clock.transform;
             clockRect.anchorMin = clockRect.anchorMax = clockRect.pivot = new Vector2(.5f, 1);
-            style.Card(clock, new Color(.83f, .93f, 1));
-            timer = Label(clock.transform, "01:00", new Vector2(10, -27), new Vector2(210, 60), 48, Color.white);
+            clockRect.anchoredPosition = new Vector2(0, -20); clockRect.sizeDelta = new Vector2(300, 96);
+            timer = Label(clock.transform, "01:00", Vector2.zero, new Vector2(300, 96), 74, Color.white);
+            timer.name = "Round time";
             timer.font = displayFont; timer.alignment = TextAnchor.MiddleCenter;
             timer.fontStyle = FontStyle.Bold;
-            var clockHeading = Label(clock.transform, "のこり時間", new Vector2(10, -9), new Vector2(210, 20), 12, new Color(.64f, .88f, 1));
-            clockHeading.alignment = TextAnchor.MiddleCenter;
-            var progress = Panel("Destruction", hud, new Vector2(28, -24), new Vector2(280, 140), ink);
-            style.Card(progress, new Color(.83f, .93f, 1));
-            var scoreLabel = Label(progress.transform, "破壊度", new Vector2(16, -15), new Vector2(98, 25), 17, Color.white);
-            scoreLabel.fontStyle = FontStyle.Bold;
-            score = Label(progress.transform, "0.0%", new Vector2(16, -44), new Vector2(154, 52), 42, Color.white);
+            TextOutline(timer, ink, 3);
+            timer.gameObject.AddComponent<Shadow>().effectColor = new Color(0, 0, 0, .45f);
+            score = Label(hud, "0 pt", new Vector2(28, -20), new Vector2(430, 96), 64, Color.white);
+            score.name = "Points";
             score.font = displayFont;
             score.fontStyle = FontStyle.Bold;
-            score.resizeTextForBestFit = true; score.resizeTextMinSize = 30; score.resizeTextMaxSize = 42;
-            var track = Panel("Progress track", progress.transform, new Vector2(16, -105), new Vector2(248, 8), new Color(.32f, .44f, .47f));
-            fill = Panel("Progress fill", track.transform, Vector2.zero, new Vector2(0, 8), new Color(.59f, .9f, .06f)).GetComponent<Image>();
-            var ranking = Panel("Live ranking", progress.transform, new Vector2(218, -13), new Vector2(46, 31), yellow);
-            ranking.GetComponent<Image>().raycastTarget = false;
-            liveRank = Label(ranking.transform, "", Vector2.zero, new Vector2(46, 31), 17, ink);
-            liveRank.alignment = TextAnchor.MiddleCenter; liveRank.fontStyle = FontStyle.Bold;
-            livePoints = Label(progress.transform, "", new Vector2(154, -56), new Vector2(110, 33), 18, new Color(.64f, .88f, 1));
-            livePoints.alignment = TextAnchor.MiddleRight;
-            livePoints.resizeTextForBestFit = true; livePoints.resizeTextMinSize = 12; livePoints.resizeTextMaxSize = 18;
-            nextRecord = Label(progress.transform, "", new Vector2(16, -119), new Vector2(248, 18), 11, new Color(.64f, .88f, 1));
-            Minimap = new TankTownMinimap(game, hud, font, style);
+            score.resizeTextForBestFit = true; score.resizeTextMinSize = 48; score.resizeTextMaxSize = 64;
+            TextOutline(score, ink, 3);
+            score.gameObject.AddComponent<Shadow>().effectColor = new Color(0, 0, 0, .45f);
             var widgets = new TankTownHudWidgets(font, displayFont, style);
             UpgradesView = new TankTownUpgradeHud(game, hud, widgets);
             SpecialsView = new TankTownSpecialHud(game, hud, widgets, style);
@@ -107,23 +99,6 @@ namespace TankTown
             pickupText.alignment = TextAnchor.MiddleCenter;
             pickupText.fontStyle = FontStyle.Bold; TextOutline(pickupText, ink, 1.5f);
             game.Stats.Changed += ShowUpgrade;
-            noticePanel = Panel("Respawn notice", hud, new Vector2(0, -140), new Vector2(430, 92), Color.clear);
-            var noticeRect = noticePanel.GetComponent<RectTransform>();
-            noticeRect.anchorMin = noticeRect.anchorMax = new Vector2(.5f, 1);
-            noticeRect.pivot = new Vector2(.5f, 1);
-            notice = Label(noticePanel.transform, "", new Vector2(6, 0), new Vector2(418, 58), 35, Color.white);
-            notice.fontStyle = FontStyle.Bold;
-            notice.font = displayFont;
-            notice.alignment = TextAnchor.MiddleCenter;
-            notice.gameObject.name = "Action heading";
-            notice.horizontalOverflow = HorizontalWrapMode.Overflow;
-            TextOutline(notice, ink, 2);
-            noticeCaption = Label(noticePanel.transform, "", new Vector2(15, -58), new Vector2(400, 32), 19, yellow);
-            noticeCaption.gameObject.name = "Action caption";
-            noticeCaption.alignment = TextAnchor.MiddleCenter;
-            noticeCaption.fontStyle = FontStyle.Bold;
-            noticeCaption.horizontalOverflow = HorizontalWrapMode.Overflow;
-            TextOutline(noticeCaption, ink, 1);
             var chainRoot = new GameObject("Chain celebration", typeof(RectTransform)); chainRoot.transform.SetParent(hud, false);
             chainDisplay = chainRoot.AddComponent<TankTownChainDisplay>(); chainDisplay.Initialize(game, font, displayFont, style);
             aim = Label(hud, "＋", Vector2.zero, new Vector2(40, 40), 32, Color.white);
@@ -226,29 +201,13 @@ namespace TankTown
             int seconds = Mathf.CeilToInt(game.Remaining);
             timer.text = $"{seconds / 60:00}:{seconds % 60:00}";
             timer.color = seconds <= 20 ? new Color(1, .55f, .35f) : Color.white;
-            score.text = $"{game.Destruction:0.0}%";
-            int place = game.CurrentRank;
-            liveRank.text = place == 0 ? "—" : place > TankTownRanking.Capacity ? "圏外" : $"{place}位";
-            livePoints.text = $"{game.RoundScore:N0} pt";
-            nextRecord.text = place > 1 ? $"次の順位まで  {game.Ranking.Records[Mathf.Min(place - 2, game.Ranking.Records.Count - 1)].Score - game.RoundScore + 1:N0} 点"
-                : place == 1 ? "1位をめざそう！" : game.Ranking.Records.Count == 0 ? "街をこわして記録を作ろう！" : $"BEST  {game.BestScore:N0} 点";
-            fill.rectTransform.sizeDelta = new Vector2(248 * game.Destruction / 100, 8);
-            bool edge = Mathf.Abs(game.Tank.transform.position.x) > game.World.HalfExtent - 13 && game.Tank.transform.position.x * game.Tank.transform.forward.x > 0
-                || Mathf.Abs(game.Tank.transform.position.z) > game.World.HalfExtent - 13 && game.Tank.transform.position.z * game.Tank.transform.forward.z > 0;
+            score.text = $"{game.RoundScore:N0} pt";
             bool respawning = game.Tank.Respawning;
-            notice.text = !respawning && edge ? "海が見えたら、街の内側へ曲がろう！"
-                : "";
-            chainDisplay.SetObscured(respawning || edge);
-            notice.color = Color.white;
-            notice.fontSize = 22;
-            notice.font = font;
-            noticeCaption.text = "";
-            noticeCaption.gameObject.SetActive(false);
-            noticePanel.SetActive(game.IsPlaying && notice.text.Length > 0);
+            chainDisplay.SetObscured(respawning);
             float uiDelta = game.IsPlaying ? Time.deltaTime : 0;
             UpgradesView.Tick(uiDelta); SpecialsView.Tick(uiDelta);
             if (respawning || game.State == RoundState.Results) { pickupCount = 0; lastPickupAt = -10; }
-            pickupText.text = pickupCount > 1 ? $"{pickupCount}個 GET!" : "";
+            pickupText.text = pickupCount > 1 ? $"+{pickupCount}" : "";
             pickupText.gameObject.SetActive(game.IsPlaying && !respawning && Time.time < pickupUntil && pickupCount > 1);
             aim.gameObject.SetActive(game.IsPlaying && !game.Tank.Respawning);
             card.SetActive(game.State == RoundState.Paused);
@@ -277,7 +236,7 @@ namespace TankTown
         }
         private void LateUpdate()
         {
-            Minimap.Tick();
+            Minimap?.Tick();
             viewFade.color = new Color(.02f, .065f, .10f, Mathf.Max(game.CameraRig.FadeOpacity, game.Presentation.CoverOpacity));
             aim.enabled = game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
             // Project the actual muzzle direction after the comfort camera has moved.

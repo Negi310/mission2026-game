@@ -103,8 +103,6 @@ namespace TankTown
             game.Tank.enabled = false; body.linearVelocity = Vector3.zero; body.isKinematic = true;
             TankTownSmokeCapture.Capture(Path.Combine(output, "upgrade-feedback-10-ui-background.png"), false, 1920, 1080);
             var previewAssets = Path.Combine(output, "ui-proposal-assets"); Directory.CreateDirectory(previewAssets);
-            game.GetComponent<TankTownHUD>().Minimap?.RenderNow();
-            ExportTexture(game.GetComponent<TankTownHUD>().Minimap.Texture, Path.Combine(previewAssets, "map.png"));
             for (int i = 0; i < 4; i++) ExportTexture(game.World.Icons.Material((UpgradeKind)i).mainTexture, Path.Combine(previewAssets, $"upgrade-{i}.png"));
             for (int i = 0; i < 6; i++) ExportTexture(game.World.SpecialIcons.Material((ItemKind)i).mainTexture, Path.Combine(previewAssets, $"special-{i}.png"));
             Debug.Log($"PICKUP FEEDBACK SMOKE COMPLETE: captures=10, reused=True, simultaneous=8, flyTime={game.Settings.pickupFlyTime:F2}s, iconSize={game.Settings.pickupIconSize:F2}, respawn={respawnSeconds:F3}s, crashDamage={game.BrokenBlocks - before}, crashes={game.Crashes}, seed={game.CitySeed}");

@@ -46,6 +46,7 @@ namespace TankTown
             game.StartOrRestart(); game.Input.useHardware = true;
             game.Tank.Warp(new Pose(game.World.GroundPoint(new Vector3(0, 0, -80), game.Settings.rideHeight), Quaternion.identity));
             game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true; game.CameraRig.Snap();
+            game.GetComponent<TankTownHUD>().EnableDiagnosticMinimap();
             yield return Measure(game, "street-with-map", 4, .6f);
             game.GetComponent<TankTownHUD>().Minimap.SkipRenderingForDiagnostics = true;
             yield return Measure(game, "street-no-map", 3, .6f);

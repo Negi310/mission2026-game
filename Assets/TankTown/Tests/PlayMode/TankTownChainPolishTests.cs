@@ -77,7 +77,8 @@ namespace TankTown.Tests
             Assert.That(chainCorners[1].y, Is.LessThan(clockCorners[0].y), "The chain celebration must sit below the centered clock");
             Assert.That(display.DisplayedDepth, Is.EqualTo(3)); Assert.That(display.DisplayedExplosions, Is.EqualTo(4));
             Assert.That(game.LongestChain, Is.EqualTo(3)); Assert.That(game.ChainExplosions, Is.EqualTo(4));
-            Assert.That(GameObject.Find("Chain totals").GetComponent<Text>().text, Does.Contain("誘爆合計 4回"));
+            Assert.That(GameObject.Find("Chain totals"), Is.Null);
+            Assert.That(GameObject.Find("Chain word").GetComponent<Text>().text, Is.EqualTo("CHAIN!"));
             foreach (var label in display.GetComponentsInChildren<Text>())
             {
                 Assert.That(label.preferredWidth, Is.LessThanOrEqualTo(label.rectTransform.rect.width), label.name);

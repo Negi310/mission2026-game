@@ -30,8 +30,7 @@ namespace TankTown.Tests
                 game = UnityEngine.Object.FindFirstObjectByType<TankTownGame>();
                 Assert.That(game.Ranking.Records, Is.Empty);
                 game.Ranking.Submit(18000, 2026, out _);
-                var map = game.GetComponent<TankTownHUD>().Minimap;
-                Assert.That(map.MapHalfExtent, Is.EqualTo(game.World.HalfExtent + 3));
+                Assert.That(game.GetComponent<TankTownHUD>().Minimap, Is.Null);
                 game.SelectStage(TownStage.Town); yield return null; yield return null;
                 game = UnityEngine.Object.FindFirstObjectByType<TankTownGame>();
                 Assert.That(game.Ranking.Records.Select(x => x.Score), Is.EqualTo(new[] { 30000 }));
@@ -98,7 +97,7 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator AFinishedRoundRecordsExactlyOnceAndLiveRankTracksScore()
+        public IEnumerator AFinishedRoundRecordsExactlyOnceAndPointsTrackScore()
         {
             yield return LoadPlaying(); var game = UnityEngine.Object.FindFirstObjectByType<TankTownGame>();
             game.Ranking.Submit(20000, 1, out _); game.Ranking.Submit(50000, 2, out _);
@@ -106,7 +105,7 @@ namespace TankTown.Tests
             for (int i = 0; i < count; i++) game.ScoreBlock();
             yield return null;
             Assert.That(game.CurrentRank, Is.EqualTo(2));
-            Assert.That(GameObject.Find("Live ranking").GetComponentsInChildren<Text>().Any(x => x.text == "2位"), Is.True);
+            Assert.That(GameObject.Find("Points").GetComponent<Text>().text, Is.EqualTo($"{game.RoundScore:N0} pt"));
             game.AdvanceTime(1000); yield return null;
             Assert.That(game.FinalRank, Is.EqualTo(2)); Assert.That(game.RoundRecord.Score, Is.EqualTo(game.RoundScore));
             Assert.That(game.Ranking.Records.Count, Is.EqualTo(3));
@@ -125,7 +124,7 @@ namespace TankTown.Tests
         public IEnumerator OrthographicMapMatchesWorldCoordinatesAndDoesNotTakeOverMainCamera()
         {
             yield return LoadPlaying(); var game = UnityEngine.Object.FindFirstObjectByType<TankTownGame>();
-            var map = game.GetComponent<TankTownHUD>().Minimap;
+            var map = game.GetComponent<TankTownHUD>().EnableDiagnosticMinimap();
             Assert.That(Camera.main, Is.SameAs(game.CameraRig.GetComponent<Camera>()));
             Assert.That(map.View.enabled, Is.False); Assert.That(map.View.orthographic, Is.True);
             Assert.That(map.View.transform.forward.y, Is.EqualTo(-1).Within(.001));
@@ -148,11 +147,11 @@ namespace TankTown.Tests
         public IEnumerator ReplayReleasesOldMapCameraAndTexture()
         {
             yield return LoadPlaying(); var game = UnityEngine.Object.FindFirstObjectByType<TankTownGame>();
-            var oldMap = game.GetComponent<TankTownHUD>().Minimap; var oldCamera = oldMap.View; var oldTexture = oldMap.Texture;
+            var oldMap = game.GetComponent<TankTownHUD>().EnableDiagnosticMinimap(); var oldCamera = oldMap.View; var oldTexture = oldMap.Texture;
             game.AdvanceTime(1000); game.StartOrRestart(); yield return null; yield return null;
             Assert.That(oldCamera == null, Is.True);
             Assert.That(oldTexture == null, Is.True);
-            Assert.That(UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).Count(x => x.name == "Minimap camera"), Is.EqualTo(1));
+            Assert.That(UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).Count(x => x.name == "Minimap camera"), Is.Zero);
         }
     }
 }
