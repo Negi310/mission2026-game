@@ -88,7 +88,7 @@ Unity **6000.3.19f1** で開き、メニュー **Tank Town → Create or open pl
 
 [取得アイコンと短い復帰の検証](docs/pickup-feedback-validation.md)、[低い位置・大きな重なるアイコンへの調整](docs/pickup-icon-motion-validation.md)、[8個も一列へ重ねる検証](docs/pickup-row-validation.md)。更新版は`Builds/TankTown-PickupFeedback/TankTown.exe`から起動できます。
 
-[整理したプレイ画面UI](docs/hud-soft-frames-validation.md)は、左上にポイント、上中央に淡い背景付きの時間、左下に4種類の強化アイコンとレベルを表示します。取得時の数字のカウントアップと「+2」などの通知を残し、種類名・能力の実値・説明文を外しました。戦車の真下には所持武器のアイコンとSpace、右横には使用中の武器を表示し、所持がない間は枠ごと隠します。右下の自動発動4種類はアイコン・円ゲージ・秒数・再取得で実際に延びた秒数だけです。チェインは背景カードを外して数字とCHAIN!を表示します。[実画面の比較](docs/minimal-hud-review.html)。更新版は`Builds/TankTown/TankTown.exe`、`Builds/TankTown-Amusement/TankTown.exe`、`Builds/TankTown-GameplayUI/TankTown.exe`から起動できます。
+[整理したプレイ画面UI](docs/refined-hud-validation.md)は、左上にポイント、上中央に控えめな陰影とハイライトのある時間、左下に4種類の強化アイコンとレベルを表示します。取得時の数字のカウントアップと「+2」などの通知を残し、種類名・能力の実値・説明文を外しました。戦車の真下には所持武器のアイコンとSpace、右横には使用中の武器を表示し、所持がない間は枠ごと隠します。右下の自動発動4種類はアイコン・円ゲージ・秒数・再取得で実際に延びた秒数だけです。チェインは背景カードを外して数字とCHAIN!を表示します。[実画面の比較](docs/minimal-hud-review.html)。更新版は`Builds/TankTown/TankTown.exe`、`Builds/TankTown-Amusement/TankTown.exe`、`Builds/TankTown-GameplayUI/TankTown.exe`から起動できます。
 
 |色・アイコン|効果（1レベルごと）|
 |---|---|
