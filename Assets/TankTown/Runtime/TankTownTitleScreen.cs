@@ -49,14 +49,16 @@ namespace TankTown
             StageButton(stages.transform, TownStage.CandyTown, "Candy stage button", "お菓子の街");
             StageButton(stages.transform, TownStage.AmusementPark, "Amusement stage button", "遊園地");
             start = SoftButton(title.transform, "Title play button", new Vector2(20, -500), new Vector2(600, 100), Lime, game.StartOrRestart);
-            style.TitleControl(start.gameObject, Lime, true);
-            var playLabel = menu.Label(start.transform, "Title play label", "あそぶ", new Vector2(98, -4), new Vector2(404, 92), 43, Ink);
+            var playVisual = start.targetGraphic.transform;
+            style.TitleControl(playVisual.gameObject, Lime, true);
+            var playLabel = menu.Label(playVisual, "Title play label", "あそぶ", new Vector2(98, -4), new Vector2(404, 92), 43, Ink);
             playLabel.alignment = TextAnchor.MiddleCenter;
-            Keycap(start.transform, "Title space key", "SPACE", new Vector2(480, -31), new Vector2(88, 38), 17, Ink, style);
+            Keycap(playVisual, "Title space key", "SPACE", new Vector2(480, -31), new Vector2(88, 38), 17, Ink, style);
             var help = SoftButton(title.transform, "How to button", new Vector2(20, -634), new Vector2(250, 62), Color.clear, game.ToggleHowTo);
-            var helpLabel = menu.Label(help.transform, "How to label", "あそびかた", Vector2.zero, new Vector2(174, 62), 28, new Color(1, .97f, .83f));
+            var helpVisual = help.targetGraphic.transform;
+            var helpLabel = menu.Label(helpVisual, "How to label", "あそびかた", Vector2.zero, new Vector2(174, 62), 28, new Color(1, .97f, .83f));
             helpLabel.alignment = TextAnchor.MiddleLeft;
-            Keycap(help.transform, "Title help key", "H", new Vector2(186, -10), new Vector2(44, 42), 23, Color.white, style);
+            Keycap(helpVisual, "Title help key", "H", new Vector2(186, -10), new Vector2(44, 42), 23, Color.white, style);
 
             howTo = menu.Panel(parent, "How to screen", Vector2.zero, new Vector2(1440, 900), new Color(Ink.r, Ink.g, Ink.b, .86f));
             howTo.GetComponent<Image>().raycastTarget = true;
@@ -109,8 +111,14 @@ namespace TankTown
 
         private Button SoftButton(Transform parent, string name, Vector2 point, Vector2 size, Color tint, UnityEngine.Events.UnityAction action)
         {
-            var panel = menu.Panel(parent, name, point, size, tint);
-            var image = panel.GetComponent<Image>(); image.raycastTarget = true;
+            var panel = menu.Panel(parent, name, point, size, Color.clear);
+            panel.GetComponent<Image>().raycastTarget = true;
+            // Animate only the artwork so the pointer's hit rectangle never moves.
+            var visual = menu.Panel(panel.transform, name + " visual", Vector2.zero, size, tint);
+            var visualRect = (RectTransform)visual.transform;
+            visualRect.anchorMin = visualRect.anchorMax = visualRect.pivot = Vector2.one * .5f;
+            visualRect.anchoredPosition = Vector2.zero;
+            var image = visual.GetComponent<Image>();
             bool transparent = tint.a == 0;
             if (transparent) image.color = Color.white;
             var button = panel.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(action);
@@ -120,6 +128,7 @@ namespace TankTown
             colors.pressedColor = transparent ? new Color(1, 1, 1, .16f) : new Color(.83f, .89f, .94f);
             colors.fadeDuration = .09f; button.colors = colors;
             image.canvasRenderer.SetColor(colors.normalColor);
+            panel.AddComponent<TankTownMenuHover>().Initialize(button, visualRect);
             return button;
         }
 
@@ -127,10 +136,11 @@ namespace TankTown
         {
             int index = (int)stage;
             var button = SoftButton(parent, name, new Vector2(index * 150, 0), new Vector2(150, 80), Color.clear, () => game.SelectStage(stage));
-            var text = menu.Label(button.transform, name + " label", label, new Vector2(5, -5), new Vector2(140, 64), 21, Color.white);
+            var visual = button.targetGraphic.transform;
+            var text = menu.Label(visual, name + " label", label, new Vector2(5, -5), new Vector2(140, 64), 21, Color.white);
             text.alignment = TextAnchor.MiddleCenter; text.horizontalOverflow = HorizontalWrapMode.Overflow;
             stageLabels[index] = text;
-            stageMarks[index] = menu.Panel(button.transform, name + " selected", new Vector2(15, -66), new Vector2(120, 5), Cyan).GetComponent<Image>();
+            stageMarks[index] = menu.Panel(visual, name + " selected", new Vector2(15, -66), new Vector2(120, 5), Cyan).GetComponent<Image>();
             if (index > 0)
             {
                 var divider = menu.Panel(button.transform, name + " divider", new Vector2(0, -16), new Vector2(1, 48), new Color(.47f, .78f, .94f, .22f)).GetComponent<Image>();

@@ -132,6 +132,50 @@ namespace TankTown
                 throw new InvalidOperationException("Mouse cannot select the visible stage tab");
             yield return null;
             Debug.Log("TITLE LAYOUT COMPLETE: four keyboard tabs and selected underlines; mouse raycast; no world regeneration; four resolutions; text and viewport bounds");
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-title-hover") >= 0)
+                yield return TitleHover();
+        }
+
+        private IEnumerator TitleHover()
+        {
+            var pointer = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left };
+            EventSystem.current.SetSelectedGameObject(null);
+            string[] names = { "Title play button", "Town stage button", "Large stage button", "Candy stage button", "Amusement stage button", "How to button" };
+            foreach (string name in names)
+            {
+                var root = GameObject.Find(name); var motion = root.GetComponent<TankTownMenuHover>();
+                var hit = (RectTransform)root.transform; Vector2 position = hit.anchoredPosition; Vector3 scale = hit.localScale;
+                ExecuteEvents.Execute(root, pointer, ExecuteEvents.pointerEnterHandler);
+                yield return new WaitForSecondsRealtime(.075f);
+                if (motion.Visual.localScale.x <= 1 || Time.timeScale != 0)
+                    throw new InvalidOperationException("Title hover does not animate while time is frozen: " + name);
+                yield return new WaitForSecondsRealtime(.2f);
+                if (motion.Visual.localScale.x < 1.023f || hit.anchoredPosition != position || hit.localScale != scale)
+                    throw new InvalidOperationException("Title hover moved its hit region or failed to rise: " + name);
+                if (name == names[0]) Capture("title-hover-raised", 1920, 1080);
+                ExecuteEvents.Execute(root, pointer, ExecuteEvents.pointerDownHandler);
+                yield return new WaitForSecondsRealtime(.15f);
+                if (motion.Visual.localScale.x >= 1)
+                    throw new InvalidOperationException("Title button does not compress on press: " + name);
+                if (name == names[0]) Capture("title-hover-pressed", 1920, 1080);
+                ExecuteEvents.Execute(root, pointer, ExecuteEvents.pointerUpHandler);
+                ExecuteEvents.Execute(root, pointer, ExecuteEvents.pointerExitHandler);
+                yield return new WaitForSecondsRealtime(.4f);
+                if (Mathf.Abs(motion.Visual.localScale.x - 1) > .001f || motion.Visual.anchoredPosition.magnitude > .01f)
+                    throw new InvalidOperationException("Title hover does not settle after exit: " + name);
+                if (name == names[0]) Capture("title-hover-restored", 1920, 1080);
+            }
+            var play = GameObject.Find(names[0]);
+            ExecuteEvents.Execute(play, new AxisEventData(EventSystem.current), ExecuteEvents.selectHandler);
+            yield return new WaitForSecondsRealtime(.25f);
+            if (play.GetComponent<TankTownMenuHover>().Visual.localScale.x < 1.02f)
+                throw new InvalidOperationException("Keyboard focus does not animate");
+            ExecuteEvents.Execute(play, new BaseEventData(EventSystem.current), ExecuteEvents.deselectHandler);
+            var game = FindFirstObjectByType<TankTownGame>(); game.ToggleHowTo(); yield return null;
+            if (play.GetComponent<TankTownMenuHover>().Visual.localScale != Vector3.one)
+                throw new InvalidOperationException("Hidden title retained hover state");
+            game.ToggleHowTo(); yield return null;
+            Debug.Log("TITLE HOVER COMPLETE: six controls; unscaled rise, compression and return; stable hit rectangles; keyboard focus; disable reset");
         }
 
         private static void VerifyTitleLayout()
