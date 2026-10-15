@@ -83,13 +83,31 @@ namespace TankTown
             Capture("flow-07-score-count-up", 1920, 1080);
             yield return new WaitForSecondsRealtime(TankTownResultsScreen.CountSeconds + .1f); Capture("flow-08-results", 1920, 1080);
             Capture("flow-09-results-720", 1280, 720);
+            var results = game.GetComponent<TankTownHUD>().ResultsView;
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-menu-layout") >= 0)
             {
+                if (results.DetailsOpen || GameObject.Find("Local leaderboard") != null ||
+                    GameObject.Find("Result score card").GetComponentsInChildren<Text>().Length > 7)
+                    throw new InvalidOperationException("The default result still contains detailed records");
                 CaptureMenuLayouts("Result score card", "results", false);
                 CaptureMenuLayouts("Result score card", "results-max", true);
-                Debug.Log("MENU LAYOUT COMPLETE: tutorial and results at four resolutions; screen insets; readable text; maximum score and ten ranking rows");
+                int records = game.Ranking.Records.Count;
+                yield return Press(Key.Tab);
+                if (!results.DetailsOpen) throw new InvalidOperationException("Tab did not open result details");
+                CaptureMenuLayouts("Result details card", "details", false);
+                CaptureMenuLayouts("Result details card", "details-max", true);
+                yield return Press(Key.Escape);
+                if (results.DetailsOpen || GameObject.Find("Local leaderboard") != null)
+                    throw new InvalidOperationException("Escape did not return to the simple result");
+                ClickMenuControl("Result details button"); yield return null;
+                if (!results.DetailsOpen) throw new InvalidOperationException("Mouse did not open result details");
+                ClickMenuControl("Result details close button"); yield return null;
+                if (results.DetailsOpen || results.DisplayedScore != game.RoundScore || game.Ranking.Records.Count != records)
+                    throw new InvalidOperationException("Closing result details changed the score or records");
+                // The global replay action must also work from the optional records view.
+                yield return Press(Key.Tab);
+                Debug.Log("MENU LAYOUT COMPLETE: simple result and optional records; keyboard and mouse disclosure; no duplicate record; four resolutions; screen insets; readable text; maximum score and ten ranking rows");
             }
-            var results = game.GetComponent<TankTownHUD>().ResultsView;
             if (results.DisplayedScore != game.RoundScore || game.Remaining != 0 || game.State != RoundState.Results) { Fail("result score did not settle"); yield break; }
             int score = game.RoundScore, broken = game.BrokenBlocks, instance = game.GetInstanceID();
             // Replays exercise the real keyboard path, not the menu callback.
@@ -126,11 +144,15 @@ namespace TankTown
                     {
                         if (maximumValues)
                         {
-                            GameObject.Find("Result score").GetComponent<Text>().text = "100,000<size=30> pt</size>";
-                            GameObject.Find("Result best score").GetComponent<Text>().text = "BEST 100,000 pt";
-                            GameObject.Find("Result ranking position").GetComponent<Text>().text = "10位";
-                            for (int i = 0; i < 10; i++) GameObject.Find("Ranking score " + i).GetComponent<Text>().text = $"{100000 - i * 1234:N0} pt";
-                            for (int i = 0; i < 4; i++) GameObject.Find("Result metric value " + i).GetComponent<Text>().text = i == 2 ? "999 CHAIN" : "99,999";
+                            bool details = rootName == "Result details card";
+                            GameObject.Find(details ? "Result detail score" : "Result score").GetComponent<Text>().text = details ? "100,000 pt" : "100,000<size=30> pt</size>";
+                            GameObject.Find(details ? "Result best score" : "Result record note").GetComponent<Text>().text = "BEST 100,000 pt";
+                            if (details)
+                            {
+                                GameObject.Find("Result ranking position").GetComponent<Text>().text = "10位";
+                                for (int i = 0; i < 10; i++) GameObject.Find("Ranking score " + i).GetComponent<Text>().text = $"{100000 - i * 1234:N0} pt";
+                                for (int i = 0; i < 4; i++) GameObject.Find("Result metric value " + i).GetComponent<Text>().text = i == 2 ? "999 CHAIN" : "99,999";
+                            }
                         }
                         Canvas.ForceUpdateCanvases();
                         var canvas = root.GetComponentInParent<Canvas>(); var viewport = ((RectTransform)canvas.transform).rect;
@@ -147,6 +169,17 @@ namespace TankTown
                     });
             }
             finally { foreach (var pair in originals) pair.Key.text = pair.Value; }
+        }
+
+        private static void ClickMenuControl(string name)
+        {
+            Canvas.ForceUpdateCanvases();
+            var target = (RectTransform)GameObject.Find(name).transform;
+            var pointer = new PointerEventData(EventSystem.current)
+            { position = RectTransformUtility.WorldToScreenPoint(null, target.TransformPoint(target.rect.center)), button = PointerEventData.InputButton.Left };
+            var hits = new List<RaycastResult>(); EventSystem.current.RaycastAll(pointer, hits);
+            if (hits.Count == 0 || ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler) != target.gameObject)
+                throw new InvalidOperationException("Mouse cannot activate result control: " + name);
         }
 
         private IEnumerator TitleLayout(TankTownGame game)

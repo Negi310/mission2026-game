@@ -66,18 +66,22 @@ namespace TankTown
             return button;
         }
 
-        public Button ActionButton(Transform parent, string name, string text, Vector2 point, Vector2 size, bool primary, UnityEngine.Events.UnityAction action, string key = null)
+        public Button ActionButton(Transform parent, string name, string text, Vector2 point, Vector2 size, bool primary, UnityEngine.Events.UnityAction action, string key = null, bool quiet = false)
         {
             var root = Panel(parent, name, point, size, Color.clear);
             root.GetComponent<Image>().raycastTarget = true;
             var surface = Panel(root.transform, name + " visual", Vector2.zero, size, Color.white);
             var rect = (RectTransform)surface.transform;
             rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one * .5f; rect.anchoredPosition = Vector2.zero;
-            style.TitleControl(surface, primary ? Lime : new Color(.10f, .23f, .34f, .88f), primary);
+            if (!quiet) style.TitleControl(surface, primary ? Lime : new Color(.10f, .23f, .34f, .88f), primary);
             var button = root.AddComponent<Button>(); button.targetGraphic = surface.GetComponent<Image>(); button.onClick.AddListener(action);
-            var colors = button.colors; colors.normalColor = colors.selectedColor = new Color(.97f, .97f, .97f);
-            colors.highlightedColor = Color.white; colors.pressedColor = new Color(.8f, .88f, .93f); colors.fadeDuration = .09f; button.colors = colors;
-            var label = Label(surface.transform, name + " label", text, new Vector2(28, 0), new Vector2(size.x - 56, size.y), 29, primary ? Ink : Color.white);
+            var colors = button.colors; colors.normalColor = quiet ? Color.clear : new Color(.97f, .97f, .97f);
+            colors.selectedColor = quiet ? new Color(1, 1, 1, .06f) : colors.normalColor;
+            colors.highlightedColor = quiet ? new Color(1, 1, 1, .08f) : Color.white;
+            colors.pressedColor = quiet ? new Color(1, 1, 1, .14f) : new Color(.8f, .88f, .93f);
+            colors.fadeDuration = .09f; button.colors = colors;
+            if (quiet) surface.GetComponent<Image>().canvasRenderer.SetColor(Color.clear);
+            var label = Label(surface.transform, name + " label", text, new Vector2(28, 0), new Vector2(size.x - 56, size.y), quiet ? 22 : 29, primary ? Ink : quiet ? new Color(.7f, .82f, .9f) : Color.white);
             label.alignment = TextAnchor.MiddleCenter;
             if (key != null)
             {
