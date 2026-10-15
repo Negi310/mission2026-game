@@ -65,7 +65,9 @@ namespace TankTown.Tests
             Assert.That(Camera.main.cullingMask, Is.EqualTo((1 << TownTitlePreview.Layer) | (1 << 5)));
             foreach (var graphic in GameObject.Find("Tank Town HUD").GetComponentsInChildren<Graphic>())
                 Assert.That(Camera.main.cullingMask & (1 << graphic.gameObject.layer), Is.Not.Zero, "Visible title graphics must be rendered by the restricted camera: " + graphic.name);
-            Assert.That(GameObject.Find("Large stage button").GetComponentInChildren<Text>().text, Does.StartWith("✓"));
+            Assert.That(GameObject.Find("Large stage button").GetComponentInChildren<Text>().text, Is.EqualTo("大きな街"));
+            Assert.That(GameObject.Find("Large stage button selected").GetComponent<Image>().enabled, Is.True);
+            Assert.That(GameObject.Find("Town stage button selected").GetComponent<Image>().enabled, Is.False);
             game.StartOrRestart(); yield return null; yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.IsPlaying, Is.True); Assert.That(game.CitySeed, Is.EqualTo(seed));

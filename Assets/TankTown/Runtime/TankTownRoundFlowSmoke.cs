@@ -7,6 +7,8 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace TankTown
 {
@@ -43,6 +45,8 @@ namespace TankTown
             var overview = Camera.main.transform.position;
             Debug.Log($"TITLE CAMERA SMOKE: height={overview.y:0.0}, pitch={Camera.main.transform.eulerAngles.x:0.0}, beatSeconds={TankTownRoundFlow.BeatSeconds:0.00}, scoreCountSeconds={TankTownResultsScreen.CountSeconds:0.00}");
             Capture("flow-01-title", 1920, 1080);
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-title-layout") >= 0)
+                yield return TitleLayout(game);
             yield return new WaitForSecondsRealtime(4);
             Capture("flow-02-title-orbit", 1280, 720);
             if (game.State != RoundState.Ready || game.Remaining != 60 || Vector3.Distance(overview, Camera.main.transform.position) < 1) { Fail("title orbit or frozen timer"); yield break; }
@@ -101,6 +105,51 @@ namespace TankTown
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-beam-range-check") >= 0)
                 yield return BeamAcrossField(game);
             InputSystem.RemoveDevice(keyboard); Application.Quit(failed ? 1 : 0);
+        }
+
+        private IEnumerator TitleLayout(TankTownGame game)
+        {
+            int world = game.World.GetInstanceID(); TownStage initial = game.Stage;
+            string[] names = { "Town stage button", "Large stage button", "Candy stage button", "Amusement stage button" };
+            for (int i = 0; i < names.Length; i++)
+            {
+                yield return Press((Key)((int)Key.Digit1 + i));
+                if (game.Stage != (TownStage)i || game.World.GetInstanceID() != world)
+                    throw new InvalidOperationException("Stage selection changed the title world or failed");
+                for (int j = 0; j < names.Length; j++)
+                    if (GameObject.Find(names[j] + " selected").GetComponent<Image>().enabled != (i == j))
+                        throw new InvalidOperationException("Stage underline differs from the selected stage");
+                TankTownSmokeCapture.Capture(Path.Combine(output, "title-clean-stage-" + i + ".png"), true, 1920, 1080, VerifyTitleLayout);
+            }
+            foreach (var size in new[] { new Vector2Int(1280, 720), new Vector2Int(1440, 900), new Vector2Int(1280, 1024) })
+                TankTownSmokeCapture.Capture(Path.Combine(output, $"title-clean-{size.x}x{size.y}.png"), true, size.x, size.y, VerifyTitleLayout);
+            // Raycast the actual title UI before dispatching the pointer click.
+            var target = (RectTransform)GameObject.Find(names[(int)initial]).transform;
+            var pointer = new PointerEventData(EventSystem.current)
+            { position = RectTransformUtility.WorldToScreenPoint(null, target.TransformPoint(target.rect.center)), button = PointerEventData.InputButton.Left };
+            var hits = new List<RaycastResult>(); EventSystem.current.RaycastAll(pointer, hits);
+            if (hits.Count == 0 || ExecuteEvents.ExecuteHierarchy(hits[0].gameObject, pointer, ExecuteEvents.pointerClickHandler) != target.gameObject || game.Stage != initial)
+                throw new InvalidOperationException("Mouse cannot select the visible stage tab");
+            yield return null;
+            Debug.Log("TITLE LAYOUT COMPLETE: four keyboard tabs and selected underlines; mouse raycast; no world regeneration; four resolutions; text and viewport bounds");
+        }
+
+        private static void VerifyTitleLayout()
+        {
+            Canvas.ForceUpdateCanvases();
+            var root = GameObject.Find("Title content");
+            if (root.GetComponentsInChildren<Text>().Length != 9 || GameObject.Find("Title glass panel") != null || GameObject.Find("Title item legend") != null)
+                throw new InvalidOperationException("The title still contains extra information");
+            var canvas = root.GetComponentInParent<Canvas>(); var viewport = ((RectTransform)canvas.transform).rect;
+            foreach (var text in root.GetComponentsInChildren<Text>())
+            {
+                if (text.preferredWidth > text.rectTransform.rect.width + 1 || text.preferredHeight > text.rectTransform.rect.height + 1)
+                    throw new InvalidOperationException("Title text clips: " + text.name);
+                var corners = new Vector3[4]; text.rectTransform.GetWorldCorners(corners);
+                foreach (var corner in corners)
+                    if (!viewport.Contains(canvas.transform.InverseTransformPoint(corner)))
+                        throw new InvalidOperationException("Title text leaves viewport: " + text.name);
+            }
         }
 
         private IEnumerator BeamAcrossField(TankTownGame game)
