@@ -60,22 +60,8 @@ namespace TankTown
             helpLabel.alignment = TextAnchor.MiddleLeft;
             Keycap(helpVisual, "Title help key", "H", new Vector2(186, -10), new Vector2(44, 42), 23, Color.white, style);
 
-            howTo = menu.Panel(parent, "How to screen", Vector2.zero, new Vector2(1440, 900), new Color(Ink.r, Ink.g, Ink.b, .86f));
-            howTo.GetComponent<Image>().raycastTarget = true;
-            var tutorial = menu.Panel(howTo.transform, "How to card", new Vector2(130, -68), new Vector2(1180, 764), new Color(.055f, .15f, .22f));
-            style.Card(tutorial, Cyan);
-            menu.Label(tutorial.transform, "Tutorial heading", "あそびかた", new Vector2(42, -25), new Vector2(850, 61), 42, Lime);
-            menu.Label(tutorial.transform, "Tutorial subtitle", "自動で前進する戦車で、1分間の破壊チャレンジ！", new Vector2(46, -89), new Vector2(1090, 34), 24, Color.white);
-            Step(tutorial.transform, 42, "01", "ハンドルで曲がる", "A / D  または  ← / →\n戦車は、ずっと前に進むよ。\n大きなビルへの激突に注意！", Cyan);
-            Step(tutorial.transform, 421, "02", "たたいて、発射！", "SPACE / J / K で砲撃\n向いている方へ弾が飛ぶよ。\n赤い燃料タンクで連鎖爆破！", Lime);
-            Step(tutorial.transform, 800, "03", "全壊したら、光る円へ", "ビルを全壊すると光る円が出現！\n円に入るとスペシャルGET。\nビルの色がアイテムの目印！", new Color(1, .54f, .24f));
-            var specials = menu.Panel(tutorial.transform, "Tutorial specials", new Vector2(42, -386), new Vector2(1096, 187), new Color(.08f, .22f, .29f));
-            menu.Label(specials.transform, "Tutorial item heading", "スペシャルの使いかた", new Vector2(24, -13), new Vector2(1048, 34), 25, Color.white);
-            AddItems(specials.transform, 104, 58, 164, 59);
-            menu.Label(specials.transform, "Tutorial weapon rules", "レーザー・爆弾 → 次の砲撃で発動  /  ミサイル・磁石・ブルドーザー・高速 → 拾うと発動", new Vector2(18, -140), new Vector2(1060, 43), 17, Lime).alignment = TextAnchor.MiddleCenter;
-            menu.Label(tutorial.transform, "Tutorial score rules", "破壊度が高いほど高スコア！  爆発したら安全な場所へ戻るよ（時間ペナルティ）。", new Vector2(42, -598), new Vector2(1096, 33), 20, Color.white).alignment = TextAnchor.MiddleCenter;
-            menu.Button(tutorial.transform, "How to close button", "もどる    ESC", new Vector2(42, -654), new Vector2(326, 65), new Color(.10f, .28f, .37f), game.ToggleHowTo);
-            tutorialPlay = menu.Button(tutorial.transform, "Tutorial play button", "あそぶ    →    SPACE", new Vector2(396, -654), new Vector2(742, 65), Lime, game.StartOrRestart);
+            var tutorial = new TankTownHowToScreen(game, menu, style);
+            howTo = tutorial.Root; tutorialPlay = tutorial.Play;
             howTo.SetActive(false);
             Fit();
             Select(start);
@@ -156,23 +142,5 @@ namespace TankTown
             text.alignment = TextAnchor.MiddleCenter;
         }
 
-        private void Step(Transform parent, float x, string number, string heading, string detail, Color color)
-        {
-            var panel = menu.Panel(parent, "Tutorial step " + number, new Vector2(x, -151), new Vector2(338, 210), new Color(.08f, .22f, .29f));
-            menu.Label(panel.transform, "Tutorial number " + number, number, new Vector2(20, -12), new Vector2(66, 42), 28, color);
-            menu.Label(panel.transform, "Tutorial heading " + number, heading, new Vector2(20, -61), new Vector2(308, 40), 25, Color.white);
-            menu.Label(panel.transform, "Tutorial body " + number, detail, new Vector2(20, -111), new Vector2(308, 85), 18, new Color(.79f, .91f, .96f));
-        }
-
-        private void AddItems(Transform parent, float x, float y, float spacing, float size)
-        {
-            for (int i = 0; i < 6; i++)
-            {
-                var kind = (ItemKind)i;
-                var icon = menu.Panel(parent, "Menu special icon", new Vector2(x + spacing * i, -y), new Vector2(size, size), Color.white).GetComponent<Image>();
-                icon.sprite = game.World.SpecialIcons.Sprite(kind); icon.type = Image.Type.Simple;
-                menu.Label(parent, "Menu special label", ItemIcons.Label(kind), new Vector2(x - 26 + spacing * i, -y - size - 5), new Vector2(size + 52, 27), 14, ItemIcons.Color(kind)).alignment = TextAnchor.MiddleCenter;
-            }
-        }
     }
 }

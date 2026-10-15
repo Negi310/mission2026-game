@@ -112,7 +112,7 @@ namespace TankTown.Tests
             game.AdvanceTime(1000); game.ScoreBlock(); yield return null;
             Assert.That(game.Ranking.Records.Count, Is.EqualTo(3));
             var board = GameObject.Find("Local leaderboard"); Assert.That(board, Is.Not.Null);
-            Assert.That(board.GetComponentsInChildren<Text>().Any(x => x.text == $"{game.RoundScore:N0} 点"), Is.True);
+            Assert.That(board.GetComponentsInChildren<Text>().Any(x => x.text == $"{game.RoundScore:N0} pt"), Is.True);
             foreach (var text in GameObject.Find("Result score card").GetComponentsInChildren<Text>())
             {
                 Assert.That(text.preferredWidth, Is.LessThanOrEqualTo(text.rectTransform.rect.width + 1), text.name);

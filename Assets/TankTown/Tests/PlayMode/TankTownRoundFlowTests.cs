@@ -147,10 +147,10 @@ namespace TankTown.Tests
             }
             Assert.That(results.DisplayedScore, Is.EqualTo(game.RoundScore));
             Assert.That(game.RoundScore, Is.EqualTo(Mathf.RoundToInt(100000f * broken / game.TotalBlocks)));
-            Assert.That(GameObject.Find("Result metric value 0").GetComponent<Text>().text, Is.EqualTo(broken.ToString("N0") + " パーツ"));
-            Assert.That(GameObject.Find("Result metric value 1").GetComponent<Text>().text, Is.EqualTo("1 回"));
+            Assert.That(GameObject.Find("Result metric value 0").GetComponent<Text>().text, Is.EqualTo(broken.ToString("N0")));
+            Assert.That(GameObject.Find("Result metric value 1").GetComponent<Text>().text, Is.EqualTo("1"));
             Assert.That(GameObject.Find("Result metric value 2").GetComponent<Text>().text, Is.EqualTo("4 CHAIN"));
-            Assert.That(GameObject.Find("Result metric value 3").GetComponent<Text>().text, Is.EqualTo("1 回"));
+            Assert.That(GameObject.Find("Result metric value 3").GetComponent<Text>().text, Is.EqualTo("1"));
             Assert.That(game.NewBest, Is.True); Assert.That(game.BestScore, Is.EqualTo(game.RoundScore));
             Canvas.ForceUpdateCanvases();
             foreach (var text in GameObject.Find("Result score card").GetComponentsInChildren<Text>())

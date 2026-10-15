@@ -52,6 +52,8 @@ namespace TankTown
             if (game.State != RoundState.Ready || game.Remaining != 60 || Vector3.Distance(overview, Camera.main.transform.position) < 1) { Fail("title orbit or frozen timer"); yield break; }
             yield return Press(Key.H); Capture("flow-03-how-to", 1280, 720);
             if (!game.HowToOpen) { Fail("H did not open tutorial"); yield break; }
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-menu-layout") >= 0)
+                CaptureMenuLayouts("How to card", "howto", false);
             yield return Press(Key.Escape);
             yield return Press(Key.Space);
             var seen = new List<string>(); bool covered = false;
@@ -81,6 +83,12 @@ namespace TankTown
             Capture("flow-07-score-count-up", 1920, 1080);
             yield return new WaitForSecondsRealtime(TankTownResultsScreen.CountSeconds + .1f); Capture("flow-08-results", 1920, 1080);
             Capture("flow-09-results-720", 1280, 720);
+            if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-menu-layout") >= 0)
+            {
+                CaptureMenuLayouts("Result score card", "results", false);
+                CaptureMenuLayouts("Result score card", "results-max", true);
+                Debug.Log("MENU LAYOUT COMPLETE: tutorial and results at four resolutions; screen insets; readable text; maximum score and ten ranking rows");
+            }
             var results = game.GetComponent<TankTownHUD>().ResultsView;
             if (results.DisplayedScore != game.RoundScore || game.Remaining != 0 || game.State != RoundState.Results) { Fail("result score did not settle"); yield break; }
             int score = game.RoundScore, broken = game.BrokenBlocks, instance = game.GetInstanceID();
@@ -105,6 +113,40 @@ namespace TankTown
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-beam-range-check") >= 0)
                 yield return BeamAcrossField(game);
             InputSystem.RemoveDevice(keyboard); Application.Quit(failed ? 1 : 0);
+        }
+
+        private void CaptureMenuLayouts(string rootName, string prefix, bool maximumValues)
+        {
+            var root = GameObject.Find(rootName);
+            var originals = root.GetComponentsInChildren<UnityEngine.UI.Text>().ToDictionary(text => text, text => text.text);
+            try
+            {
+                foreach (var size in new[] { new Vector2Int(1920, 1080), new Vector2Int(1280, 720), new Vector2Int(1440, 900), new Vector2Int(1280, 1024) })
+                    TankTownSmokeCapture.Capture(Path.Combine(output, $"menus-{prefix}-{size.x}x{size.y}.png"), true, size.x, size.y, () =>
+                    {
+                        if (maximumValues)
+                        {
+                            GameObject.Find("Result score").GetComponent<Text>().text = "100,000<size=30> pt</size>";
+                            GameObject.Find("Result best score").GetComponent<Text>().text = "BEST 100,000 pt";
+                            GameObject.Find("Result ranking position").GetComponent<Text>().text = "10位";
+                            for (int i = 0; i < 10; i++) GameObject.Find("Ranking score " + i).GetComponent<Text>().text = $"{100000 - i * 1234:N0} pt";
+                            for (int i = 0; i < 4; i++) GameObject.Find("Result metric value " + i).GetComponent<Text>().text = i == 2 ? "999 CHAIN" : "99,999";
+                        }
+                        Canvas.ForceUpdateCanvases();
+                        var canvas = root.GetComponentInParent<Canvas>(); var viewport = ((RectTransform)canvas.transform).rect;
+                        var safe = Rect.MinMaxRect(viewport.xMin + 24, viewport.yMin + 24, viewport.xMax - 24, viewport.yMax - 24);
+                        foreach (var text in root.GetComponentsInChildren<Text>())
+                        {
+                            if (text.preferredWidth > text.rectTransform.rect.width + 1 || text.preferredHeight > text.rectTransform.rect.height + 1)
+                                throw new InvalidOperationException("Menu text clips: " + text.name + " / " + text.text);
+                            var corners = new Vector3[4]; text.rectTransform.GetWorldCorners(corners);
+                            foreach (var corner in corners)
+                                if (!safe.Contains(canvas.transform.InverseTransformPoint(corner)))
+                                    throw new InvalidOperationException("Menu text touches the screen edge: " + text.name);
+                        }
+                    });
+            }
+            finally { foreach (var pair in originals) pair.Key.text = pair.Value; }
         }
 
         private IEnumerator TitleLayout(TankTownGame game)
