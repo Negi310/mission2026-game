@@ -236,7 +236,7 @@ namespace TankTown
         private void OnDestroy()
         {
             if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
-            UpgradesView?.Dispose(); SpecialsView?.Dispose();
+            UpgradesView?.Dispose(); SpecialsView?.Dispose(); titleView?.Dispose();
             if (font != null) Destroy(font);
             if (displayFont != null) Destroy(displayFont);
             style?.Dispose();

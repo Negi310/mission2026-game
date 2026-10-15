@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>タイトル画面の整理</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101f2a;color:#e9f4fa;font:16px/1.6 system-ui,sans-serif}main{max-width:1600px;margin:auto;padding:20px}h1{font-size:clamp(22px,4vw,32px);margin:0 0 10px}p{color:#b8cedb}.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}button,select{font:inherit;padding:9px 14px;border:1px solid #86cbe5;border-radius:10px;background:#203947;color:white;max-width:100%}button[aria-pressed=true]{background:#cfff26;color:#132511}figure{margin:0}img{display:block;width:100%;height:auto;border-radius:10px}figcaption{padding-top:12px;color:#bfd8e5}a{color:#80dcff}
+</style>
+<main>
+<h1>タイトル画面の整理</h1>
+<p>UnityのWindowsビルドを撮影した画面です。ロゴ・街選択・開始・遊び方を左側へまとめました。背景は大型街の巡回表示を保ちます。</p>
+<div class="controls"><button id="current" aria-pressed="true">実装後</button><button id="previous" aria-pressed="false">以前</button><select id="state" aria-label="確認する場面"><option value="town">いつもの街</option><option value="big">大きな街</option><option value="candy" selected>お菓子の街</option><option value="amusement">遊園地</option><option value="720">1280×720</option><option value="900">1440×900</option><option value="5x4">1280×1024</option><option value="help">あそびかた</option></select></div>
+<figure><a id="full-size"><img id="capture" alt="整理したタイトル画面"></a><figcaption id="caption"></figcaption></figure>
+<p>数字キーとマウスによる街選択、選択時に街を再生成しないこと、H/Esc、Space開始、結果と再挑戦は実ビルドの診断で確認しています。ブラウザは画像比較用です。</p>
+</main>
+<script>
+const scenes={town:['0',1920,1080],big:['1',1920,1080],candy:['2',1920,1080],amusement:['3',1920,1080],'720':['1280x720',1280,720],'900':['1440x900',1440,900],'5x4':['1280x1024',1280,1024],help:['help',1280,720]};
+const state=document.querySelector('#state'),picture=document.querySelector('#capture'),caption=document.querySelector('#caption'),link=document.querySelector('#full-size'),current=document.querySelector('#current'),previous=document.querySelector('#previous');let old=false;
+function update(){const scene=scenes[state.value],src=old?'images/tank-town-amusement-01-title.png':'images/tank-town-title-clean-'+scene[0]+'.png';picture.src=src;picture.alt=old?'以前のタイトル画面':state.selectedOptions[0].textContent+'：実装後';link.href=src;caption.textContent=picture.alt+'（クリックで原寸表示）';current.setAttribute('aria-pressed',String(!old));previous.setAttribute('aria-pressed',String(old));state.disabled=old;}
+current.onclick=()=>{old=false;update()};previous.onclick=()=>{old=true;update()};state.onchange=update;update();
+</script>
+</html>

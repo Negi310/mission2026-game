@@ -12,9 +12,11 @@ namespace TankTown
         private readonly GameObject title, howTo;
         private readonly Button start, tutorialPlay;
         private bool helpWasOpen;
-        private readonly Button[] stageButtons = new Button[4];
-        private readonly string[] stageLabels = new string[4];
-        private TownStage paintedStage;
+        private readonly Text[] stageLabels = new Text[4];
+        private readonly Image[] stageMarks = new Image[4];
+        private readonly Texture2D shadeTexture;
+        private readonly Sprite shadeSprite;
+        private TownStage paintedStage = (TownStage)(-1);
         private static Color Ink => TankTownMenuLayout.Ink;
         private static Color Lime => TankTownMenuLayout.Lime;
         private static Color Cyan => TankTownMenuLayout.Cyan;
@@ -22,30 +24,39 @@ namespace TankTown
         public TankTownTitleScreen(TankTownGame owner, Transform canvas, Font font, Font displayFont, ToyHudStyle style)
         {
             game = owner;
-            menu = new TankTownMenuLayout("Title screen", canvas, font, style, new Color(.02f, .08f, .13f, .08f));
+            menu = new TankTownMenuLayout("Title screen", canvas, font, style, Color.clear);
+            // The full-screen shade remains continuous at every aspect ratio.
+            shadeTexture = new Texture2D(128, 1, TextureFormat.RGBA32, false)
+            { name = "Title left shade", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var shadePixels = new Color[128];
+            for (int x = 0; x < shadePixels.Length; x++)
+            {
+                float fade = 1 - Mathf.SmoothStep(0, .62f, x / 127f);
+                shadePixels[x] = new Color(.015f, .055f, .13f, .8f * fade);
+            }
+            shadeTexture.SetPixels(shadePixels); shadeTexture.Apply(false, true);
+            shadeSprite = Sprite.Create(shadeTexture, new Rect(0, 0, 128, 1), Vector2.one * .5f);
+            var shade = menu.Root.GetComponent<Image>(); shade.sprite = shadeSprite; shade.color = Color.white;
             var parent = menu.Layout;
             title = menu.Panel(parent, "Title content", Vector2.zero, new Vector2(1440, 900), Color.clear);
-            var card = menu.Panel(title.transform, "Title glass panel", new Vector2(52, -74), new Vector2(570, 742), new Color(Ink.r, Ink.g, Ink.b, .92f));
-            style.Card(card, Cyan);
-            menu.Label(card.transform, "Title eyebrow", "1 MINUTE / DESTRUCTION ACTION", new Vector2(34, -28), new Vector2(506, 31), 18, Cyan);
-            menu.Label(card.transform, "Title tank logo", "TANK", new Vector2(24, -66), new Vector2(520, 133), 104, new Color(1, .75f, .08f), displayFont);
-            menu.Label(card.transform, "Title town logo", "TOWN", new Vector2(24, -174), new Vector2(520, 133), 104, Cyan, displayFont);
-            menu.Label(card.transform, "Title catchphrase", "まちを、バラバラに！", new Vector2(34, -325), new Vector2(506, 50), 33, Color.white);
-            menu.Label(card.transform, "Title description", "走る！ 撃つ！ 街がくずれる！\n1分で、どこまでこわせる？", new Vector2(36, -387), new Vector2(500, 77), 23, new Color(.79f, .91f, .96f));
-            menu.Label(card.transform, "Stage heading", "あそぶ街をえらぼう", new Vector2(34, -470), new Vector2(502, 26), 19, Cyan);
-            StageButton(card.transform, TownStage.Town, "Town stage button", 34, "いつもの街\n[1] 268×268");
-            StageButton(card.transform, TownStage.BigCity, "Large stage button", 161, "大きな街\n[2] 面積４倍");
-            StageButton(card.transform, TownStage.CandyTown, "Candy stage button", 288, "お菓子の街\n[3] ６種類");
-            StageButton(card.transform, TownStage.AmusementPark, "Amusement stage button", 415, "遊園地\n[4] 遊具と店");
-            start = menu.Button(card.transform, "Title play button", "あそぶ    →    SPACE", new Vector2(34, -579), new Vector2(502, 63), Lime, game.StartOrRestart);
-            menu.Button(card.transform, "How to button", "あそびかた    H", new Vector2(34, -658), new Vector2(502, 48), new Color(.09f, .28f, .37f), game.ToggleHowTo);
-            menu.Label(card.transform, "Title input hint", "1〜4 で街選択・SPACE でスタート", new Vector2(34, -712), new Vector2(502, 24), 15, new Color(.69f, .82f, .89f)).alignment = TextAnchor.MiddleCenter;
-            var city = menu.Panel(title.transform, "Overview caption", new Vector2(918, -48), new Vector2(464, 86), new Color(Ink.r, Ink.g, Ink.b, .82f));
-            menu.Label(city.transform, "City caption heading", "つぎは、どこからこわす？", new Vector2(20, -12), new Vector2(424, 32), 24, Color.white).alignment = TextAnchor.MiddleCenter;
-            menu.Label(city.transform, "City caption detail", "大きな街 / あそぶたびに、新しい街！", new Vector2(20, -47), new Vector2(424, 27), 18, Lime).alignment = TextAnchor.MiddleCenter;
-            var legend = menu.Panel(title.transform, "Title item legend", new Vector2(692, -709), new Vector2(688, 154), new Color(Ink.r, Ink.g, Ink.b, .87f));
-            menu.Label(legend.transform, "Color legend heading", "ビルの色が、スペシャルの目印！", new Vector2(20, -12), new Vector2(648, 30), 22, Color.white).alignment = TextAnchor.MiddleCenter;
-            AddItems(legend.transform, 37, 54, 104, 56);
+            var logo = menu.Label(title.transform, "Title wordmark", "<color=#FFC416>TANK</color> <color=#15D4FF>TOWN</color>", new Vector2(20, -180), new Vector2(640, 135), 94, Color.white, displayFont);
+            logo.horizontalOverflow = HorizontalWrapMode.Overflow; logo.alignment = TextAnchor.MiddleLeft;
+            var logoShadow = logo.gameObject.AddComponent<Shadow>(); logoShadow.effectColor = new Color(.01f, .025f, .05f, .65f); logoShadow.effectDistance = new Vector2(3, -5);
+            var stages = menu.Panel(title.transform, "Title stage selector", new Vector2(20, -384), new Vector2(600, 80), Color.white);
+            style.TitleControl(stages, new Color(.035f, .10f, .18f, .9f));
+            StageButton(stages.transform, TownStage.Town, "Town stage button", "いつもの街");
+            StageButton(stages.transform, TownStage.BigCity, "Large stage button", "大きな街");
+            StageButton(stages.transform, TownStage.CandyTown, "Candy stage button", "お菓子の街");
+            StageButton(stages.transform, TownStage.AmusementPark, "Amusement stage button", "遊園地");
+            start = SoftButton(title.transform, "Title play button", new Vector2(20, -500), new Vector2(600, 100), Lime, game.StartOrRestart);
+            style.TitleControl(start.gameObject, Lime, true);
+            var playLabel = menu.Label(start.transform, "Title play label", "あそぶ", new Vector2(98, -4), new Vector2(404, 92), 43, Ink);
+            playLabel.alignment = TextAnchor.MiddleCenter;
+            Keycap(start.transform, "Title space key", "SPACE", new Vector2(480, -31), new Vector2(88, 38), 17, Ink, style);
+            var help = SoftButton(title.transform, "How to button", new Vector2(20, -634), new Vector2(250, 62), Color.clear, game.ToggleHowTo);
+            var helpLabel = menu.Label(help.transform, "How to label", "あそびかた", Vector2.zero, new Vector2(174, 62), 28, new Color(1, .97f, .83f));
+            helpLabel.alignment = TextAnchor.MiddleLeft;
+            Keycap(help.transform, "Title help key", "H", new Vector2(186, -10), new Vector2(44, 42), 23, Color.white, style);
 
             howTo = menu.Panel(parent, "How to screen", Vector2.zero, new Vector2(1440, 900), new Color(Ink.r, Ink.g, Ink.b, .86f));
             howTo.GetComponent<Image>().raycastTarget = true;
@@ -64,6 +75,7 @@ namespace TankTown
             menu.Button(tutorial.transform, "How to close button", "もどる    ESC", new Vector2(42, -654), new Vector2(326, 65), new Color(.10f, .28f, .37f), game.ToggleHowTo);
             tutorialPlay = menu.Button(tutorial.transform, "Tutorial play button", "あそぶ    →    SPACE", new Vector2(396, -654), new Vector2(742, 65), Lime, game.StartOrRestart);
             howTo.SetActive(false);
+            Fit();
             Select(start);
         }
 
@@ -73,12 +85,11 @@ namespace TankTown
             if (paintedStage != game.Stage)
             {
                 paintedStage = game.Stage;
-                for (int i = 0; i < stageButtons.Length; i++)
+                for (int i = 0; i < stageLabels.Length; i++)
                 {
                     bool selected = (TownStage)i == game.Stage;
-                    stageButtons[i].GetComponent<Image>().color = selected ? Lime : new Color(.09f, .28f, .37f);
-                    stageButtons[i].GetComponentInChildren<Text>().text = (selected ? "✓ " : "") + stageLabels[i];
-                    stageButtons[i].GetComponentInChildren<Text>().color = selected ? Ink : Color.white;
+                    stageMarks[i].enabled = selected;
+                    stageLabels[i].color = selected ? Color.white : new Color(.73f, .83f, .91f);
                 }
             }
             title.SetActive(!game.HowToOpen); howTo.SetActive(game.HowToOpen);
@@ -91,12 +102,48 @@ namespace TankTown
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(button.gameObject);
         }
 
-        private void StageButton(Transform parent, TownStage stage, string name, float x, string label)
+        public void Dispose()
         {
-            bool selected = game.Stage == stage;
-            var button = menu.Button(parent, name, (selected ? "✓ " : "") + label, new Vector2(x, -506), new Vector2(121, 60), selected ? Lime : new Color(.09f, .28f, .37f), () => game.SelectStage(stage));
-            stageButtons[(int)stage] = button; stageLabels[(int)stage] = label; paintedStage = game.Stage;
-            button.GetComponentInChildren<Text>().fontSize = 16;
+            Object.Destroy(shadeSprite); Object.Destroy(shadeTexture);
+        }
+
+        private Button SoftButton(Transform parent, string name, Vector2 point, Vector2 size, Color tint, UnityEngine.Events.UnityAction action)
+        {
+            var panel = menu.Panel(parent, name, point, size, tint);
+            var image = panel.GetComponent<Image>(); image.raycastTarget = true;
+            bool transparent = tint.a == 0;
+            if (transparent) image.color = Color.white;
+            var button = panel.AddComponent<Button>(); button.targetGraphic = image; button.onClick.AddListener(action);
+            var colors = button.colors; colors.normalColor = transparent ? Color.clear : new Color(.98f, .98f, .98f);
+            colors.highlightedColor = transparent ? new Color(1, 1, 1, .08f) : Color.white;
+            colors.selectedColor = transparent ? colors.highlightedColor : colors.normalColor;
+            colors.pressedColor = transparent ? new Color(1, 1, 1, .16f) : new Color(.83f, .89f, .94f);
+            colors.fadeDuration = .09f; button.colors = colors;
+            image.canvasRenderer.SetColor(colors.normalColor);
+            return button;
+        }
+
+        private void StageButton(Transform parent, TownStage stage, string name, string label)
+        {
+            int index = (int)stage;
+            var button = SoftButton(parent, name, new Vector2(index * 150, 0), new Vector2(150, 80), Color.clear, () => game.SelectStage(stage));
+            var text = menu.Label(button.transform, name + " label", label, new Vector2(5, -5), new Vector2(140, 64), 21, Color.white);
+            text.alignment = TextAnchor.MiddleCenter; text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            stageLabels[index] = text;
+            stageMarks[index] = menu.Panel(button.transform, name + " selected", new Vector2(15, -66), new Vector2(120, 5), Cyan).GetComponent<Image>();
+            if (index > 0)
+            {
+                var divider = menu.Panel(button.transform, name + " divider", new Vector2(0, -16), new Vector2(1, 48), new Color(.47f, .78f, .94f, .22f)).GetComponent<Image>();
+                divider.sprite = null;
+            }
+        }
+
+        private void Keycap(Transform parent, string name, string label, Vector2 point, Vector2 size, int fontSize, Color color, ToyHudStyle style)
+        {
+            var key = menu.Panel(parent, name, point, size, Color.white);
+            style.TitleControl(key, new Color(.64f, .77f, .86f, .13f));
+            var text = menu.Label(key.transform, name + " label", label, Vector2.zero, size, fontSize, color);
+            text.alignment = TextAnchor.MiddleCenter;
         }
 
         private void Step(Transform parent, float x, string number, string heading, string detail, Color color)
