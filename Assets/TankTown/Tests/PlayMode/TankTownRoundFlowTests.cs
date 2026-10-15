@@ -139,6 +139,10 @@ namespace TankTown.Tests
             game.AdvanceTime(1000); yield return null;
             var results = game.GetComponent<TankTownHUD>().ResultsView;
             Assert.That(Time.timeScale, Is.Zero); Assert.That(game.Remaining, Is.Zero);
+            Assert.That(results.DetailsOpen, Is.False);
+            Assert.That(GameObject.Find("Local leaderboard"), Is.Null);
+            Assert.That(GameObject.Find("Result metric value 0"), Is.Null);
+            Assert.That(GameObject.Find("Result score card").GetComponentsInChildren<Text>().Length, Is.LessThanOrEqualTo(7));
             int previous = results.DisplayedScore;
             float timeout = Time.realtimeSinceStartup + 2;
             while (results.Counting && Time.realtimeSinceStartup < timeout)
@@ -147,17 +151,21 @@ namespace TankTown.Tests
             }
             Assert.That(results.DisplayedScore, Is.EqualTo(game.RoundScore));
             Assert.That(game.RoundScore, Is.EqualTo(Mathf.RoundToInt(100000f * broken / game.TotalBlocks)));
+            yield return Press(Key.Tab); Assert.That(results.DetailsOpen, Is.True);
             Assert.That(GameObject.Find("Result metric value 0").GetComponent<Text>().text, Is.EqualTo(broken.ToString("N0")));
             Assert.That(GameObject.Find("Result metric value 1").GetComponent<Text>().text, Is.EqualTo("1"));
             Assert.That(GameObject.Find("Result metric value 2").GetComponent<Text>().text, Is.EqualTo("4 CHAIN"));
             Assert.That(GameObject.Find("Result metric value 3").GetComponent<Text>().text, Is.EqualTo("1"));
             Assert.That(game.NewBest, Is.True); Assert.That(game.BestScore, Is.EqualTo(game.RoundScore));
             Canvas.ForceUpdateCanvases();
-            foreach (var text in GameObject.Find("Result score card").GetComponentsInChildren<Text>())
+            foreach (var text in GameObject.Find("Result details card").GetComponentsInChildren<Text>())
             {
                 Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1), text.name);
                 Assert.That(text.preferredWidth, Is.LessThanOrEqualTo(text.rectTransform.rect.width + 1), text.name);
             }
+            yield return Press(Key.Escape); Assert.That(results.DetailsOpen, Is.False);
+            Assert.That(results.DisplayedScore, Is.EqualTo(game.RoundScore));
+            Assert.That(GameObject.Find("Local leaderboard"), Is.Null);
         }
 
         [UnityTest]

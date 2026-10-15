@@ -111,9 +111,11 @@ namespace TankTown.Tests
             Assert.That(game.Ranking.Records.Count, Is.EqualTo(3));
             game.AdvanceTime(1000); game.ScoreBlock(); yield return null;
             Assert.That(game.Ranking.Records.Count, Is.EqualTo(3));
+            Assert.That(GameObject.Find("Local leaderboard"), Is.Null);
+            GameObject.Find("Result details button").GetComponent<Button>().onClick.Invoke(); yield return null;
             var board = GameObject.Find("Local leaderboard"); Assert.That(board, Is.Not.Null);
             Assert.That(board.GetComponentsInChildren<Text>().Any(x => x.text == $"{game.RoundScore:N0} pt"), Is.True);
-            foreach (var text in GameObject.Find("Result score card").GetComponentsInChildren<Text>())
+            foreach (var text in GameObject.Find("Result details card").GetComponentsInChildren<Text>())
             {
                 Assert.That(text.preferredWidth, Is.LessThanOrEqualTo(text.rectTransform.rect.width + 1), text.name);
                 Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1), text.name);
