@@ -20,3 +20,11 @@ READMEのタイトル画像・画面構成を更新しました。運用手順�
 ローカルの新しいビルドは`Builds/TankTown-CleanTitle/TankTown.exe`です。共通の`Builds/TankTown`、`Builds/TankTown-Amusement`、`Builds/TankTown-GameplayUI`も同じ内容へ更新しました。GitHubの既存v0.1.0配布物は変更していません。
 
 ![整理したタイトル画面](images/tank-town-title-clean-2.png)
+
+## ホバーの追加（2026-10-16）
+
+4つの街選択タブ・開始・遊び方に、ホバーで2.5%拡大して4px浮き、離れると元へ戻るアニメーションを追加しました。押下では軽く縮んで沈みます。移動と拡大は内側の表示だけに適用し、クリック範囲は固定しています。キーボードの方向入力によるフォーカスにも反応し、画面を閉じる際は状態をリセットします。タイトルの時間停止中も実時間で動きます。
+
+Windowsビルド成功。実プレイヤーは6つの操作のホバー・押下・復帰、固定したクリック範囲、キーボードのフォーカス、非表示時のリセットを確認し、開始・結果・再挑戦まで23画面を保存しました（`Logs/title-hover-build.log`、`Logs/title-hover-player.log`）。既存PlayModeは9/9件成功、33.63秒（`Logs/title-hover-tests.xml`）。Chromeで実画面11枚と比較操作、4つのページ幅、原寸リンクを確認し、エラーはありません（`Logs/title-hover-browser.log`）。[比較ページ](title-screen-review.html)で浮き上がり・押下・復帰の実画面を選べます。
+
+更新版は `Builds/TankTown-TitleHover/TankTown.exe`です。共通の起動用3か所も更新しています。

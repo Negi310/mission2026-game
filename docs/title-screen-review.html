@@ -14,7 +14,8 @@
 <p>数字キーとマウスによる街選択、選択時に街を再生成しないこと、H/Esc、Space開始、結果と再挑戦は実ビルドの診断で確認しています。ブラウザは画像比較用です。</p>
 </main>
 <script>
-const scenes={town:['0',1920,1080],big:['1',1920,1080],candy:['2',1920,1080],amusement:['3',1920,1080],'720':['1280x720',1280,720],'900':['1440x900',1440,900],'5x4':['1280x1024',1280,1024],help:['help',1280,720]};
+const scenes={town:['0',1920,1080],big:['1',1920,1080],candy:['2',1920,1080],amusement:['3',1920,1080],'720':['1280x720',1280,720],'900':['1440x900',1440,900],'5x4':['1280x1024',1280,1024],help:['help',1280,720],raised:['hover-raised',1920,1080],pressed:['hover-pressed',1920,1080],restored:['hover-restored',1920,1080]};
+for(const [value,label] of [['raised','ホバー：浮き上がり'],['pressed','ホバー：押下'],['restored','ホバー：復帰']]){const option=document.createElement('option');option.value=value;option.textContent=label;document.querySelector('#state').append(option);}
 const state=document.querySelector('#state'),picture=document.querySelector('#capture'),caption=document.querySelector('#caption'),link=document.querySelector('#full-size'),current=document.querySelector('#current'),previous=document.querySelector('#previous');let old=false;
 function update(){const scene=scenes[state.value],src=old?'images/tank-town-amusement-01-title.png':'images/tank-town-title-clean-'+scene[0]+'.png';picture.src=src;picture.alt=old?'以前のタイトル画面':state.selectedOptions[0].textContent+'：実装後';link.href=src;caption.textContent=picture.alt+'（クリックで原寸表示）';current.setAttribute('aria-pressed',String(!old));previous.setAttribute('aria-pressed',String(old));state.disabled=old;}
 current.onclick=()=>{old=false;update()};previous.onclick=()=>{old=true;update()};state.onchange=update;update();
