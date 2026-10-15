@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>遊び方・リザルトと余白の比較</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101f2a;color:#e9f4fa;font:16px/1.6 system-ui,sans-serif}main{max-width:1600px;margin:auto;padding:20px}h1{font-size:clamp(22px,4vw,32px);margin:0 0 10px}p{color:#b8cedb}.controls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}button,select{font:inherit;padding:9px 14px;border:1px solid #86cbe5;border-radius:10px;background:#203947;color:white;max-width:100%}button[aria-pressed=true]{background:#cfff26;color:#132511}figure{margin:0}img{display:block;width:100%;height:auto;border-radius:10px}figcaption{padding-top:12px;color:#bfd8e5}a{color:#80dcff}
+</style>
+<main>
+<h1>遊び方・リザルトと余白の比較</h1>
+<p>生成した画面案と、UnityのWindowsビルドの実画面です。濃紺とライム色で揃え、遊び方は3ステップ、結果はポイントとランキングを中心にしています。</p>
+<div class="controls"><button id="current" aria-pressed="true">新しい画面</button><button id="previous" aria-pressed="false">以前</button><select id="state" aria-label="確認する画面"><optgroup label="生成したデザイン案"><option value="howtoconcept">遊び方の案</option><option value="resultsconcept">リザルトの案</option></optgroup><optgroup label="Unity実画面"><option value="howto" selected>遊び方</option><option value="results">リザルト</option><option value="maximum">最大値の余白確認</option><option value="howto720">遊び方 1280×720</option><option value="results720">リザルト 1280×720</option><option value="maximum720">最大値 1280×720</option><option value="howto5x4">遊び方 1280×1024</option><option value="results5x4">リザルト 1280×1024</option><option value="title">タイトルの余白</option><option value="title5x4">タイトルの余白 1280×1024</option></optgroup></select></div>
+<figure><a id="full-size"><img id="capture" alt="新しい遊び方"></a><figcaption id="caption"></figcaption></figure>
+<p>最大値の画面は、実ビルドのUIの文字を検査用に100,000 pt・ランキング10行・長い数値へ差し替えたものです。保存記録やゲーム内のスコアは変更していません。通常の結果は実際のラウンドの値です。生成案は内蔵image_genで作成し、<a href="ui-proposal/menu-redesign-prompts.txt">使用プロンプト</a>を保存しています。</p>
+</main>
+<script>
+const scenes={howtoconcept:['tank-town-howto-concept.png','生成案：遊び方'],resultsconcept:['tank-town-results-concept.png','生成案：リザルト'],howto:['tank-town-menu-howto.png','実画面：遊び方'],results:['tank-town-menu-results.png','実画面：リザルト'],maximum:['tank-town-menu-results-max.png','最大値の表示検査'],howto720:['tank-town-menu-howto-720.png','遊び方 1280×720'],results720:['tank-town-menu-results-720.png','リザルト 1280×720'],maximum720:['tank-town-menu-results-max-720.png','最大値 1280×720'],howto5x4:['tank-town-menu-howto-5x4.png','遊び方 1280×1024'],results5x4:['tank-town-menu-results-5x4.png','リザルト 1280×1024'],title:['tank-town-menu-title.png','タイトルの余白'],title5x4:['tank-town-menu-title-5x4.png','タイトルの余白 1280×1024']};
+const state=document.querySelector('#state'),picture=document.querySelector('#capture'),caption=document.querySelector('#caption'),link=document.querySelector('#full-size'),current=document.querySelector('#current'),previous=document.querySelector('#previous');let old=false;
+function update(){const scene=scenes[state.value],before=state.value.includes('howto')?'tank-town-title-clean-help.png':state.value.includes('title')?'tank-town-title-clean-2.png':'tank-town-results-before-redesign.png',src='images/'+(old?before:scene[0]);picture.src=src;picture.alt=old?'以前の画面':scene[1];link.href=src;caption.textContent=picture.alt+'（クリックで原寸表示）';current.setAttribute('aria-pressed',String(!old));previous.setAttribute('aria-pressed',String(old));state.disabled=old;}
+current.onclick=()=>{old=false;update()};previous.onclick=()=>{old=true;update()};state.onchange=update;update();
+</script>
+</html>

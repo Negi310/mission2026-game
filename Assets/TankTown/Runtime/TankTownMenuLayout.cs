@@ -28,7 +28,7 @@ namespace TankTown
         public void Fit()
         {
             Vector2 bounds = ((RectTransform)Root.transform).rect.size;
-            float scale = Mathf.Min(bounds.x / 1440, bounds.y / 900);
+            float scale = Mathf.Min((bounds.x - 64) / 1440, (bounds.y - 64) / 900);
             if (scale <= 0) return;
             Layout.localScale = Vector3.one * scale;
             Layout.anchoredPosition = new Vector2(-720, 450) * scale;
@@ -64,6 +64,36 @@ namespace TankTown
             var label = Label(item.transform, name + " label", text, Vector2.zero, size, 26, color == Lime ? Ink : Color.white);
             label.alignment = TextAnchor.MiddleCenter;
             return button;
+        }
+
+        public Button ActionButton(Transform parent, string name, string text, Vector2 point, Vector2 size, bool primary, UnityEngine.Events.UnityAction action, string key = null)
+        {
+            var root = Panel(parent, name, point, size, Color.clear);
+            root.GetComponent<Image>().raycastTarget = true;
+            var surface = Panel(root.transform, name + " visual", Vector2.zero, size, Color.white);
+            var rect = (RectTransform)surface.transform;
+            rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one * .5f; rect.anchoredPosition = Vector2.zero;
+            style.TitleControl(surface, primary ? Lime : new Color(.10f, .23f, .34f, .88f), primary);
+            var button = root.AddComponent<Button>(); button.targetGraphic = surface.GetComponent<Image>(); button.onClick.AddListener(action);
+            var colors = button.colors; colors.normalColor = colors.selectedColor = new Color(.97f, .97f, .97f);
+            colors.highlightedColor = Color.white; colors.pressedColor = new Color(.8f, .88f, .93f); colors.fadeDuration = .09f; button.colors = colors;
+            var label = Label(surface.transform, name + " label", text, new Vector2(28, 0), new Vector2(size.x - 56, size.y), 29, primary ? Ink : Color.white);
+            label.alignment = TextAnchor.MiddleCenter;
+            if (key != null)
+            {
+                float width = key.Length > 3 ? 88 : 64;
+                Keycap(surface.transform, name + " key", key, new Vector2(size.x - width - 24, -(size.y - 36) * .5f), new Vector2(width, 36), 18, primary ? Ink : Color.white);
+            }
+            root.AddComponent<TankTownMenuHover>().Initialize(button, rect);
+            return button;
+        }
+
+        public void Keycap(Transform parent, string name, string text, Vector2 point, Vector2 size, int fontSize, Color foreground)
+        {
+            var panel = Panel(parent, name, point, size, Color.white);
+            style.TitleControl(panel, foreground == Ink ? new Color(1, 1, 1, .75f) : new Color(.23f, .40f, .53f, .8f));
+            var label = Label(panel.transform, name + " label", text, Vector2.zero, size, fontSize, foreground);
+            label.alignment = TextAnchor.MiddleCenter;
         }
     }
 }
