@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>光・素材・爆発とアイテム終了予告</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101f2a;color:#e9f4fa;font:16px/1.6 system-ui,sans-serif}main{max-width:1600px;margin:auto;padding:20px}h1{font-size:clamp(22px,4vw,32px);margin:0 0 12px}p{color:#b8cedb}.controls{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}button,select{font:inherit;padding:9px 14px;border:1px solid #86cbe5;border-radius:10px;background:#203947;color:white;max-width:100%}button[aria-pressed=true]{background:#cfff26;color:#132511}button:disabled{opacity:.4}figure{margin:0}img{display:block;width:100%;height:auto;border-radius:10px}figcaption{padding-top:12px;color:#bfd8e5}a{color:#80dcff}
+</style>
+<main>
+<h1>光・素材・爆発とアイテム終了予告</h1>
+<p>UnityのWindows実プレイヤーで撮影した画面です。お菓子の街では以前の実画面へ切り替えられます。以前とは解像度・戦車や交通の位置・アイテムの表示条件が異なります。</p>
+<div class="controls"><select id="scene" aria-label="確認する画面"><option value="candy">お菓子の街</option><option value="big">大型街の窓と光</option><option value="park">遊園地</option><option value="tree">枝と房状の樹冠</option><option value="chocolate">チョコとウエハース</option><option value="flash">周囲を照らす閃光</option><option value="fire">爆炎</option><option value="smoke">煙と視界の回復</option><option value="warning">終了予告：車体全体の発光</option><option value="normal">終了予告：通常色</option></select><button id="current" aria-pressed="true">現在</button><button id="previous" aria-pressed="false">以前のお菓子の街</button></div>
+<figure><a id="full-size"><img id="capture" alt="お菓子の街"></a><figcaption id="caption"></figcaption></figure>
+<p>撮影はシード2026の固定配置です。近景・エフェクトの確認では車と通行人を非表示にし、パワーアップを隠しています。終了予告は診断用に効果時間を4秒にして直接付与しています。爆炎・煙の画像はVFX単体を呼び出した確認で、通常のプレイ画面も含めて画像加工はしていません。<a href="visual-polish-validation.md">実装と検証の記録</a></p>
+</main>
+<script>
+const scenes={candy:['candy','お菓子の街：光・材質・窓の奥行き'],big:['big','大型街：窓枠・屋根・接地の陰影'],park:['park','遊園地：材質ごとの反射と光'],tree:['tree','通常街：枝と色むらを持つ樹冠'],chocolate:['chocolate','チョコの反射とウエハースの質感'],flash:['flash','閃光と周囲への短い照明'],fire:['fire','明るい中心と外側の爆炎'],smoke:['smoke','時間差で広がって晴れる煙'],warning:['warning','ブルドーザー全体が発光し、磁場とシールドが消える側'],normal:['normal','通常色・磁場とシールドが表示される側']};
+const scene=document.querySelector('#scene'),picture=document.querySelector('#capture'),caption=document.querySelector('#caption'),link=document.querySelector('#full-size'),current=document.querySelector('#current'),previous=document.querySelector('#previous');let old=false;
+function update(){const value=scenes[scene.value];if(scene.value!=='candy')old=false;const src='images/tank-town-polish-'+(old?'before':value[0])+'.png';picture.src=src;picture.alt=old?'以前のお菓子の街':value[1];link.href=src;caption.textContent=picture.alt+'（クリックで原寸表示）';current.setAttribute('aria-pressed',String(!old));previous.setAttribute('aria-pressed',String(old));previous.disabled=scene.value!=='candy';}
+scene.onchange=update;current.onclick=()=>{old=false;update()};previous.onclick=()=>{old=true;update()};update();
+</script>
+</html>

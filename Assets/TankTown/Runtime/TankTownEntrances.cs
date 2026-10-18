@@ -44,6 +44,7 @@ namespace TankTown
                 Box("Entrance canopy", new Vector3(0, height + .42f, .45f), new Vector3(width + .95f, .16f, 1.4f), accent, entrance, false);
             }
             Box("Entrance threshold", new Vector3(0, .08f, .27f), new Vector3(width + .58f, .16f, .94f), trim, entrance, false);
+            Box("Entrance warm light", new Vector3(0, height + .20f, .22f), new Vector3(width * .72f, .07f, .08f), lampGlow, entrance, false);
             Box("Entrance step", new Vector3(0, .04f, .81f), new Vector3(width + .76f, .08f, .42f), trim, entrance, false);
         }
     }

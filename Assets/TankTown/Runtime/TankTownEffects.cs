@@ -1,12 +1,22 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using System.Collections.Generic;
 
 namespace TankTown
 {
     public sealed class TankTownEffects : MonoBehaviour
     {
         private Material glow, smoke;
-        private readonly Material[] fireColors = new Material[4];
+        private TankExplosionVfx explosions;
+        private readonly List<GameObject> accents = new List<GameObject>(64);
+        private bool AccentAvailable()
+        {
+            if (accents.Count < 64) return true;
+            accents.RemoveAll(item => item == null);
+            return accents.Count < 64;
+        }
+        internal int ActiveExplosionCount => explosions.ActiveCount;
+        internal int AllocatedExplosionCount => explosions.AllocatedCount;
         private Texture2D softDot;
         private Mesh ring, burst;
         private TankTownSettings settings;
@@ -24,13 +34,8 @@ namespace TankTown
             }
             softDot.SetPixels(pixels); softDot.Apply(false, true);
             glow = new Material(Shader.Find("TankTown/Arcade Glow")) { mainTexture = softDot };
-            smoke = new Material(Shader.Find("TankTown/Arcade Smoke")) { mainTexture = softDot };
+            explosions = new TankExplosionVfx(transform, glow); smoke = explosions.SmokeMaterial;
             RewardAreaLight = new Material(Shader.Find("TankTown/Reward Area"));
-            for (int i = 0; i < fireColors.Length; i++)
-            {
-                fireColors[i] = new Material(Shader.Find("TankTown/Explosion Fire"));
-                fireColors[i].SetColor("_BaseColor", i == 0 ? new Color(1, .23f, .025f) : i == 1 ? new Color(1, .59f, .045f) : i == 2 ? new Color(1, .87f, .16f) : new Color(1, .99f, .78f));
-            }
             ring = BuildRing();
             burst = BuildBurst();
         }
@@ -79,15 +84,14 @@ namespace TankTown
         {
             float visualRadius = Mathf.Clamp(radius * (settings != null ? settings.explosionVisualScale : 1.55f) * .55f, 2.5f, 8);
             Fireball(position, visualRadius);
-            Particles(position, new Color(1, .52f, .045f), 95, 25, 1.1f, .45f, Vector3.up);
-            Particles(position, new Color(1, .82f, .08f), 120, 38, .48f, .45f, Vector3.up, false, true);
-            Particles(position + Vector3.up, new Color(.94f, .76f, .47f), 28, 6, 3.9f, .65f, Vector3.up, true);
             Shockwave(position, new Color(1, .66f, .1f), visualRadius * 2.7f, .35f);
-            Shockwave(position + Vector3.up * 1.2f, new Color(1, .9f, .3f), visualRadius * 1.9f, .28f, Quaternion.Euler(90, 0, 0));
-            var rays = new GameObject("Explosion radial rays", typeof(MeshFilter), typeof(MeshRenderer));
-            rays.transform.SetParent(transform); rays.transform.position = position;
-            rays.GetComponent<MeshFilter>().sharedMesh = burst; rays.GetComponent<Renderer>().sharedMaterial = glow;
-            rays.AddComponent<ArcadePulse>().Initialize(new Color(1, .94f, .48f), visualRadius * 2.1f, .2f, true);
+            if (AccentAvailable())
+            {
+                var rays = new GameObject("Explosion radial rays", typeof(MeshFilter), typeof(MeshRenderer)); accents.Add(rays);
+                rays.transform.SetParent(transform); rays.transform.position = position;
+                rays.GetComponent<MeshFilter>().sharedMesh = burst; rays.GetComponent<Renderer>().sharedMaterial = glow;
+                rays.AddComponent<ArcadePulse>().Initialize(new Color(1, .94f, .48f), visualRadius * 2.1f, .2f, true);
+            }
             Flash(position, new Color(1, .96f, .68f), visualRadius * 1.25f, .12f);
         }
         public void Collapse(Vector3 position, float width)
@@ -112,9 +116,6 @@ namespace TankTown
         public void SuperImpact(Vector3 position, float radius)
         {
             Fireball(position, radius * 1.25f);
-            Particles(position, new Color(1, .35f, .015f), 320, 45, 4, .65f, Vector3.up);
-            Particles(position + Vector3.up * 3, new Color(.96f, .76f, .42f), 58, 15, 9, .9f, Vector3.up, true);
-            Particles(position, new Color(1, .9f, .15f), 160, 55, .9f, .6f, Vector3.up, false, true);
             Shockwave(position, new Color(1, .75f, .1f), radius * 3.2f, .5f);
             Shockwave(position + Vector3.up * 2, new Color(1, .92f, .4f), radius * 2.8f, .38f, Quaternion.Euler(90, 0, 0));
             Flash(position, Color.white, radius * 2.3f, .12f);
@@ -126,12 +127,7 @@ namespace TankTown
         public void CarImpact(Vector3 position, float radius)
         {
             Fireball(position, radius * .95f);
-            Fireball(position + Vector3.up * 3, radius * .6f);
-            Particles(position, new Color(1, .45f, .035f), 150, 34, 1.8f, .48f, Vector3.up);
-            Particles(position, new Color(1, .9f, .15f), 130, 44, .55f, .38f, Vector3.up, false, true);
-            Particles(position + Vector3.up * 2, new Color(.94f, .76f, .48f), 35, 9, 5, .65f, Vector3.up, true);
             Shockwave(position, new Color(1, .72f, .12f), radius * 2.8f, .38f);
-            Shockwave(position + Vector3.up * 2, new Color(1, .96f, .5f), radius * 2.2f, .3f, Quaternion.Euler(90, 0, 0));
             Flash(position, new Color(1, .96f, .6f), radius * 1.4f, .1f);
         }
         public void PedestrianBonk(Vector3 position)
@@ -149,33 +145,7 @@ namespace TankTown
             Shockwave(impact, new Color(.1f, .9f, 1), radius * 2.5f, .3f);
             Flash(impact, new Color(.65f, .95f, 1), radius * .85f, .12f);
         }
-        private void Fireball(Vector3 position, float radius)
-        {
-            var root = new GameObject("Large explosion fireball");
-            root.transform.SetParent(transform);
-            root.transform.position = position;
-            if (Camera.main != null) root.transform.rotation = Quaternion.LookRotation((Camera.main.transform.position - position).normalized, Vector3.up);
-            // Outer orange petals, inner yellow petals, and a visible cream core.
-            // The shape opens toward the current view without moving the camera.
-            for (int i = 0; i < 19; i++)
-            {
-                var lobe = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                lobe.GetComponent<Collider>().enabled = false;
-                Destroy(lobe.GetComponent<Collider>());
-                lobe.transform.SetParent(root.transform, false);
-                bool outer = i < 9, core = i >= 16;
-                float angle = (outer ? i / 9f : (i - 9) / 7f) * Mathf.PI * 2 + Mathf.Sin(i * 1.7f) * .16f;
-                float spread = outer ? .29f + Mathf.Sin(i * 2.21f) * .045f : .16f;
-                var offset = core ? i == 16 ? new Vector3(-.03f, .20f, .38f) : i == 17 ? new Vector3(.1f, .27f, .37f) : new Vector3(-.09f, .34f, .35f)
-                    : new Vector3(Mathf.Cos(angle) * spread, .24f + Mathf.Sin(angle) * spread * .8f, (outer ? -.035f : .19f) + Mathf.Sin(i * 1.2f) * .025f);
-                lobe.transform.localPosition = offset * radius;
-                lobe.transform.localScale = Vector3.one * radius * (core ? i == 16 ? .4f : i == 17 ? .28f : .24f : outer ? .42f + i % 3 * .085f : .34f + i % 2 * .055f);
-                var renderer = lobe.GetComponent<Renderer>();
-                renderer.sharedMaterial = fireColors[core ? 3 : outer ? i % 4 == 0 ? 1 : 0 : i % 2 == 0 ? 2 : 1];
-                renderer.shadowCastingMode = ShadowCastingMode.Off;
-            }
-            root.AddComponent<FireballBurst>().Initialize();
-        }
+        private void Fireball(Vector3 position, float radius) => explosions.Burst(position, radius);
         public void Pickup(Vector3 position, Color color)
         {
             Particles(position, color, 26, 5, .55f, .55f, Vector3.up);
@@ -188,7 +158,9 @@ namespace TankTown
         }
         private void Particles(Vector3 position, Color color, int count, float speed, float size, float lifetime, Vector3 forward, bool isSmoke = false, bool streaks = false)
         {
+            if (!AccentAvailable()) return;
             var item = new GameObject(isSmoke ? "Explosion smoke" : "Arcade particles");
+            accents.Add(item);
             item.transform.SetParent(transform);
             item.transform.position = position;
             item.transform.rotation = Quaternion.LookRotation(forward);
@@ -218,7 +190,10 @@ namespace TankTown
         }
         private void Flash(Vector3 position, Color color, float size, float duration)
         {
+            explosions.Illuminate(position, color, size, duration);
+            if (!AccentAvailable()) return;
             var item = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            accents.Add(item);
             item.name = "Impact star flash";
             item.GetComponent<Collider>().enabled = false; Destroy(item.GetComponent<Collider>());
             item.transform.SetParent(transform);
@@ -228,7 +203,9 @@ namespace TankTown
         }
         private void Shockwave(Vector3 position, Color color, float size, float duration, Quaternion? rotation = null)
         {
+            if (!AccentAvailable()) return;
             var item = new GameObject("Expanding shockwave", typeof(MeshFilter), typeof(MeshRenderer));
+            accents.Add(item);
             item.transform.SetParent(transform);
             item.transform.position = position + Vector3.up * .1f;
             item.transform.rotation = rotation ?? Quaternion.identity;
@@ -245,38 +222,11 @@ namespace TankTown
         }
         private void OnDestroy()
         {
-            Destroy(glow); Destroy(smoke); Destroy(softDot); Destroy(ring); Destroy(burst);
+            explosions?.Dispose();
+            Destroy(glow); Destroy(softDot); Destroy(ring); Destroy(burst);
             Destroy(RewardAreaLight);
-            foreach (var material in fireColors) Destroy(material);
         }
-    }
-
-    public sealed class FireballBurst : MonoBehaviour
-    {
-        private float age;
-        private Renderer[] lobes;
-        private Color[] colors;
-        private MaterialPropertyBlock properties;
-        private void Awake() { properties = new MaterialPropertyBlock(); transform.localScale = Vector3.zero; }
-        public void Initialize()
-        {
-            lobes = GetComponentsInChildren<Renderer>();
-            colors = new Color[lobes.Length];
-            for (int i = 0; i < lobes.Length; i++) colors[i] = lobes[i].sharedMaterial.GetColor("_BaseColor");
-        }
-        private void Update()
-        {
-            age += Time.deltaTime;
-            float size = age < .1f ? Mathf.SmoothStep(.12f, 1, age / .1f) : 1 + Mathf.Clamp01((age - .1f) / .5f) * .16f;
-            transform.localScale = Vector3.one * size;
-            float opacity = 1 - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.2f, .6f, age));
-            if (lobes != null) for (int i = 0; i < lobes.Length; i++)
-            {
-                properties.SetColor("_BaseColor", new Color(colors[i].r, colors[i].g, colors[i].b, opacity));
-                lobes[i].SetPropertyBlock(properties);
-            }
-            if (age >= .6f) Destroy(gameObject);
-        }
+        private void Update() => explosions?.Tick(Time.deltaTime);
     }
 
     public sealed class ArcadePulse : MonoBehaviour

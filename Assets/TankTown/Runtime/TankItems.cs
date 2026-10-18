@@ -49,10 +49,14 @@ namespace TankTown
         private Material energy, yellow;
         private Renderer hull;
         private Material originalHull;
+        private MeshRenderer[] vehicleRenderers;
+        private MaterialPropertyBlock expiryProperties;
+        private float vehicleFlash = -1;
 
         public void Initialize(TankTownGame owner)
         {
             game = owner;
+            expiryProperties = new MaterialPropertyBlock();
             MissileWhite = game.World.MakeMaterial(new Color(1, .93f, .72f));
             MissileOrange = game.World.MakeMaterial(new Color(1, .3f, .04f));
             energy = new Material(Shader.Find("TankTown/Item Energy"));
@@ -93,6 +97,7 @@ namespace TankTown
                 trail.startColor = new Color(.15f, .65f, 1, .8f); trail.endColor = new Color(.05f, .9f, 1, 0);
                 trail.emitting = false; trail.shadowCastingMode = ShadowCastingMode.Off; dashTrails[i] = trail;
             }
+            vehicleRenderers = game.Tank.Visual.GetComponentsInChildren<MeshRenderer>(true);
         }
 
         public bool Receive(ItemKind kind)
@@ -125,6 +130,7 @@ namespace TankTown
                 highSpeed = Duration(kind); shield.SetActive(true);
                 foreach (var trail in dashTrails) { trail.Clear(); trail.emitting = true; }
             }
+            UpdateExpiryVisuals();
             Received?.Invoke(kind, previous);
             return true;
         }
@@ -208,11 +214,11 @@ namespace TankTown
                 missileTime = Mathf.Max(0, missileTime - dt);
                 if (missileTime <= 0) EndMissiles();
             }
-            bool wasBulldozer = bulldozer > 0;
+            bool wasBulldozer = bulldozer > 0, wasHighSpeed = highSpeed > 0;
             magnet = Mathf.Max(0, magnet - dt); bulldozer = Mathf.Max(0, bulldozer - dt); highSpeed = Mathf.Max(0, highSpeed - dt);
             if (wasBulldozer && bulldozer <= 0) ResetBulldozer();
-            magnetRing.SetActive(magnet > 0); shield.SetActive(highSpeed > 0);
-            foreach (var trail in dashTrails) trail.emitting = highSpeed > 0 && !StopsForward && !game.Tank.Respawning;
+            if (wasHighSpeed && highSpeed <= 0) foreach (var trail in dashTrails) trail.Clear();
+            UpdateExpiryVisuals();
             if (magnet > 0 && !game.Tank.Respawning)
             {
                 var target = game.Tank.GetComponent<Rigidbody>().position + Vector3.up * .6f;
@@ -224,6 +230,34 @@ namespace TankTown
                     if (pickup != null && pickup.isActiveAndEnabled && !pickup.Collected && pickup.Available && (pickup.transform.position - target).sqrMagnitude < game.Settings.magnetRadius * game.Settings.magnetRadius)
                         pickup.Attract(target, speed);
                 magnetRing.transform.localRotation = Quaternion.Euler(0, Time.time * 90, 0);
+            }
+        }
+        private static bool WarningOn(float remaining)
+            => remaining > 3 || Mathf.Repeat((3 - remaining) * 2.4f, 1) < .6f;
+
+        private void UpdateExpiryVisuals()
+        {
+            bool speedVisible = WarningOn(highSpeed);
+            magnetRing.SetActive(magnet > 0 && WarningOn(magnet));
+            shield.SetActive(highSpeed > 0 && speedVisible);
+            foreach (var trail in dashTrails)
+            {
+                trail.enabled = highSpeed <= 0 || speedVisible;
+                trail.emitting = highSpeed > 0 && !StopsForward && !game.Tank.Respawning;
+            }
+            SetVehicleFlash(bulldozer > 0 && bulldozer <= 3 && !WarningOn(bulldozer) ? 1 : 0);
+        }
+
+        private void SetVehicleFlash(float value)
+        {
+            if (vehicleFlash == value || vehicleRenderers == null) return;
+            vehicleFlash = value;
+            foreach (var renderer in vehicleRenderers)
+            {
+                if (renderer == null || renderer.gameObject == shield) continue;
+                renderer.GetPropertyBlock(expiryProperties);
+                expiryProperties.SetFloat("_ItemFlash", value);
+                renderer.SetPropertyBlock(expiryProperties);
             }
         }
         private void UpdateBeam()
@@ -294,6 +328,7 @@ namespace TankTown
         private void ResetBulldozer()
         {
             bulldozer = 0; bladeRoot.SetActive(false); hull.sharedMaterial = originalHull; game.Tank.SetVehicleScale(1, false);
+            SetVehicleFlash(0);
         }
         public void OnTankCrash()
         {
@@ -304,7 +339,8 @@ namespace TankTown
         {
             magnet = highSpeed = 0; magnetRing.SetActive(false); shield.SetActive(false);
             if (bulldozer > 0) ResetBulldozer();
-            foreach (var trail in dashTrails) { trail.emitting = false; trail.Clear(); }
+            foreach (var trail in dashTrails) { trail.enabled = true; trail.emitting = false; trail.Clear(); }
+            SetVehicleFlash(0);
         }
         public void FinishRound() { EndWeapon(false); EndMissiles(); ClearPersonalEffects(); Held = ItemKind.None; }
         private void OnDestroy() { if (energy != null) Destroy(energy); }
