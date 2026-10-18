@@ -53,13 +53,15 @@ TANK TOWN v$($info.version) / Windows 64bit
 1. ZIPを右クリックして「すべて展開」してください。
 2. TankTownフォルダ内のTankTown.exeを起動します。Unityは不要です。
 3. タイトルで街を選び、SpaceまたはEnterで開始します。
+   1: いつもの街 / 2: 大きな街 / 3: お菓子の街 / 4: 遊園地（試作）
 
 前進: 自動
 左右のハンドル: A / D、または左右矢印
 砲撃・所持しているレーザーや巨大爆弾を使用: Space / J / K
 一時停止: Esc
 詳しい操作: タイトルの「あそびかた」
-終了: ウィンドウ右上の×、またはAlt+F4
+リザルト: Spaceでもういちど / Tabで記録を見る / Escで記録を閉じる
+終了: Alt+F4（標準は全画面表示）
 
 TankTown_Data、UnityPlayer.dll、MonoBleedingEdgeなどは起動に必要です。
 exeだけ取り出さず、同梱フォルダごと保持してください。
