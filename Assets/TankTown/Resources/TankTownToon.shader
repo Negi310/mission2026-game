@@ -15,6 +15,10 @@ Shader "TankTown/Saturated Toon"
         _CameraVisibility("Camera visibility", Range(0,1)) = 1
         _DebrisVisibility("Debris visibility", Range(0,1)) = 1
         _StructuralDamage("Structural damage", Range(0,1)) = 0
+        _Coat("Clear coat and sky reflection", Range(0,1)) = .16
+        _TextureContrast("Texture contrast", Range(0,1)) = 1
+        _ItemFlash("Item expiry flash", Range(0,1)) = 0
+        [HDR] _EmissionColor("Small light emission", Color) = (0,0,0,0)
     }
     SubShader
     {
@@ -36,10 +40,17 @@ Shader "TankTown/Saturated Toon"
         half _CameraVisibility;
         half _DebrisVisibility;
         half _StructuralDamage;
+        half _Coat;
+        half _TextureContrast;
+        half _ItemFlash;
+        half4 _EmissionColor;
         CBUFFER_END
+        float4 _ToyFlashPositions[4];
+        half4 _ToyFlashColors[4];
+        int _ToyFlashCount;
         TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
-        struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-        struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; float3 surfacePosition : TEXCOORD2; float2 uv : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
+        struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; float2 uv : TEXCOORD0; half4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+        struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half3 normalWS : TEXCOORD1; float3 surfacePosition : TEXCOORD2; float2 uv : TEXCOORD3; half3 tint : TEXCOORD4; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
         Varyings Vert(Attributes input)
         {
             Varyings output = (Varyings)0;
@@ -50,6 +61,7 @@ Shader "TankTown/Saturated Toon"
             output.positionCS = TransformWorldToHClip(output.positionWS);
             output.normalWS = TransformObjectToWorldNormal(input.normalOS);
             output.uv = input.uv * _BaseMap_ST.xy + _BaseMap_ST.zw;
+            output.tint = lerp(half3(1,1,1), input.color.rgb, input.color.a);
             // Grain follows a rotating fragment, with density measured in metres.
             float3x3 objectToWorld = (float3x3)GetObjectToWorldMatrix();
             float3 scale = float3(length(mul(objectToWorld, float3(1,0,0))), length(mul(objectToWorld, float3(0,1,0))), length(mul(objectToWorld, float3(0,0,1))));
@@ -100,10 +112,10 @@ Shader "TankTown/Saturated Toon"
             CameraClip(input.positionCS.xy);
             Light light = GetMainLight(TransformWorldToShadowCoord(input.positionWS));
             half3 normal = normalize(input.normalWS);
-            half3 albedo = _BaseColor.rgb;
+            half3 albedo = _BaseColor.rgb * input.tint;
             #if defined(_CANDY_TEXTURE)
                 half3 texel = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.uv).rgb;
-                albedo *= texel;
+                albedo *= lerp(half3(.8,.8,.8), texel, _TextureContrast);
                 // Small texture relief changes the lighting, never the mesh or physics.
                 float height = dot(texel, float3(.2126, .7152, .0722));
                 float3 dx = ddx(input.positionWS), dy = ddy(input.positionWS);
@@ -118,13 +130,24 @@ Shader "TankTown/Saturated Toon"
             half3 view = GetWorldSpaceNormalizeViewDir(input.positionWS);
             AmbientOcclusionFactor ao = GetScreenSpaceAmbientOcclusion(GetNormalizedScreenSpaceUV(input.positionCS));
             // Cool fill keeps shadow detail legible; warm sunlight carries the contrast.
-            half hemisphere = lerp(.72, 1, saturate(normal.y * .5 + .5));
-            half3 ambient = color * half3(.24, .31, .41) * hemisphere * lerp(.55, 1, ao.indirectAmbientOcclusion);
-            half3 direct = color * light.color * .51 * pow(ndl, .85) * light.shadowAttenuation * ao.directAmbientOcclusion;
+            half hemisphere = lerp(.58, 1, saturate(normal.y * .5 + .5));
+            half3 ambient = color * half3(.23, .30, .43) * hemisphere * lerp(.36, 1, ao.indirectAmbientOcclusion);
+            half3 direct = color * light.color * .58 * pow(ndl, .85) * light.shadowAttenuation * ao.directAmbientOcclusion;
             half3 lit = ambient + direct;
             half highlight = pow(saturate(dot(normal, normalize(light.direction + view))), _HighlightPower) * _Gloss * light.shadowAttenuation * ao.directAmbientOcclusion;
-            half rim = pow(1 - saturate(dot(normal, view)), 4) * .025;
-            lit += half3(1, .95, .8) * highlight + color * rim;
+            half fresnel = pow(1 - saturate(dot(normal, view)), 4);
+            half3 reflected = reflect(-view, normal);
+            half3 sky = lerp(half3(.24,.21,.18), half3(.48,.76,1), saturate(reflected.y * .8 + .45));
+            lit += half3(1, .94, .77) * highlight + sky * _Coat * (.07 + fresnel * .48) * ao.indirectAmbientOcclusion;
+            // A small shared light budget adds local flash illumination without extra shadow maps.
+            [loop] for (int lamp = 0; lamp < _ToyFlashCount; lamp++)
+            {
+                float3 delta = _ToyFlashPositions[lamp].xyz - input.positionWS;
+                float d2 = dot(delta, delta);
+                half attenuation = saturate(1 - d2 / max(1, _ToyFlashPositions[lamp].w));
+                half facing = .2 + .8 * saturate(dot(normal, delta * rsqrt(max(.01, d2))));
+                lit += color * _ToyFlashColors[lamp].rgb * attenuation * attenuation * facing;
+            }
             float3 p = input.surfacePosition;
             float2 grainPoint = float2(p.x + p.z * .37, p.y + p.z * .73) * _DetailScale;
             // Smooth noise fades before it becomes subpixel; distant surfaces stay calm.
@@ -154,6 +177,9 @@ Shader "TankTown/Saturated Toon"
             // Compute fog per fragment: the ocean is one large quad, whose corner
             // fog values would otherwise wash out even water beside the player.
             half fog = ComputeFogFactor(TransformWorldToHClip(input.positionWS).z);
+            lit += _EmissionColor.rgb;
+            half3 warning = half3(1.1,.95,.42) * (.35 + .65 * ndl * light.shadowAttenuation);
+            lit = lerp(lit, warning, _ItemFlash * .8);
             return half4(MixFog(lit, fog), 1);
         }
         float3 _LightDirection;

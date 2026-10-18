@@ -4,7 +4,7 @@ using UnityEngine;
 namespace TankTown
 {
     // Shared render meshes preserve the original box colliders and part dimensions.
-    internal sealed class ToyGeometry
+    internal sealed partial class ToyGeometry
     {
         private readonly Dictionary<(Vector3, bool, float), Mesh> boxes = new Dictionary<(Vector3, bool, float), Mesh>();
         private Mesh head, shell;
@@ -110,6 +110,6 @@ namespace TankTown
 
         private static Vector3 Abs(Vector3 p) => new Vector3(Mathf.Abs(p.x), Mathf.Abs(p.y), Mathf.Abs(p.z));
         private static float[] Grid(float half, float radius) => new[] { -half, -half + radius, half - radius, half };
-        public void Dispose() { foreach (var mesh in boxes.Values) Object.Destroy(mesh); boxes.Clear(); if (head != null) Object.Destroy(head); if (shell != null) Object.Destroy(shell); }
+        public void Dispose() { foreach (var mesh in boxes.Values) Object.Destroy(mesh); boxes.Clear(); if (head != null) Object.Destroy(head); if (shell != null) Object.Destroy(shell); DisposeDetails(); }
     }
 }

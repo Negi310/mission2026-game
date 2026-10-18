@@ -49,7 +49,7 @@ namespace TankTown
         }
         internal bool TrafficShouldStop(TownTrafficCar car, Vector3 position, Vector3 heading)
             => (trafficGrid ?? (trafficGrid = new TownTrafficGrid(this))).ShouldStop(car, position, heading);
-        private Material road, cream, dark, glass, lime, grass, frame, rubber, wood, cannonPaint;
+        private Material road, cream, dark, glass, lime, grass, frame, rubber, wood, cannonPaint, lampGlow;
         private readonly Color[] palette = { new Color(1, .26f, .18f), new Color(.04f, .78f, 1), new Color(1, .68f, .04f), new Color(.62f, .27f, 1), new Color(1, .27f, .62f) };
 
         public Material MakeMaterial(Color color, ToySurface surface = ToySurface.Paint)
@@ -74,6 +74,10 @@ namespace TankTown
             material.SetFloat("_Gloss", gloss);
             material.SetFloat("_HighlightPower", sharpness);
             material.SetFloat("_Brushed", brushed);
+            material.SetFloat("_Coat", surface == ToySurface.Glass ? .9f : surface == ToySurface.Metal ? .48f : surface == ToySurface.Paint ? .24f : .025f);
+            material.SetFloat("_TextureContrast", 1);
+            material.SetFloat("_ItemFlash", 0);
+            material.SetColor("_EmissionColor", Color.clear);
             material.enableInstancing = true;
             materials.Add(material);
             return material;
@@ -110,6 +114,8 @@ namespace TankTown
             wood = MakeMaterial(new Color(.3f, .19f, .105f), ToySurface.Wood);
             cannonPaint = MakeMaterial(new Color(1, .94f, .77f));
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
+            lampGlow = MakeMaterial(new Color(1, .85f, .54f), ToySurface.Glass);
+            lampGlow.SetColor("_EmissionColor", new Color(1.8f, 1.25f, .55f));
             cannonShellMaterials = new[]
             {
                 MakeMaterial(new Color(.32f, .44f, .18f), ToySurface.Metal),
@@ -485,6 +491,7 @@ namespace TankTown
                     beams[i] = Part("Beam", middle + Vector3.up * (y + height - .25f), i % 2 == 0 ? new Vector3(levelWidth - pillar, .5f, .65f) : new Vector3(.65f, .5f, levelWidth - pillar), CandyTheme ? style == 0 || style >= 4 ? candyCream : style == 1 ? candyWafer : color : frame, BuildingPart.Beam, level, i, building);
                     float q = (levelWidth - pillar) / 4;
                     slabs[i] = Part("Floor slab", new Vector3(Mathf.Sign(corners[i].x) * q, y + height - .12f, Mathf.Sign(corners[i].z) * q), new Vector3(q * 2 - .05f, .24f, q * 2 - .05f), CandyTheme ? candyCream : level == floors - 1 ? cream : frame, BuildingPart.Slab, level, i, building);
+                    if (!CandyTheme && level == floors - 1) CityRoofEdge(slabs[i]);
                 }
                 for (int i = 0; i < 4; i++)
                 {
@@ -518,7 +525,7 @@ namespace TankTown
                         {
                             // Keep the ground-floor center clear for the main entrance.
                             if (level == 0 && i == 0 && window == -panel) continue;
-                            Box("Window", new Vector3(window * .24f, .03f, .515f), new Vector3(.32f, .55f, .025f), glass, wall.transform, false);
+                            CityWindow(wall, window);
                         }
                         if (level == 0 && i == 0 && panel == -1) AddBuildingEntrance(wall, color);
                     }
@@ -572,20 +579,14 @@ namespace TankTown
             trunk.center = Vector3.up * 1.4f;
             trunk.size = new Vector3(sign ? .3f : .45f, 2.8f, sign ? .3f : .45f);
             AddBlock(item, true);
-            Box("Post", trunk.center, trunk.size, sign ? dark : wood, item.transform, false);
             if (!sign)
             {
-                var crown = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                crown.name = "Tree crown";
-                crown.transform.SetParent(item.transform, false);
-                crown.transform.localPosition = Vector3.up * 2.65f;
-                crown.transform.localScale = new Vector3(2.8f, 2.5f, 2.8f);
-                crown.GetComponent<Renderer>().sharedMaterial = color;
-                // The visible crown joins the trunk as a compound physics collider.
+                DetailedTree(item, color);
             }
             else
             {
-                Box("Top", new Vector3(0, 2.7f, 0), label == "Street lamp" ? new Vector3(.9f, .5f, .9f) : new Vector3(1.8f, .9f, .25f), color, item.transform, true);
+                Box("Post", trunk.center, trunk.size, dark, item.transform, false);
+                Box("Top", new Vector3(0, 2.7f, 0), label == "Street lamp" ? new Vector3(.9f, .5f, .9f) : new Vector3(1.8f, .9f, .25f), label == "Street lamp" ? lampGlow : color, item.transform, true);
             }
         }
 

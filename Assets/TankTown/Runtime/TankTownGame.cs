@@ -71,6 +71,7 @@ namespace TankTown
         private bool ownedSettings, oldDebrisIgnore, oldTankIgnore, oldRewardIgnore, oldPedestrianDebrisIgnore, oldPedestrianIgnore;
         private UniversalRenderPipelineAsset toyPipeline;
         private RenderPipelineAsset previousPipeline;
+        private VolumeProfile lightingProfile;
         private static bool playAfterReload;
         private static int? seedAfterStageSelection;
         private float debrisBurstWindow;
@@ -202,6 +203,18 @@ namespace TankTown
             camera.clearFlags = CameraClearFlags.Skybox;
             camera.cullingMask &= ~((1 << TownPhysics.MapLayer) | (1 << TownTitlePreview.Layer));
             camera.backgroundColor = new Color(.5f, .86f, 1);
+            camera.allowHDR = true;
+            var cameraData = camera.GetUniversalAdditionalCameraData();
+            cameraData.renderPostProcessing = true;
+            cameraData.requiresDepthTexture = true;
+            var lighting = new GameObject("Toy light bloom", typeof(Volume)); lighting.transform.SetParent(transform, false);
+            lightingProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+            var bloom = lightingProfile.Add<Bloom>(true);
+            bloom.threshold.Override(1.2f); bloom.intensity.Override(.28f); bloom.scatter.Override(.55f); bloom.clamp.Override(6);
+            lightingProfile.Add<Tonemapping>(true).mode.Override(TonemappingMode.None);
+            lightingProfile.Add<ColorAdjustments>(true);
+            lightingProfile.Add<WhiteBalance>(true);
+            var volume = lighting.GetComponent<Volume>(); volume.isGlobal = true; volume.priority = 20; volume.sharedProfile = lightingProfile;
             CameraRig = camera.gameObject.AddComponent<TankCamera>();
             CameraRig.Offset = Settings.cameraOffset;
             CameraRig.Items = Items;
@@ -226,8 +239,8 @@ namespace TankTown
             sun.shadows = LightShadows.Soft;
             sun.color = new Color(1, .96f, .87f);
             sun.shadowStrength = 1;
-            sun.shadowBias = .04f;
-            sun.shadowNormalBias = .18f;
+            sun.shadowBias = .025f;
+            sun.shadowNormalBias = .09f;
             sun.transform.rotation = Quaternion.Euler(48, -35, 0);
         }
 
@@ -581,6 +594,11 @@ namespace TankTown
             foreach (var clip in clips) if (clip != null) Destroy(clip);
             TitlePreview?.Dispose();
             if (ownedSettings) Destroy(Settings);
+            if (lightingProfile != null)
+            {
+                foreach (var component in lightingProfile.components) if (component != null) Destroy(component);
+                Destroy(lightingProfile);
+            }
             if (toyPipeline != null)
             {
                 if (QualitySettings.renderPipeline == toyPipeline) QualitySettings.renderPipeline = previousPipeline;
