@@ -59,8 +59,9 @@ namespace TankTown
                 var root = new GameObject("Layered explosion VFX"); root.transform.SetParent(parent, false); root.SetActive(false);
                 target = root.AddComponent<FireballBurst>(); target.Build(flame, smoke, sparks); bursts.Add(target);
             }
-            if (target == null) target = bursts[nextBurst++ % bursts.Count];
-            target.Emit(point, Mathf.Clamp(radius * 2.8f, 2.8f, 86));
+            float size = Mathf.Clamp(radius * 2.8f, 2.8f, 86);
+            if (target == null) bursts[nextBurst++ % bursts.Count].FadeAndQueue(point, size);
+            else target.Emit(point, size);
         }
 
         internal void Illuminate(Vector3 point, Color tint, float range, float life)
@@ -99,7 +100,12 @@ namespace TankTown
     public sealed class FireballBurst : MonoBehaviour
     {
         private ParticleSystem fire, smoke, sparks;
+        private ParticleSystemRenderer[] renderers;
+        private MaterialPropertyBlock visibility;
         private float age;
+        private bool replacing;
+        private float replaceAge, queuedRadius;
+        private Vector3 queuedPoint;
         internal void Build(Material fireMaterial, Material smokeMaterial, Material sparkMaterial)
         {
             fire = Create("Rolling fire and flame", fireMaterial, 32);
@@ -107,6 +113,8 @@ namespace TankTown
             sparks = Create("Hot explosion sparks", sparkMaterial, 36);
             var renderer = sparks.GetComponent<ParticleSystemRenderer>(); renderer.renderMode = ParticleSystemRenderMode.Stretch;
             renderer.lengthScale = 3.2f; renderer.velocityScale = .10f;
+            renderers = new[] { fire.GetComponent<ParticleSystemRenderer>(), smoke.GetComponent<ParticleSystemRenderer>(), renderer };
+            visibility = new MaterialPropertyBlock();
         }
 
         private ParticleSystem Create(string label, Material material, int count)
@@ -127,16 +135,16 @@ namespace TankTown
 
         internal void Emit(Vector3 point, float radius)
         {
-            gameObject.SetActive(true); transform.position = point; age = 0;
-            Configure(fire, radius, .85f, 1.85f, .42f, .86f, .72f, 1.32f);
-            Configure(smoke, radius, 1.45f, 2.85f, .45f, .90f, .20f, .42f);
-            Configure(sparks, radius, .8f, 2.1f, .025f, .065f, 2.8f, 4.6f);
+            gameObject.SetActive(true); transform.position = point; age = 0; replacing = false; SetOpacity(1);
+            Configure(fire, radius, .85f, 1.65f, .42f, .86f, .72f, 1.32f);
+            Configure(smoke, radius, 2.1f, 3.05f, .45f, .90f, .20f, .42f);
+            Configure(sparks, radius, .8f, 1.6f, .025f, .065f, 2.8f, 4.6f);
             var fireMain = fire.main; fireMain.gravityModifier = -.12f;
             var smokeMain = smoke.main; smokeMain.gravityModifier = -.28f; smokeMain.startDelay = .45f;
             var sparkMain = sparks.main; sparkMain.gravityModifier = 1.4f;
             AddRoll(fire, radius * .14f, .7f); AddRoll(smoke, radius * .10f, .35f);
-            SetGradient(fire, new[] { new GradientColorKey(new Color(1, .97f, .65f), 0), new GradientColorKey(new Color(1, .75f, .08f), .42f), new GradientColorKey(new Color(1, .22f, .015f), .8f), new GradientColorKey(new Color(.45f, .06f, .01f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.95f, .62f), new GradientAlphaKey(0, 1) });
-            SetGradient(smoke, new[] { new GradientColorKey(new Color(.46f, .32f, .24f), 0), new GradientColorKey(new Color(.55f, .53f, .51f), .35f), new GradientColorKey(new Color(.76f, .75f, .72f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.42f, .16f), new GradientAlphaKey(.20f, .55f), new GradientAlphaKey(0, 1) });
+            SetGradient(fire, new[] { new GradientColorKey(new Color(1, .97f, .65f), 0), new GradientColorKey(new Color(1, .75f, .08f), .42f), new GradientColorKey(new Color(1, .22f, .015f), .8f), new GradientColorKey(new Color(.45f, .06f, .01f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.85f, .28f), new GradientAlphaKey(.28f, .65f), new GradientAlphaKey(0, 1) });
+            SetGradient(smoke, new[] { new GradientColorKey(new Color(.46f, .32f, .24f), 0), new GradientColorKey(new Color(.55f, .53f, .51f), .35f), new GradientColorKey(new Color(.76f, .75f, .72f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.52f, .16f), new GradientAlphaKey(.30f, .65f), new GradientAlphaKey(0, 1) });
             SetGradient(sparks, new[] { new GradientColorKey(new Color(1, .97f, .6f), 0), new GradientColorKey(new Color(1, .3f, .02f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) });
             var fireSize = fire.sizeOverLifetime; fireSize.enabled = true; fireSize.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, .7f), new Keyframe(.22f, 1.3f), new Keyframe(.68f, 1.2f), new Keyframe(1, .7f)));
             var smokeSize = smoke.sizeOverLifetime; smokeSize.enabled = true; smokeSize.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, .65f, 1, 2.25f));
@@ -163,7 +171,32 @@ namespace TankTown
             noise.scrollSpeed = scroll; noise.octaveCount = 1; noise.quality = ParticleSystemNoiseQuality.Low;
         }
 
-        private void Update() { age += Time.deltaTime; if (age >= TankExplosionVfx.BurstLifetime) gameObject.SetActive(false); }
+        internal void FadeAndQueue(Vector3 point, float radius)
+        {
+            queuedPoint = point; queuedRadius = radius;
+            if (!replacing) { replacing = true; replaceAge = 0; }
+        }
+
+        private void SetOpacity(float value)
+        {
+            foreach (var renderer in renderers)
+            {
+                renderer.GetPropertyBlock(visibility); visibility.SetFloat("_BurstOpacity", value); renderer.SetPropertyBlock(visibility);
+            }
+        }
+
+        private void Update()
+        {
+            age += Time.deltaTime;
+            if (replacing)
+            {
+                replaceAge += Time.deltaTime;
+                float t = Mathf.Clamp01(replaceAge / .18f);
+                SetOpacity(1 - Mathf.SmoothStep(0, 1, t));
+                if (t >= 1) Emit(queuedPoint, queuedRadius);
+            }
+            else if (age >= TankExplosionVfx.BurstLifetime) gameObject.SetActive(false);
+        }
         private void OnDisable()
         {
             if (fire != null) fire.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);

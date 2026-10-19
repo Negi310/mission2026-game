@@ -5,6 +5,7 @@ Shader "TankTown/Volume Particles"
         _MainTex("Density and volume lighting", 2D) = "white" {}
         _Fire("Emissive flame", Float) = 0
         _Emission("Intensity", Float) = 1
+        _BurstOpacity("Burst fade", Range(0,1)) = 1
     }
     SubShader
     {
@@ -20,7 +21,7 @@ Shader "TankTown/Volume Particles"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             TEXTURE2D(_MainTex); SAMPLER(sampler_MainTex);
             CBUFFER_START(UnityPerMaterial)
-            float4 _MainTex_ST; half _Fire; half _Emission;
+            float4 _MainTex_ST; half _Fire; half _Emission; half _BurstOpacity;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; half4 color : COLOR; };
             struct Varyings { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; float2 uv : TEXCOORD1; half4 color : COLOR; };
@@ -40,7 +41,7 @@ Shader "TankTown/Volume Particles"
                 half3 smoke = input.color.rgb * fill * (.48 + density.r * .7);
                 half core = density.b * density.b * saturate(input.color.g * 1.6);
                 half3 fire = lerp(input.color.rgb, half3(1,.94,.56), core * .85) * (.75 + density.g * .9) * _Emission;
-                return half4(lerp(smoke, fire, _Fire), input.color.a * density.a * soft);
+                return half4(lerp(smoke, fire, _Fire), input.color.a * density.a * soft * _BurstOpacity);
             }
             ENDHLSL
         }

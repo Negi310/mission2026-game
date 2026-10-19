@@ -65,6 +65,13 @@ namespace TankTown
             game.CameraRig.enabled = false;
             var building = game.World.Buildings.FirstOrDefault(x => x.Floors > 1 && x.Blocks.Any(b => b.Kind == BuildingPart.Wall))
                 ?? game.World.Buildings.First(x => x.Blocks.Any(b => b.Kind == BuildingPart.Wall));
+            var bounds = building.Presentation.DetailMesh.bounds;
+            Vector3 DetailView(float gap) => building.transform.TransformPoint(new Vector3(bounds.max.x + gap, bounds.center.y, bounds.center.z));
+            building.Presentation.Tick(DetailView(150));
+            if (!building.Presentation.Detailed) throw new InvalidOperationException("Building details disappeared inside the enlarged range");
+            building.Presentation.Tick(DetailView(190));
+            if (building.Presentation.Detailed) throw new InvalidOperationException("Distant building did not use its lightweight mesh");
+            building.Presentation.Tick(Camera.main.transform.position);
             Camera.main.transform.position = building.transform.position + new Vector3(-building.Width * .8f, 10, -building.Width * 1.3f);
             Camera.main.transform.LookAt(building.transform.position + Vector3.up * 6);
             yield return null; Capture("03-building");
@@ -89,6 +96,8 @@ namespace TankTown
             yield return new WaitForSeconds(1.6f); Capture("07-smoke");
             if (game.Effects.ActiveExplosionCount == 0 || !game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()))
                 throw new InvalidOperationException("Expanded explosion ended before its aftermath");
+            if (game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive() && x.name != "Rolling explosion smoke"))
+                throw new InvalidOperationException("Bright particles outlasted the smoke-only phase");
             yield return new WaitForSeconds(1.5f); Capture("08-cleared");
             if (game.Effects.ActiveExplosionCount != 0 || Shader.GetGlobalInt("_ToyFlashCount") != 0) throw new InvalidOperationException("Explosion did not clear its particles and illumination");
 
@@ -104,7 +113,7 @@ namespace TankTown
             yield return null;
             if (game.Effects.ActiveExplosionCount > TankExplosionVfx.Capacity || game.Effects.AllocatedExplosionCount > TankExplosionVfx.Capacity)
                 throw new InvalidOperationException("Explosion pool exceeded its budget");
-            yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime + .2f);
+            yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime + .4f);
             if (game.Effects.ActiveExplosionCount != 0 || Shader.GetGlobalInt("_ToyFlashCount") != 0) throw new InvalidOperationException("Burst stress did not clear");
 
             game.Settings.magnetSeconds = game.Settings.bulldozerSeconds = game.Settings.highSpeedSeconds = 4;
