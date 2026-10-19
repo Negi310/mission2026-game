@@ -84,18 +84,18 @@ namespace TankTown
             Vector3 point = game.Tank.Muzzle.position + game.Tank.Muzzle.forward * 14 + Vector3.up * .5f;
             game.Effects.Impact(point, game.Stats.BlastRadius);
             yield return new WaitForSeconds(.035f); Capture("05-flash");
-            yield return new WaitForSeconds(.28f); Capture("06-flame");
-            yield return new WaitForSeconds(.9f); Capture("07-smoke");
+            yield return new WaitForSeconds(.46f); Capture("06-flame");
+            yield return new WaitForSeconds(2.0f); Capture("07-smoke");
             if (game.Effects.ActiveExplosionCount == 0 || !game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()))
                 throw new InvalidOperationException("Expanded explosion ended before its aftermath");
-            yield return new WaitForSeconds(1.4f); Capture("08-cleared");
+            yield return new WaitForSeconds(1.5f); Capture("08-cleared");
             if (game.Effects.ActiveExplosionCount != 0 || Shader.GetGlobalInt("_ToyFlashCount") != 0) throw new InvalidOperationException("Explosion did not clear its particles and illumination");
 
             game.Effects.CarImpact(point, 10);
-            yield return new WaitForSeconds(.32f); Capture("08b-car-flame");
+            yield return new WaitForSeconds(.5f); Capture("08b-car-flame");
             yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime);
             game.Effects.SuperImpact(point + game.Tank.Muzzle.forward * 20, game.Settings.gigantBombRadius);
-            yield return new WaitForSeconds(.32f); Capture("08c-super-flame");
+            yield return new WaitForSeconds(.5f); Capture("08c-super-flame");
             yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime);
 
             // Measure VFX cleanup before invincible ramming can cause real secondary explosions.
