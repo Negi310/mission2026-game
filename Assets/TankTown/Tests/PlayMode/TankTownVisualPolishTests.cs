@@ -91,7 +91,10 @@ namespace TankTown.Tests
             Assert.That(game.Effects.GetComponentsInChildren<ParticleSystemRenderer>().All(x => x.sharedMaterial.shader.isSupported), Is.True);
             game.TogglePause(); yield return new WaitForSecondsRealtime(.2f);
             Assert.That(game.Effects.ActiveExplosionCount, Is.EqualTo(TankExplosionVfx.Capacity));
-            game.TogglePause(); yield return new WaitForSeconds(1.25f);
+            game.TogglePause(); yield return new WaitForSeconds(1.15f);
+            Assert.That(game.Effects.ActiveExplosionCount, Is.EqualTo(TankExplosionVfx.Capacity), "The larger explosion must retain its aftermath beyond the old cutoff");
+            Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.True);
+            yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime - 1.15f + .2f);
             Assert.That(game.Effects.ActiveExplosionCount, Is.Zero); Assert.That(Shader.GetGlobalInt("_ToyFlashCount"), Is.Zero);
             Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>(true).Any(x => x.IsAlive()), Is.False);
             game.Effects.SuperImpact(point, 24); yield return null;

@@ -180,7 +180,7 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator NormalAndGiantExplosionVisualsClearQuickly()
+        public IEnumerator NormalAndGiantExplosionVisualsLingerThenClearForTheNextTarget()
         {
             foreach (bool giant in new[] { false, true })
             {
@@ -190,6 +190,8 @@ namespace TankTown.Tests
                 Assert.That(game.Effects.GetComponentInChildren<FireballBurst>(), Is.Not.Null);
                 Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Length, Is.GreaterThan(0));
                 yield return new WaitForSeconds(1.2f);
+                Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.True, "Explosion aftermath must outlast the previous short effect");
+                yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime - 1.2f + .2f);
                 Assert.That(game.Effects.GetComponentInChildren<FireballBurst>() == null, Is.True);
                 Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.False, "Fire, sparks and smoke must clear for the next target");
                 Assert.That(game.Effects.GetComponentsInChildren<ArcadePulse>().Length, Is.Zero);

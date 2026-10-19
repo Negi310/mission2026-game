@@ -8,6 +8,7 @@ namespace TankTown
     internal sealed class TankExplosionVfx
     {
         internal const int Capacity = 16;
+        internal const float BurstLifetime = 2.4f;
         private readonly Transform parent;
         private readonly List<FireballBurst> bursts = new List<FireballBurst>(Capacity);
         private readonly Material flame, smoke, sparks;
@@ -59,15 +60,15 @@ namespace TankTown
                 target = root.AddComponent<FireballBurst>(); target.Build(flame, smoke, sparks); bursts.Add(target);
             }
             if (target == null) target = bursts[nextBurst++ % bursts.Count];
-            target.Emit(point, Mathf.Clamp(radius, 1, 32));
+            target.Emit(point, Mathf.Clamp(radius * 1.8f, 1.8f, 58));
         }
 
         internal void Illuminate(Vector3 point, Color tint, float range, float life)
         {
             int slot = 0;
             for (int i = 1; i < time.Length; i++) if (time[i] < time[slot]) slot = i;
-            positions[slot] = new Vector4(point.x, point.y + 1, point.z, Mathf.Pow(Mathf.Clamp(range * 2.5f, 6, 70), 2));
-            tints[slot] = tint; time[slot] = duration[slot] = Mathf.Clamp(life * 1.4f, .1f, .24f);
+            positions[slot] = new Vector4(point.x, point.y + 1, point.z, Mathf.Pow(Mathf.Clamp(range * 3.2f, 8, 100), 2));
+            tints[slot] = tint; time[slot] = duration[slot] = Mathf.Clamp(life * 1.8f, .16f, .45f);
         }
 
         internal void Tick(float dt)
@@ -127,17 +128,17 @@ namespace TankTown
         internal void Emit(Vector3 point, float radius)
         {
             gameObject.SetActive(true); transform.position = point; age = 0;
-            Configure(fire, radius, .18f, .48f, .32f, .72f, 1.3f, 2.4f);
-            Configure(smoke, radius, .44f, .84f, .38f, .78f, .28f, .60f);
-            Configure(sparks, radius, .20f, .50f, .018f, .045f, 3.0f, 5.2f);
+            Configure(fire, radius, .48f, 1.10f, .32f, .72f, .9f, 1.65f);
+            Configure(smoke, radius, .85f, 1.75f, .38f, .78f, .22f, .48f);
+            Configure(sparks, radius, .45f, 1.15f, .018f, .045f, 2.4f, 4.2f);
             var fireMain = fire.main; fireMain.gravityModifier = -.12f;
-            var smokeMain = smoke.main; smokeMain.gravityModifier = -.28f; smokeMain.startDelay = .16f;
+            var smokeMain = smoke.main; smokeMain.gravityModifier = -.28f; smokeMain.startDelay = .28f;
             var sparkMain = sparks.main; sparkMain.gravityModifier = 1.4f;
             AddRoll(fire, radius * .14f, .7f); AddRoll(smoke, radius * .10f, .35f);
-            SetGradient(fire, new[] { new GradientColorKey(new Color(1, .97f, .65f), 0), new GradientColorKey(new Color(1, .75f, .08f), .35f), new GradientColorKey(new Color(1, .22f, .015f), .7f), new GradientColorKey(new Color(.45f, .06f, .01f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.95f, .4f), new GradientAlphaKey(0, 1) });
-            SetGradient(smoke, new[] { new GradientColorKey(new Color(.46f, .32f, .24f), 0), new GradientColorKey(new Color(.55f, .53f, .51f), .35f), new GradientColorKey(new Color(.76f, .75f, .72f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.52f, .16f), new GradientAlphaKey(.25f, .55f), new GradientAlphaKey(0, 1) });
+            SetGradient(fire, new[] { new GradientColorKey(new Color(1, .97f, .65f), 0), new GradientColorKey(new Color(1, .75f, .08f), .35f), new GradientColorKey(new Color(1, .22f, .015f), .7f), new GradientColorKey(new Color(.45f, .06f, .01f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.95f, .52f), new GradientAlphaKey(0, 1) });
+            SetGradient(smoke, new[] { new GradientColorKey(new Color(.46f, .32f, .24f), 0), new GradientColorKey(new Color(.55f, .53f, .51f), .35f), new GradientColorKey(new Color(.76f, .75f, .72f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.38f, .16f), new GradientAlphaKey(.16f, .55f), new GradientAlphaKey(0, 1) });
             SetGradient(sparks, new[] { new GradientColorKey(new Color(1, .97f, .6f), 0), new GradientColorKey(new Color(1, .3f, .02f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) });
-            var fireSize = fire.sizeOverLifetime; fireSize.enabled = true; fireSize.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, .45f), new Keyframe(.24f, 1.2f), new Keyframe(1, .45f)));
+            var fireSize = fire.sizeOverLifetime; fireSize.enabled = true; fireSize.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, .65f), new Keyframe(.24f, 1.25f), new Keyframe(.6f, 1.15f), new Keyframe(1, .65f)));
             var smokeSize = smoke.sizeOverLifetime; smokeSize.enabled = true; smokeSize.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, .55f, 1, 1.9f));
             foreach (var ps in new[] { fire, smoke, sparks }) ps.Play(false);
         }
@@ -162,7 +163,7 @@ namespace TankTown
             noise.scrollSpeed = scroll; noise.octaveCount = 1; noise.quality = ParticleSystemNoiseQuality.Low;
         }
 
-        private void Update() { age += Time.deltaTime; if (age >= 1.1f) gameObject.SetActive(false); }
+        private void Update() { age += Time.deltaTime; if (age >= TankExplosionVfx.BurstLifetime) gameObject.SetActive(false); }
         private void OnDisable()
         {
             if (fire != null) fire.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
