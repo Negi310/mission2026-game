@@ -14,6 +14,7 @@ namespace TankTown
         private readonly System.Func<Mesh, Mesh> distantSilhouette;
         private Mesh mesh;
         private Mesh nearMesh;
+        private readonly Bounds detailBounds;
         private readonly MeshFilter nearFilter;
         private readonly MeshRenderer nearRenderer;
         private readonly MeshFilter distantFilter, mapFilter;
@@ -38,12 +39,13 @@ namespace TankTown
             mapFilter = overhead.GetComponent<MeshFilter>(); map = overhead.GetComponent<MeshRenderer>();
             map.shadowCastingMode = ShadowCastingMode.Off; map.receiveShadows = false;
             Rebuild(); RebuildNear(); distant.enabled = false;
+            detailBounds = nearMesh.bounds;
             UpdateOriginalRenderers();
         }
         internal void Tick(Vector3 view)
         {
-            float distance = (view - building.transform.position).sqrMagnitude;
-            bool next = distance < (detailed ? 115 * 115 : 100 * 100);
+            float distance = detailBounds.SqrDistance(building.transform.InverseTransformPoint(view));
+            bool next = distance < (detailed ? 185 * 185 : 160 * 160);
             if (!next) RefreshMapMesh();
             bool changed = nearDetached != building.DetachedParts || nearDamage != building.DamageRevision;
             if (next && changed) RebuildNear();

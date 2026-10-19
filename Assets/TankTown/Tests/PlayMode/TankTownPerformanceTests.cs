@@ -21,7 +21,7 @@ namespace TankTown.Tests
         [UnityTest] public IEnumerator FarBuildingsKeepPhysicsAndDetachedPartsAreRendered()
         {
             var building = game.World.Buildings[0]; var visual = building.Presentation;
-            Vector3 far = building.transform.position + Vector3.right * 200;
+            Vector3 far = building.transform.position + Vector3.right * 400;
             visual.Tick(far); Assert.That(visual.Detailed, Is.False);
             var wall = building.Blocks.First(x => x.Kind == BuildingPart.Wall);
             Assert.That(wall.GetComponent<Collider>().enabled, Is.True); Assert.That(wall.GetComponent<Renderer>().enabled, Is.False);
@@ -32,6 +32,17 @@ namespace TankTown.Tests
             visual.Tick(building.transform.position + Vector3.up * 5); Assert.That(visual.Detailed, Is.True);
             Assert.That(building.Blocks.Where(x => !x.Detached).All(x => !x.GetComponent<Renderer>().enabled), Is.True);
             Assert.That(building.transform.Find("Batched building mesh").GetComponent<Renderer>().enabled, Is.True);
+            yield return null;
+        }
+        [UnityTest] public IEnumerator BuildingDetailsStayVisibleFartherFromTheSurfaceAndDoNotFlickerAtTheBoundary()
+        {
+            var building = game.World.Buildings[0]; var visual = building.Presentation; var bounds = visual.DetailMesh.bounds;
+            Vector3 View(float gap) => building.transform.TransformPoint(new Vector3(bounds.max.x + gap, bounds.center.y, bounds.center.z));
+            visual.Tick(View(150)); Assert.That(visual.Detailed, Is.True, "Details must remain beyond the old 100/115m boundary");
+            visual.Tick(View(180)); Assert.That(visual.Detailed, Is.True);
+            visual.Tick(View(190)); Assert.That(visual.Detailed, Is.False);
+            visual.Tick(View(170)); Assert.That(visual.Detailed, Is.False, "Hysteresis must prevent repeated toggling at the same distance");
+            visual.Tick(View(150)); Assert.That(visual.Detailed, Is.True);
             yield return null;
         }
         [UnityTest] public IEnumerator NearBatchSeparatesCrackedAndCameraOccludingPartsAndRemovesBrokenGeometry()

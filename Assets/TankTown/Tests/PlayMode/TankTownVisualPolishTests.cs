@@ -94,12 +94,54 @@ namespace TankTown.Tests
             game.TogglePause(); yield return new WaitForSeconds(2.45f);
             Assert.That(game.Effects.ActiveExplosionCount, Is.EqualTo(TankExplosionVfx.Capacity), "The larger explosion must retain its aftermath beyond the old cutoff");
             Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.True);
-            yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime - 2.45f + .2f);
+            yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime - 2.45f + .4f);
             Assert.That(game.Effects.ActiveExplosionCount, Is.Zero); Assert.That(Shader.GetGlobalInt("_ToyFlashCount"), Is.Zero);
             Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>(true).Any(x => x.IsAlive()), Is.False);
             game.Effects.SuperImpact(point, 24); yield return null;
             Assert.That(game.Effects.AllocatedExplosionCount, Is.EqualTo(TankExplosionVfx.Capacity));
             Assert.That(game.Effects.ActiveExplosionCount, Is.EqualTo(1));
+        }
+
+        [UnityTest]
+        public IEnumerator FlashFadesWithoutShrinkingAndOnlySmokeRemainsAtTheEnd()
+        {
+            game.Effects.Impact(game.Tank.transform.position + Vector3.forward * 14, 8);
+            yield return new WaitForSeconds(.34f);
+            var flash = game.Effects.GetComponentsInChildren<ArcadePulse>().Single(x => x.name == "Impact star flash");
+            float size = flash.transform.localScale.x;
+            var properties = new MaterialPropertyBlock(); var renderer = flash.GetComponent<Renderer>();
+            renderer.GetPropertyBlock(properties); float opacity = properties.GetColor("_Color").a;
+            yield return new WaitForSeconds(.24f);
+            Assert.That(flash, Is.Not.Null);
+            Assert.That(flash.transform.localScale.x, Is.GreaterThanOrEqualTo(size * .99f), "The flash must fade at its expanded size rather than snap shut");
+            renderer.GetPropertyBlock(properties);
+            Assert.That(properties.GetColor("_Color").a, Is.InRange(0.001f, opacity * .5f));
+            yield return new WaitForSeconds(1.82f);
+            Assert.That(game.Effects.GetComponentsInChildren<ArcadePulse>(), Is.Empty);
+            var alive = game.Effects.GetComponentsInChildren<ParticleSystem>().Where(x => x.IsAlive()).ToArray();
+            Assert.That(alive, Is.Not.Empty);
+            Assert.That(alive.All(x => x.name == "Rolling explosion smoke"), Is.True, "Light, flame and sparks must finish before the smoke tail");
+        }
+
+        [UnityTest]
+        public IEnumerator FullPoolFadesLiveParticlesBeforeMovingThemToANewImpact()
+        {
+            Vector3 first = game.Tank.transform.position + Vector3.forward * 14, next = first + Vector3.right * 120;
+            for (int i = 0; i < TankExplosionVfx.Capacity; i++) game.Effects.Impact(first, 8);
+            yield return new WaitForSeconds(.3f);
+            var bursts = game.Effects.GetComponentsInChildren<FireballBurst>();
+            for (int i = 0; i < TankExplosionVfx.Capacity; i++) game.Effects.Impact(next, 8);
+            Assert.That(bursts.All(x => (x.transform.position - first).sqrMagnitude < .01f), Is.True, "Pool pressure must not instantly teleport a visible effect");
+            yield return null;
+            var renderer = bursts[0].GetComponentInChildren<ParticleSystemRenderer>();
+            var properties = new MaterialPropertyBlock(); renderer.GetPropertyBlock(properties);
+            float fading = properties.GetFloat("_BurstOpacity"); Assert.That(fading, Is.InRange(.001f, .999f));
+            game.TogglePause(); yield return new WaitForSecondsRealtime(.1f); renderer.GetPropertyBlock(properties);
+            Assert.That(properties.GetFloat("_BurstOpacity"), Is.EqualTo(fading));
+            game.TogglePause(); yield return new WaitForSeconds(.25f);
+            Assert.That(bursts.All(x => (x.transform.position - next).sqrMagnitude < .01f), Is.True);
+            Assert.That(game.Effects.AllocatedExplosionCount, Is.EqualTo(TankExplosionVfx.Capacity));
+            renderer.GetPropertyBlock(properties); Assert.That(properties.GetFloat("_BurstOpacity"), Is.EqualTo(1));
         }
 
         [UnityTest]

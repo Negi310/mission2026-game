@@ -253,9 +253,9 @@ namespace TankTown
         {
             age += Time.deltaTime;
             float t = Mathf.Clamp01(age / duration);
-            transform.localScale = Vector3.one * size * (billboard ? Mathf.Sin(t * Mathf.PI) : Mathf.Lerp(.12f, 1, t));
+            transform.localScale = Vector3.one * size * (billboard ? Mathf.SmoothStep(0, 1, t * 2) : Mathf.Lerp(.12f, 1, t));
             if (billboard && Camera.main != null) transform.rotation = Camera.main.transform.rotation;
-            properties.SetColor("_Color", new Color(color.r, color.g, color.b, 1 - t));
+            properties.SetColor("_Color", new Color(color.r, color.g, color.b, 1 - Mathf.SmoothStep(0, 1, t)));
             target.SetPropertyBlock(properties);
             if (age >= duration) Destroy(gameObject);
         }
