@@ -8,7 +8,7 @@ namespace TankTown
     internal sealed class TankExplosionVfx
     {
         internal const int Capacity = 16;
-        internal const float BurstLifetime = 2.4f;
+        internal const float BurstLifetime = 3.8f;
         private readonly Transform parent;
         private readonly List<FireballBurst> bursts = new List<FireballBurst>(Capacity);
         private readonly Material flame, smoke, sparks;
@@ -27,7 +27,7 @@ namespace TankTown
             parent = owner; sparks = sparkMaterial;
             flameTexture = CloudTexture(true); smokeTexture = CloudTexture(false);
             flame = new Material(Shader.Find("TankTown/Volume Particles")) { name = "Layered flame particles", mainTexture = flameTexture };
-            flame.SetFloat("_Fire", 1); flame.SetFloat("_Emission", 1.8f);
+            flame.SetFloat("_Fire", 1); flame.SetFloat("_Emission", 2.05f);
             smoke = new Material(Shader.Find("TankTown/Volume Particles")) { name = "Lit rolling smoke", mainTexture = smokeTexture };
             smoke.SetFloat("_Fire", 0); smoke.SetFloat("_Emission", 1);
             lightOwner = this; Shader.SetGlobalInt("_ToyFlashCount", 0);
@@ -60,15 +60,15 @@ namespace TankTown
                 target = root.AddComponent<FireballBurst>(); target.Build(flame, smoke, sparks); bursts.Add(target);
             }
             if (target == null) target = bursts[nextBurst++ % bursts.Count];
-            target.Emit(point, Mathf.Clamp(radius * 1.8f, 1.8f, 58));
+            target.Emit(point, Mathf.Clamp(radius * 2.8f, 2.8f, 86));
         }
 
         internal void Illuminate(Vector3 point, Color tint, float range, float life)
         {
             int slot = 0;
             for (int i = 1; i < time.Length; i++) if (time[i] < time[slot]) slot = i;
-            positions[slot] = new Vector4(point.x, point.y + 1, point.z, Mathf.Pow(Mathf.Clamp(range * 3.2f, 8, 100), 2));
-            tints[slot] = tint; time[slot] = duration[slot] = Mathf.Clamp(life * 1.8f, .16f, .45f);
+            positions[slot] = new Vector4(point.x, point.y + 1, point.z, Mathf.Pow(Mathf.Clamp(range * 3.8f, 10, 125), 2));
+            tints[slot] = tint; time[slot] = duration[slot] = Mathf.Clamp(life * 2.0f, .18f, .62f);
         }
 
         internal void Tick(float dt)
@@ -106,18 +106,18 @@ namespace TankTown
             smoke = Create("Rolling explosion smoke", smokeMaterial, 18);
             sparks = Create("Hot explosion sparks", sparkMaterial, 36);
             var renderer = sparks.GetComponent<ParticleSystemRenderer>(); renderer.renderMode = ParticleSystemRenderMode.Stretch;
-            renderer.lengthScale = 2.3f; renderer.velocityScale = .08f;
+            renderer.lengthScale = 3.2f; renderer.velocityScale = .10f;
         }
 
         private ParticleSystem Create(string label, Material material, int count)
         {
             var root = new GameObject(label); root.transform.SetParent(transform, false);
             var ps = root.AddComponent<ParticleSystem>(); ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            var main = ps.main; main.playOnAwake = false; main.loop = false; main.duration = .12f;
+            var main = ps.main; main.playOnAwake = false; main.loop = false; main.duration = .22f;
             main.maxParticles = count; main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.startRotation = new ParticleSystem.MinMaxCurve(-Mathf.PI, Mathf.PI);
             var emission = ps.emission; emission.rateOverTime = 0;
-            emission.SetBursts(new[] { new ParticleSystem.Burst(0, (short)(count * .7f)), new ParticleSystem.Burst(.06f, (short)(count * .3f)) });
+            emission.SetBursts(new[] { new ParticleSystem.Burst(0, (short)(count * .7f)), new ParticleSystem.Burst(.14f, (short)(count * .3f)) });
             var shape = ps.shape; shape.shapeType = ParticleSystemShapeType.Sphere;
             var renderer = ps.GetComponent<ParticleSystemRenderer>(); renderer.sharedMaterial = material;
             renderer.shadowCastingMode = ShadowCastingMode.Off; renderer.receiveShadows = false;
@@ -128,18 +128,18 @@ namespace TankTown
         internal void Emit(Vector3 point, float radius)
         {
             gameObject.SetActive(true); transform.position = point; age = 0;
-            Configure(fire, radius, .48f, 1.10f, .32f, .72f, .9f, 1.65f);
-            Configure(smoke, radius, .85f, 1.75f, .38f, .78f, .22f, .48f);
-            Configure(sparks, radius, .45f, 1.15f, .018f, .045f, 2.4f, 4.2f);
+            Configure(fire, radius, .85f, 1.85f, .42f, .86f, .72f, 1.32f);
+            Configure(smoke, radius, 1.45f, 2.85f, .45f, .90f, .20f, .42f);
+            Configure(sparks, radius, .8f, 2.1f, .025f, .065f, 2.8f, 4.6f);
             var fireMain = fire.main; fireMain.gravityModifier = -.12f;
-            var smokeMain = smoke.main; smokeMain.gravityModifier = -.28f; smokeMain.startDelay = .28f;
+            var smokeMain = smoke.main; smokeMain.gravityModifier = -.28f; smokeMain.startDelay = .45f;
             var sparkMain = sparks.main; sparkMain.gravityModifier = 1.4f;
             AddRoll(fire, radius * .14f, .7f); AddRoll(smoke, radius * .10f, .35f);
-            SetGradient(fire, new[] { new GradientColorKey(new Color(1, .97f, .65f), 0), new GradientColorKey(new Color(1, .75f, .08f), .35f), new GradientColorKey(new Color(1, .22f, .015f), .7f), new GradientColorKey(new Color(.45f, .06f, .01f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.95f, .52f), new GradientAlphaKey(0, 1) });
-            SetGradient(smoke, new[] { new GradientColorKey(new Color(.46f, .32f, .24f), 0), new GradientColorKey(new Color(.55f, .53f, .51f), .35f), new GradientColorKey(new Color(.76f, .75f, .72f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.38f, .16f), new GradientAlphaKey(.16f, .55f), new GradientAlphaKey(0, 1) });
+            SetGradient(fire, new[] { new GradientColorKey(new Color(1, .97f, .65f), 0), new GradientColorKey(new Color(1, .75f, .08f), .42f), new GradientColorKey(new Color(1, .22f, .015f), .8f), new GradientColorKey(new Color(.45f, .06f, .01f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.95f, .62f), new GradientAlphaKey(0, 1) });
+            SetGradient(smoke, new[] { new GradientColorKey(new Color(.46f, .32f, .24f), 0), new GradientColorKey(new Color(.55f, .53f, .51f), .35f), new GradientColorKey(new Color(.76f, .75f, .72f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.42f, .16f), new GradientAlphaKey(.20f, .55f), new GradientAlphaKey(0, 1) });
             SetGradient(sparks, new[] { new GradientColorKey(new Color(1, .97f, .6f), 0), new GradientColorKey(new Color(1, .3f, .02f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) });
-            var fireSize = fire.sizeOverLifetime; fireSize.enabled = true; fireSize.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, .65f), new Keyframe(.24f, 1.25f), new Keyframe(.6f, 1.15f), new Keyframe(1, .65f)));
-            var smokeSize = smoke.sizeOverLifetime; smokeSize.enabled = true; smokeSize.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, .55f, 1, 1.9f));
+            var fireSize = fire.sizeOverLifetime; fireSize.enabled = true; fireSize.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, .7f), new Keyframe(.22f, 1.3f), new Keyframe(.68f, 1.2f), new Keyframe(1, .7f)));
+            var smokeSize = smoke.sizeOverLifetime; smokeSize.enabled = true; smokeSize.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, .65f, 1, 2.25f));
             foreach (var ps in new[] { fire, smoke, sparks }) ps.Play(false);
         }
 

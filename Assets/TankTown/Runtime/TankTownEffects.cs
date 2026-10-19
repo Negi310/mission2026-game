@@ -84,28 +84,29 @@ namespace TankTown
         {
             float visualRadius = Mathf.Clamp(radius * (settings != null ? settings.explosionVisualScale : 1.55f) * .55f, 2.5f, 8);
             Fireball(position, visualRadius);
-            Shockwave(position, new Color(1, .66f, .1f), visualRadius * 3.6f, .7f);
+            Shockwave(position, new Color(1, .66f, .1f), visualRadius * 5.1f, 1.05f);
+            Shockwave(position + Vector3.up * .5f, new Color(1, .91f, .38f), visualRadius * 3.6f, .65f, Quaternion.Euler(90, 0, 0));
             if (AccentAvailable())
             {
                 var rays = new GameObject("Explosion radial rays", typeof(MeshFilter), typeof(MeshRenderer)); accents.Add(rays);
                 rays.transform.SetParent(transform); rays.transform.position = position;
                 rays.GetComponent<MeshFilter>().sharedMesh = burst; rays.GetComponent<Renderer>().sharedMaterial = glow;
-                rays.AddComponent<ArcadePulse>().Initialize(new Color(1, .94f, .48f), visualRadius * 3.0f, .36f, true);
+                rays.AddComponent<ArcadePulse>().Initialize(new Color(1, .94f, .48f), visualRadius * 4.1f, .52f, true);
             }
-            Flash(position, new Color(1, .96f, .68f), visualRadius * 1.8f, .20f);
+            Flash(position, new Color(1, .96f, .68f), visualRadius * 2.5f, .28f);
         }
         public void Collapse(Vector3 position, float width)
         {
-            Particles(position, new Color(.91f, .83f, .65f), 34, 7, 3.2f, .5f, Vector3.up, true);
-            Particles(position, new Color(1, .67f, .15f), 35, 13, .4f, .4f, Vector3.up, false, true);
-            Shockwave(position, new Color(1, .75f, .3f), width, .35f);
+            Particles(position, new Color(.91f, .83f, .65f), 34, 9, 4.6f, 1.0f, Vector3.up, true);
+            Particles(position, new Color(1, .67f, .15f), 35, 17, .5f, .7f, Vector3.up, false, true);
+            Shockwave(position, new Color(1, .75f, .3f), width * 1.3f, .6f);
         }
         public void DebrisImpact(Vector3 position, float radius)
         {
             Fireball(position, radius * .85f);
-            Particles(position, new Color(1, .66f, .08f), 48, 28, .45f, .35f, Vector3.up, false, true);
-            Shockwave(position, new Color(1, .8f, .2f), radius * 2.7f, .5f);
-            Flash(position, new Color(1, .96f, .68f), radius * 1.6f, .18f);
+            Particles(position, new Color(1, .66f, .08f), 48, 32, .6f, .7f, Vector3.up, false, true);
+            Shockwave(position, new Color(1, .8f, .2f), radius * 3.6f, .8f);
+            Flash(position, new Color(1, .96f, .68f), radius * 2.2f, .24f);
         }
         public void EnergyImpact(Vector3 position, Color color)
         {
@@ -116,9 +117,9 @@ namespace TankTown
         public void SuperImpact(Vector3 position, float radius)
         {
             Fireball(position, radius * 1.25f);
-            Shockwave(position, new Color(1, .75f, .1f), radius * 4.3f, .95f);
-            Shockwave(position + Vector3.up * 2, new Color(1, .92f, .4f), radius * 3.8f, .75f, Quaternion.Euler(90, 0, 0));
-            Flash(position, Color.white, radius * 3.1f, .22f);
+            Shockwave(position, new Color(1, .75f, .1f), radius * 5.6f, 1.25f);
+            Shockwave(position + Vector3.up * 2, new Color(1, .92f, .4f), radius * 4.8f, 1.0f, Quaternion.Euler(90, 0, 0));
+            Flash(position, Color.white, radius * 4.0f, .30f);
         }
         public void FuelImpact(Vector3 position, float radius)
         {
@@ -127,8 +128,9 @@ namespace TankTown
         public void CarImpact(Vector3 position, float radius)
         {
             Fireball(position, radius * .95f);
-            Shockwave(position, new Color(1, .72f, .12f), radius * 3.8f, .75f);
-            Flash(position, new Color(1, .96f, .6f), radius * 2.0f, .18f);
+            Shockwave(position, new Color(1, .72f, .12f), radius * 5.1f, 1.05f);
+            Shockwave(position + Vector3.up * .5f, new Color(1, .92f, .4f), radius * 3.1f, .65f, Quaternion.Euler(90, 0, 0));
+            Flash(position, new Color(1, .96f, .6f), radius * 2.8f, .26f);
         }
         public void PedestrianBonk(Vector3 position)
         {

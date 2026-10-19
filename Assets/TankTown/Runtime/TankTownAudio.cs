@@ -40,8 +40,8 @@ namespace TankTown
                 source.loop = false;
                 source.dopplerLevel = 0;
                 source.rolloffMode = AudioRolloffMode.Linear;
-                source.minDistance = 18;
-                source.maxDistance = 125;
+                source.minDistance = 24;
+                source.maxDistance = 155;
                 voices[i] = source;
             }
         }
@@ -72,16 +72,17 @@ namespace TankTown
             voice.Stop();
             voice.transform.position = point;
             voice.clip = clips[clipIndex];
-            voice.spatialBlend = kind == TownSound.Cannon ? 0 : .8f;
+            voice.spatialBlend = kind == TownSound.Cannon ? 0 : .65f;
             voice.priority = kind == TownSound.Cannon ? 32 : kind == TownSound.BigExplosion ? 48 : 128;
-            voice.pitch = 1 + (float)(variation.NextDouble() - .5) * .06f;
-            baseVolumes[selected] = kind == TownSound.Cannon ? .6f : kind == TownSound.BigExplosion ? .6f : kind == TownSound.Debris ? .16f : kind == TownSound.Chain ? .3f : .38f;
+            float pitch = kind == TownSound.BigExplosion ? .86f : kind == TownSound.Impact ? .92f : kind == TownSound.Chain ? .95f : 1;
+            voice.pitch = pitch + (float)(variation.NextDouble() - .5) * .06f;
+            baseVolumes[selected] = kind == TownSound.Cannon ? .6f : kind == TownSound.BigExplosion ? .82f : kind == TownSound.Debris ? .18f : kind == TownSound.Chain ? .42f : .58f;
             voice.volume = 0;
             voice.Play();
             BalanceVolumes();
             started[selected] = now;
             played[key]++;
-            nextAllowed[key] = now + (kind == TownSound.Debris ? .07 : kind == TownSound.Chain ? .035 : 0);
+            nextAllowed[key] = now + (kind == TownSound.Debris ? .07 : kind == TownSound.Chain ? .026 : 0);
         }
 
         private void Update() { if (game != null && game.IsPlaying && !Paused) BalanceVolumes(); }
@@ -95,7 +96,7 @@ namespace TankTown
             float total = 0;
             for (int i = 0; i < groupVolumes.Length; i++)
             {
-                float budget = i == 2 ? .5f : .6f;
+                float budget = i == 2 ? .68f : i == 1 ? .82f : .6f;
                 groupGains[i] = Mathf.Min(1, budget / Mathf.Max(.0001f, groupVolumes[i]));
                 total += groupVolumes[i] * groupGains[i];
             }
