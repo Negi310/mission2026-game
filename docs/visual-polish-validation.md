@@ -2,6 +2,8 @@
 
 2026-10-19 / [Issue #31](https://github.com/Negi310/mission2026-game/issues/31)
 
+追記：爆発の範囲と持続は[追加調整](expanded-explosion-validation.md)で拡大しました。以下の爆発時間・写真・検証結果は初回実装時の記録です。現在は基準サイズ1.8倍・最大約2.4秒です。
+
 [実画面の比較ビューアー](visual-polish-review.html)で、お菓子・大型街・遊園地、木、材質、爆発の各段階、終了予告を切り替えられます。画像はWindowsプレイヤーからのキャプチャです。
 
 ## 実装
