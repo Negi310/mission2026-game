@@ -68,7 +68,7 @@ namespace TankTown
             int slot = 0;
             for (int i = 1; i < time.Length; i++) if (time[i] < time[slot]) slot = i;
             positions[slot] = new Vector4(point.x, point.y + 1, point.z, Mathf.Pow(Mathf.Clamp(range * 3.8f, 10, 125), 2));
-            tints[slot] = tint; time[slot] = duration[slot] = Mathf.Clamp(life * 2.0f, .18f, .62f);
+            tints[slot] = tint; time[slot] = duration[slot] = Mathf.Clamp(life * 2.0f, .24f, 1.5f);
         }
 
         internal void Tick(float dt)

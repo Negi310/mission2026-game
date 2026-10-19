@@ -7,6 +7,7 @@ namespace TankTown
     public sealed class TankTownEffects : MonoBehaviour
     {
         private Material glow, smoke;
+        private const float FlashStrength = .45f, FlashPersistence = 2.4f;
         private TankExplosionVfx explosions;
         private readonly List<GameObject> accents = new List<GameObject>(64);
         private bool AccentAvailable()
@@ -91,7 +92,7 @@ namespace TankTown
                 var rays = new GameObject("Explosion radial rays", typeof(MeshFilter), typeof(MeshRenderer)); accents.Add(rays);
                 rays.transform.SetParent(transform); rays.transform.position = position;
                 rays.GetComponent<MeshFilter>().sharedMesh = burst; rays.GetComponent<Renderer>().sharedMaterial = glow;
-                rays.AddComponent<ArcadePulse>().Initialize(new Color(1, .94f, .48f), visualRadius * 4.1f, .52f, true);
+                rays.AddComponent<ArcadePulse>().Initialize(new Color(1, .94f, .48f) * FlashStrength, visualRadius * 4.1f, .52f * FlashPersistence, true);
             }
             Flash(position, new Color(1, .96f, .68f), visualRadius * 2.5f, .28f);
         }
@@ -192,6 +193,8 @@ namespace TankTown
         }
         private void Flash(Vector3 position, Color color, float size, float duration)
         {
+            color *= FlashStrength;
+            duration *= FlashPersistence;
             explosions.Illuminate(position, color, size, duration);
             if (!AccentAvailable()) return;
             var item = GameObject.CreatePrimitive(PrimitiveType.Quad);

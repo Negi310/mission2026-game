@@ -85,7 +85,8 @@ namespace TankTown
             game.Effects.Impact(point, game.Stats.BlastRadius);
             yield return new WaitForSeconds(.035f); Capture("05-flash");
             yield return new WaitForSeconds(.46f); Capture("06-flame");
-            yield return new WaitForSeconds(2.0f); Capture("07-smoke");
+            yield return new WaitForSeconds(.4f); Capture("06b-afterglow");
+            yield return new WaitForSeconds(1.6f); Capture("07-smoke");
             if (game.Effects.ActiveExplosionCount == 0 || !game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()))
                 throw new InvalidOperationException("Expanded explosion ended before its aftermath");
             yield return new WaitForSeconds(1.5f); Capture("08-cleared");
