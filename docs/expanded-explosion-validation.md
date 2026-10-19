@@ -20,13 +20,17 @@
 
 爆発は最大16組、補助演出64個、局所光4か所を維持しています。粒子の同時数や物理演算は増やしていません。
 
+## 閃光の追加調整（Issue #37）
+
+[Issue #37](https://github.com/Negi310/mission2026-game/issues/37)で、閃光と放射状の光のRGB強度を前回の45%、表示時間を2.4倍へ変更しました。周囲を照らす光も同じ比率で弱め、消滅までの上限を0.62→1.5秒に延ばしています。通常着弾の閃光は0.28→0.672秒、放射状の光は0.52→1.248秒、周囲への照明は0.56→1.344秒です。弱い光が長く引くようにし、爆炎・煙・衝撃波・音・破壊判定と、全体3.8秒の寿命は維持しています。
+
 ## 音
 
 提供済みのMP3を使い、着弾・誘爆・大爆発の基準ピッチをそれぞれ0.92・0.95・0.86に下げました。各音は±3%で変化します。基準音量は着弾0.38→0.58、誘爆0.30→0.42、大爆発0.60→0.82です。距離減衰も調整し、遠くの爆発の存在感を残します。連鎖音の間引きを35ms→26msにしました。
 
 12音の固定枠、発射・大爆発の専用枠、全体の音量合計0.9以下の制御は維持します。新しい音源や無制限の重ね再生は追加しません。
 
-## 実画面
+## 増強時の実画面（Issue #35）
 
 通常砲撃の約0.5秒後：
 
@@ -36,7 +40,7 @@
 
 ![広がって残る煙](images/tank-town-explosion-expanded-smoke.png)
 
-## 検証
+## 増強時の検証（Issue #35）
 
 Unity 6000.3.19f1の専用コピーでPlayModeの関連15件が成功しました（23.89秒）。通常・巨大爆発が2.45秒後も残り、その後に粒子・補助演出が消えること、40発同時生成の上限・一時停止・消滅・再利用、終了予告・造形、音源の読み込み・割り当て・ミックス・ポーズ・終了を確認しています。C#の変更6ファイルは検証コピーと改行正規化後一致しています。Windows x64 Development Buildも成功しています。
 
@@ -49,3 +53,11 @@ Town・CandyTown・BigCity・AmusementParkの実プレイヤー診断がすべ�
 ローカルの `Builds/TankTown-LoudExplosion/TankTown.exe` が今回のビルドです。通常の起動先 `Builds/TankTown`、`Builds/TankTown-Amusement`、`Builds/TankTown-GameplayUI` にも反映し、RuntimeアセンブリのSHA-256一致を確認しました。GitHub Release v0.1.1は変更していません。
 
 記録は作業フォルダーの `Logs/loud-explosion-tests.xml`、`loud-explosion-build.log`、`loud-explosion-*-player.log`、`loud-explosion-source-check.json`、`loud-explosion-build-hashes.json` です。長時間の手動プレイや継続FPSの測定は含みません。README・音の仕様・検証記録を更新しました。開発手順の変更はなく、AGENTS・スキルの更新は不要です。
+
+## 閃光調整の検証（Issue #37）
+
+既存のPlayMode関連11件が成功しました（19.49秒）。Windows x64 Development Build成功、Town・CandyTownの実プレイヤー診断は両方とも終了コード0です。出始めの閃光と約0.9秒後の余韻を含む36枚を撮影し、前ビルドとの比較で周囲の照明が弱まったことを確認しました。爆発の消滅・再利用、壁の分離、アイテム終了予告も通っています。変更したC# 3ファイルは検証コピーと一致しています。
+
+撮影条件は上記と同じで、固定配置・固定時間刻み、VFX確認時の交通等の非表示と演出の直接呼び出しを使います。画像加工はしていません。最新キャプチャは `Builds/TankTown-SoftFlash/Captures/Polish-{Town,CandyTown}` の `05-flash.png`・`06b-afterglow.png` などです。
+
+最新ビルドは `Builds/TankTown-SoftFlash/TankTown.exe` で、通常の3つの起動先にも反映しました。RuntimeアセンブリのSHA-256一致を確認しています。記録は `Logs/soft-flash-tests.xml`、`soft-flash-build.log`、`soft-flash-{town,candy}-player.log`、`soft-flash-source-check.json`、`soft-flash-build-hashes.json` です。音のコードとGitHub Releaseは変更していません。
