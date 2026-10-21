@@ -8,6 +8,7 @@ namespace TankTown
     public sealed partial class TankTownWorld : MonoBehaviour
     {
         public Material ShotMaterial { get; private set; }
+        internal Material TankPaint => lime;
         public UpgradeIcons Icons { get; private set; }
         public ItemIcons SpecialIcons { get; private set; }
         public float HalfExtent { get; private set; }
@@ -50,6 +51,11 @@ namespace TankTown
         internal bool TrafficShouldStop(TownTrafficCar car, Vector3 position, Vector3 heading)
             => (trafficGrid ?? (trafficGrid = new TownTrafficGrid(this))).ShouldStop(car, position, heading);
         private Material road, cream, dark, glass, lime, grass, frame, rubber, wood, cannonPaint, lampGlow;
+        // Blender street furniture and building trim for the ordinary city stages; null keeps the box versions.
+        private TownModelKit cityKit;
+        private readonly Dictionary<string, Material> kitPaints = new Dictionary<string, Material>();
+        internal TownModelKit CityKit => cityKit;
+        internal Dictionary<string, Material> KitPaints(string key, Material paint) { kitPaints.Clear(); kitPaints[key] = paint; return kitPaints; }
         private readonly Color[] palette = { new Color(1, .26f, .18f), new Color(.04f, .78f, 1), new Color(1, .68f, .04f), new Color(.62f, .27f, 1), new Color(1, .27f, .62f) };
 
         public Material MakeMaterial(Color color, ToySurface surface = ToySurface.Paint)
@@ -116,6 +122,14 @@ namespace TankTown
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
             lampGlow = MakeMaterial(new Color(1, .85f, .54f), ToySurface.Glass);
             lampGlow.SetColor("_EmissionColor", new Color(1.8f, 1.25f, .55f));
+            if (game.Settings.importedCityModels && !CandyTheme && !AmusementTheme)
+                cityKit = TownModelKit.Load(new Dictionary<string, Material>
+                {
+                    ["CityGlass"] = glass, ["CityFrame"] = frame, ["CityCream"] = cream, ["CityDark"] = dark,
+                    ["CityPaint"] = frame, ["CityLamp"] = lampGlow, ["CityYellow"] = ShotMaterial, ["CityWood"] = wood,
+                    ["CityLeaf"] = grass, ["CityGreen"] = grass, ["CityRed"] = ShotMaterial, ["CityWhite"] = cream,
+                    ["CityRock"] = wood, ["CityLime"] = lime
+                });
             cannonShellMaterials = new[]
             {
                 MakeMaterial(new Color(.32f, .44f, .18f), ToySurface.Metal),
@@ -162,6 +176,7 @@ namespace TankTown
                     CreateProp(center + new Vector3(-sidewalk, 0, sidewalk), "Street lamp", cream, true);
                     var crate = Box("Crushable crate", GroundPoint(center + new Vector3(sidewalk, 0, -sidewalk), .6f), Vector3.one * 1.2f, lime);
                     AddBlock(crate, true);
+                    KitModel(crate, "Crate");
                     var pickupPosition = new Vector3(x * spacing, 1.2f, (z + .2f + (float)random.NextDouble() * .6f) * spacing);
                     CreatePickup(pickupPosition, (UpgradeKind)random.Next(4));
                     CreatePickup(new Vector3((x + .2f + (float)random.NextDouble() * .6f) * spacing, 1.2f, z * spacing), (UpgradeKind)random.Next(4));
@@ -178,9 +193,10 @@ namespace TankTown
             var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
             proxyCube = Instantiate(source.GetComponent<MeshFilter>().sharedMesh); proxyCube.name = "Proxy cube";
             source.SetActive(false); Destroy(source);
-            var distantCandy = CandyTheme ? new System.Func<Mesh, Mesh>(candyGeometry.DistantSilhouette) : null;
-            if (AmusementTheme) distantCandy = amusementGeometry.DistantSilhouette;
-            foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube, distantCandy);
+            var distantShape = CandyTheme ? new System.Func<Mesh, Mesh>(candyGeometry.DistantSilhouette) : null;
+            if (AmusementTheme) distantShape = amusementGeometry.DistantSilhouette;
+            if (cityKit != null) distantShape = cityKit.DistantShape;
+            foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube, distantShape);
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
                 if (renderer.gameObject.name != "Town paving" && renderer.gameObject.name != "North south ramp avenue" && renderer.gameObject.name != "East west ramp avenue") continue;
@@ -267,7 +283,9 @@ namespace TankTown
         {
             var pole = new GameObject("Crushable power pole"); pole.transform.SetParent(transform); pole.transform.position = point;
             var post = pole.AddComponent<BoxCollider>(); post.center = Vector3.up * 3.2f; post.size = new Vector3(.45f, 6.4f, .45f);
-            AddBlock(pole, true); Box("Power pole post", post.center, post.size, cream, pole.transform, false);
+            AddBlock(pole, true);
+            if (cityKit != null) { cityKit.Attach(pole.transform, "Power pole"); return pole.GetComponent<DestructibleBlock>(); }
+            Box("Power pole post", post.center, post.size, cream, pole.transform, false);
             Box("Power cross arm", new Vector3(0, 5.7f, 0), new Vector3(2.8f, .3f, .3f), dark, pole.transform, false);
             for (int i = -1; i <= 1; i++) Box("Insulator", new Vector3(i * 1.1f, 6, 0), new Vector3(.35f, .5f, .35f), glass, pole.transform, false);
             return pole.GetComponent<DestructibleBlock>();
@@ -370,16 +388,21 @@ namespace TankTown
             var fountainCollider = fountain.AddComponent<MeshCollider>();
             fountainCollider.sharedMesh = fountain.GetComponent<MeshFilter>().sharedMesh; fountainCollider.convex = true;
             AddBlock(fountain, true);
-            var water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            water.name = "Fountain water"; water.transform.SetParent(fountain.transform, false);
-            water.transform.localPosition = Vector3.up * 1.03f; water.transform.localScale = new Vector3(.78f, .04f, .78f);
-            water.GetComponent<Collider>().enabled = false; Destroy(water.GetComponent<Collider>());
-            water.GetComponent<Renderer>().sharedMaterial = glass;
+            // The low convex cylinder stays the collision shape; the model sits on the ground 0.5m below its centre.
+            if (!KitModel(fountain, "Fountain", new Vector3(0, -.5f, 0)))
+            {
+                var water = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                water.name = "Fountain water"; water.transform.SetParent(fountain.transform, false);
+                water.transform.localPosition = Vector3.up * 1.03f; water.transform.localScale = new Vector3(.78f, .04f, .78f);
+                water.GetComponent<Collider>().enabled = false; Destroy(water.GetComponent<Collider>());
+                water.GetComponent<Renderer>().sharedMaterial = glass;
+            }
             for (int i = 0; i < 4; i++)
             {
                 var direction = Quaternion.Euler(0, i * 90, 0) * Vector3.forward;
                 var bench = Box("Crushable bench", GroundPoint(center + direction * 7, .45f), new Vector3(2.6f, .9f, .8f), ShotMaterial);
-                bench.transform.rotation = Quaternion.Euler(0, i * 90, 0); AddBlock(bench, true);
+                // The backrest faces away from the fountain, so people sit looking at it.
+                bench.transform.rotation = Quaternion.Euler(0, i * 90, 0); AddBlock(bench, true); KitModel(bench, "Bench");
                 CreateProp(center + Quaternion.Euler(0, i * 90 + 45, 0) * Vector3.forward * 8, "Tree", grass, false);
             }
         }
@@ -424,16 +447,21 @@ namespace TankTown
                 root.transform.SetParent(transform); root.transform.position = point;
                 var collider = root.AddComponent<BoxCollider>();
                 collider.size = tank ? new Vector3(2.2f, 2.2f, 2.8f) : new Vector3(1.3f, 1.9f, 1.3f);
-                var shape = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                shape.transform.SetParent(root.transform, false);
-                shape.transform.localScale = tank ? new Vector3(2.1f, 1.4f, 2.1f) : new Vector3(1.3f, .95f, 1.3f);
-                if (tank) shape.transform.localRotation = Quaternion.Euler(90, 0, 0);
-                shape.GetComponent<Renderer>().sharedMaterial = red;
-                shape.GetComponent<Collider>().enabled = false; Destroy(shape.GetComponent<Collider>());
-                foreach (float y in new[] { -.48f, .48f })
-                    Box("Warning band", new Vector3(0, y, -.68f), new Vector3(tank ? 1.7f : 1.32f, .22f, .12f), ShotMaterial, root.transform, false);
-                Box("Warning mark", new Vector3(0, 0, -.72f), new Vector3(.2f, .5f, .12f), cream, root.transform, false);
-                Box("Warning dot", new Vector3(0, -.36f, -.72f), new Vector3(.2f, .14f, .12f), cream, root.transform, false);
+                // The red body is the first renderer, which ChainExplosive tints while primed.
+                if (cityKit != null) cityKit.Attach(root.transform, tank ? "Fuel tank" : "Red barrel", KitPaints("CityRed", red));
+                else
+                {
+                    var shape = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                    shape.transform.SetParent(root.transform, false);
+                    shape.transform.localScale = tank ? new Vector3(2.1f, 1.4f, 2.1f) : new Vector3(1.3f, .95f, 1.3f);
+                    if (tank) shape.transform.localRotation = Quaternion.Euler(90, 0, 0);
+                    shape.GetComponent<Renderer>().sharedMaterial = red;
+                    shape.GetComponent<Collider>().enabled = false; Destroy(shape.GetComponent<Collider>());
+                    foreach (float y in new[] { -.48f, .48f })
+                        Box("Warning band", new Vector3(0, y, -.68f), new Vector3(tank ? 1.7f : 1.32f, .22f, .12f), ShotMaterial, root.transform, false);
+                    Box("Warning mark", new Vector3(0, 0, -.72f), new Vector3(.2f, .5f, .12f), cream, root.transform, false);
+                    Box("Warning dot", new Vector3(0, -.36f, -.72f), new Vector3(.2f, .14f, .12f), cream, root.transform, false);
+                }
                 AddBlock(root, true);
                 var explosive = root.AddComponent<ChainExplosive>();
                 explosive.Initialize(game, tank ? game.Settings.fuelExplosionRadius : 8.5f, tank);
@@ -528,6 +556,7 @@ namespace TankTown
                             CityWindow(wall, window);
                         }
                         if (level == 0 && i == 0 && panel == -1) AddBuildingEntrance(wall, color);
+                        if (cityKit != null && style == 1 && level > 0 && i % 2 == 0) CityBalcony(wall, color);
                     }
                 }
                 previous = pillars;
@@ -540,6 +569,7 @@ namespace TankTown
                     var roof = Part("Shop gable roof", new Vector3(0, floors * height + .65f, side * width / 4), new Vector3(width + .3f, .3f, width * .54f), CandyTheme ? candyWafer : color, BuildingPart.Prop, floors - 1, -1, building);
                     roof.transform.localRotation = Quaternion.Euler(side * 15, 0, 0);
                     if (CandyTheme) DecorateBiscuitRoof(roof, color);
+                    cityKit?.Attach(roof.transform, "Shop roof tiles", Vector3.zero, new Vector3((width + .3f) / 17.9f, 1, width * .54f / 9.5f));
                     foreach (var post in previous) BlockBuilding.Connect(roof, post);
                 }
             }
@@ -550,6 +580,9 @@ namespace TankTown
                 float topperWidth = roofWidth * (CandyTheme ? style == 0 ? 1.02f : .72f : .3f);
                 var roof = Part(CandyTheme ? "Candy roof topper" : style == 0 ? "Tower crown" : "Roof utility", new Vector3(0, floors * height + roofHeight / 2), new Vector3(topperWidth, roofHeight, topperWidth), CandyTheme ? candyCream : style == 0 ? color : dark, BuildingPart.Prop, floors - 1, -1, building);
                 if (CandyTheme) DecorateCandyRoof(roof, style, color, roofWidth);
+                // Kit sizes: tower crown 4.32×3×4.32, rooftop plant base 6×1.2×6.
+                if (style == 0) cityKit?.Attach(roof.transform, "Tower crown trim", Vector3.zero, new Vector3(topperWidth / 4.32f, roofHeight / 3, topperWidth / 4.32f), KitPaints("CityPaint", color));
+                else cityKit?.Attach(roof.transform, "Roof utility top", Vector3.zero, new Vector3(topperWidth / 6, roofHeight / 1.2f, topperWidth / 6));
                 foreach (var post in previous) BlockBuilding.Connect(roof, post);
             }
             CreateBuildingReward(building);
@@ -583,11 +616,27 @@ namespace TankTown
             {
                 DetailedTree(item, color);
             }
+            else if (cityKit != null)
+            {
+                cityKit.Attach(item.transform, label == "Street lamp" ? "Street lamp" : "Street sign", KitPaints("CityYellow", color));
+                var top = item.AddComponent<BoxCollider>();
+                top.center = new Vector3(0, 2.7f, 0);
+                top.size = label == "Street lamp" ? new Vector3(.9f, .5f, .9f) : new Vector3(1.8f, .9f, .25f);
+            }
             else
             {
                 Box("Post", trunk.center, trunk.size, dark, item.transform, false);
                 Box("Top", new Vector3(0, 2.7f, 0), label == "Street lamp" ? new Vector3(.9f, .5f, .9f) : new Vector3(1.8f, .9f, .25f), label == "Street lamp" ? lampGlow : color, item.transform, true);
             }
+        }
+
+        // Replaces a box prop's own drawing with a kit model; its collider and destruction stay unchanged.
+        private bool KitModel(GameObject item, string piece, Vector3 anchor = default)
+        {
+            if (cityKit == null || !cityKit.Has(piece)) return false;
+            Destroy(item.GetComponent<MeshRenderer>());
+            cityKit.Attach(item.transform, piece, anchor, Vector3.one);
+            return true;
         }
 
         internal Mesh FragmentBoxMesh(Vector3 size, bool chocolateBacking = false)
@@ -613,8 +662,47 @@ namespace TankTown
             tank.transform.position = SpawnPosition;
             var collider = tank.AddComponent<BoxCollider>();
             collider.size = new Vector3(2.6f, 1.6f, 3.4f);
+            var visual = (game.Settings.importedTankModel ? ModelTankVisual(tank.transform) : null) ?? BoxTankVisual(tank.transform);
+            var turret = visual.Find("Turret pivot");
+            var cannon = turret.Find("Fixed cannon pivot");
+            cannon.localRotation = Quaternion.Euler(-game.Settings.cannonElevation, 0, 0);
+            var motor = tank.AddComponent<TankMotor>();
+            motor.Visual = visual;
+            motor.Turret = turret;
+            motor.Muzzle = cannon.Find("Shot origin");
+            motor.Initialize(game);
+            return motor;
+        }
+
+        // The Blender model (scripts/blender/models/player_tank.py) keeps the box tank's names and pivots.
+        // Its imported materials are only placeholders, swapped by name for the shared toy materials.
+        private Transform ModelTankVisual(Transform tank)
+        {
+            var model = Resources.Load<GameObject>("Models/PlayerTank");
+            if (model == null) { Debug.LogWarning("Models/PlayerTank is missing; using the box tank."); return null; }
+            var visual = Instantiate(model, tank, false).transform;
+            visual.name = "Tank visual";
+            visual.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            visual.localScale = Vector3.one;
+            var paints = new Dictionary<string, Material>
+            {
+                ["TankLime"] = lime, ["TankCream"] = cannonPaint, ["TankDark"] = dark,
+                ["TankRubber"] = rubber, ["TankReflector"] = ShotMaterial, ["TankLamp"] = lampGlow
+            };
+            foreach (var renderer in visual.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                var slots = renderer.sharedMaterials;
+                for (int i = 0; i < slots.Length; i++)
+                    slots[i] = slots[i] != null && paints.TryGetValue(slots[i].name, out var paint) ? paint : lime;
+                renderer.sharedMaterials = slots;
+            }
+            return visual;
+        }
+
+        private Transform BoxTankVisual(Transform tank)
+        {
             var visual = new GameObject("Tank visual").transform;
-            visual.SetParent(tank.transform, false);
+            visual.SetParent(tank, false);
             Box("Hull", Vector3.zero, new Vector3(2.4f, .85f, 3.1f), lime, visual, false);
             Box("Upper hull", new Vector3(0, .48f, -.18f), new Vector3(1.95f, .35f, 2.35f), lime, visual, false);
             Box("Rear engine deck", new Vector3(0, .48f, -1.15f), new Vector3(1.55f, .16f, .52f), lime, visual, false);
@@ -627,7 +715,6 @@ namespace TankTown
             var cannon = new GameObject("Fixed cannon pivot").transform;
             cannon.SetParent(turret, false);
             cannon.localPosition = new Vector3(0, .04f, .55f);
-            cannon.localRotation = Quaternion.Euler(-game.Settings.cannonElevation, 0, 0);
             Box("Fixed cannon", new Vector3(0, 0, 1.25f), new Vector3(.4f, .4f, 2.5f), cannonPaint, cannon, false);
             Box("Muzzle", new Vector3(0, 0, 2.48f), new Vector3(.6f, .6f, .3f), dark, cannon, false);
             foreach (int side in new[] { -1, 1 })
@@ -645,18 +732,14 @@ namespace TankTown
             var muzzle = new GameObject("Shot origin").transform;
             muzzle.SetParent(cannon, false);
             muzzle.localPosition = new Vector3(0, 0, 2.8f);
-            var motor = tank.AddComponent<TankMotor>();
-            motor.Visual = visual;
-            motor.Turret = turret;
-            motor.Muzzle = muzzle;
-            motor.Initialize(game);
-            return motor;
+            return visual;
         }
 
         private void OnDestroy()
         {
             foreach (var building in Buildings) building.Presentation?.Dispose();
             if (proxyCube != null) Destroy(proxyCube);
+            cityKit?.Dispose();
             foreach (var mesh in vehicleMeshes) if (mesh != null) Destroy(mesh);
             Terrain?.Dispose();
             geometry.Dispose();

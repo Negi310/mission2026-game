@@ -48,7 +48,7 @@ namespace TankTown
         private GigantBomb bomb;
         private Material energy, yellow;
         private Renderer hull;
-        private Material originalHull;
+        private Material[] hullPaint, bulldozerPaint;
         private MeshRenderer[] vehicleRenderers;
         private MaterialPropertyBlock expiryProperties;
         private float vehicleFlash = -1;
@@ -62,7 +62,10 @@ namespace TankTown
             energy = new Material(Shader.Find("TankTown/Item Energy"));
             energy.SetColor("_Color", Color.white);
             yellow = game.World.MakeMaterial(new Color(1, .72f, .025f));
-            hull = game.Tank.Visual.Find("Hull").GetComponent<Renderer>(); originalHull = hull.sharedMaterial;
+            hull = game.Tank.Visual.Find("Hull").GetComponent<Renderer>(); hullPaint = hull.sharedMaterials;
+            // Only the body paint turns yellow; lights, reflectors and dark details keep their materials.
+            bulldozerPaint = new Material[hullPaint.Length];
+            for (int i = 0; i < hullPaint.Length; i++) bulldozerPaint[i] = hullPaint[i] == game.World.TankPaint ? yellow : hullPaint[i];
             bladeRoot = new GameObject("Bulldozer blade and cabin");
             bladeRoot.transform.SetParent(game.Tank.Visual, false);
             game.World.Box("Wide bulldozer blade", new Vector3(0, -.03f, 1.8f), new Vector3(3.6f, 1.55f, .5f), yellow, bladeRoot.transform, false);
@@ -122,7 +125,7 @@ namespace TankTown
             if (kind == ItemKind.Magnet) { magnet = Duration(kind); magnetRing.SetActive(true); }
             if (kind == ItemKind.Bulldozer)
             {
-                bulldozer = Duration(kind); bladeRoot.SetActive(true); hull.sharedMaterial = yellow;
+                bulldozer = Duration(kind); bladeRoot.SetActive(true); hull.sharedMaterials = bulldozerPaint;
                 game.Tank.SetVehicleScale(game.Settings.bulldozerScale, true);
             }
             if (kind == ItemKind.HighSpeed)
@@ -327,7 +330,7 @@ namespace TankTown
         }
         private void ResetBulldozer()
         {
-            bulldozer = 0; bladeRoot.SetActive(false); hull.sharedMaterial = originalHull; game.Tank.SetVehicleScale(1, false);
+            bulldozer = 0; bladeRoot.SetActive(false); hull.sharedMaterials = hullPaint; game.Tank.SetVehicleScale(1, false);
             SetVehicleFlash(0);
         }
         public void OnTankCrash()

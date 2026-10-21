@@ -8,7 +8,8 @@ namespace TankTown
     internal sealed class TankExplosionVfx
     {
         internal const int Capacity = 16;
-        internal const float BurstLifetime = 3.8f;
+        // Fire and sparks end by about 1s and the smoke by about 1.9s, so the next target is visible quickly.
+        internal const float BurstLifetime = 2.0f;
         private readonly Transform parent;
         private readonly List<FireballBurst> bursts = new List<FireballBurst>(Capacity);
         private readonly Material flame, smoke, sparks;
@@ -136,15 +137,15 @@ namespace TankTown
         internal void Emit(Vector3 point, float radius)
         {
             gameObject.SetActive(true); transform.position = point; age = 0; replacing = false; SetOpacity(1);
-            Configure(fire, radius, .85f, 1.65f, .42f, .86f, .72f, 1.32f);
-            Configure(smoke, radius, 2.1f, 3.05f, .45f, .90f, .20f, .42f);
-            Configure(sparks, radius, .8f, 1.6f, .025f, .065f, 2.8f, 4.6f);
+            Configure(fire, radius, .5f, 1.0f, .42f, .86f, .72f, 1.32f);
+            Configure(smoke, radius, .9f, 1.5f, .45f, .90f, .20f, .42f);
+            Configure(sparks, radius, .45f, .9f, .025f, .065f, 2.8f, 4.6f);
             var fireMain = fire.main; fireMain.gravityModifier = -.12f;
-            var smokeMain = smoke.main; smokeMain.gravityModifier = -.28f; smokeMain.startDelay = .45f;
+            var smokeMain = smoke.main; smokeMain.gravityModifier = -.28f; smokeMain.startDelay = .25f;
             var sparkMain = sparks.main; sparkMain.gravityModifier = 1.4f;
             AddRoll(fire, radius * .14f, .7f); AddRoll(smoke, radius * .10f, .35f);
             SetGradient(fire, new[] { new GradientColorKey(new Color(1, .97f, .65f), 0), new GradientColorKey(new Color(1, .75f, .08f), .42f), new GradientColorKey(new Color(1, .22f, .015f), .8f), new GradientColorKey(new Color(.45f, .06f, .01f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(.85f, .28f), new GradientAlphaKey(.28f, .65f), new GradientAlphaKey(0, 1) });
-            SetGradient(smoke, new[] { new GradientColorKey(new Color(.46f, .32f, .24f), 0), new GradientColorKey(new Color(.55f, .53f, .51f), .35f), new GradientColorKey(new Color(.76f, .75f, .72f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.52f, .16f), new GradientAlphaKey(.30f, .65f), new GradientAlphaKey(0, 1) });
+            SetGradient(smoke, new[] { new GradientColorKey(new Color(.46f, .32f, .24f), 0), new GradientColorKey(new Color(.55f, .53f, .51f), .35f), new GradientColorKey(new Color(.76f, .75f, .72f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(.44f, .16f), new GradientAlphaKey(.22f, .6f), new GradientAlphaKey(0, 1) });
             SetGradient(sparks, new[] { new GradientColorKey(new Color(1, .97f, .6f), 0), new GradientColorKey(new Color(1, .3f, .02f), 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) });
             var fireSize = fire.sizeOverLifetime; fireSize.enabled = true; fireSize.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, .7f), new Keyframe(.22f, 1.3f), new Keyframe(.68f, 1.2f), new Keyframe(1, .7f)));
             var smokeSize = smoke.sizeOverLifetime; smokeSize.enabled = true; smokeSize.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.Linear(0, .65f, 1, 2.25f));

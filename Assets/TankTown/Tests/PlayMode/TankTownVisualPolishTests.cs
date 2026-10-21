@@ -91,10 +91,10 @@ namespace TankTown.Tests
             Assert.That(game.Effects.GetComponentsInChildren<ParticleSystemRenderer>().All(x => x.sharedMaterial.shader.isSupported), Is.True);
             game.TogglePause(); yield return new WaitForSecondsRealtime(.2f);
             Assert.That(game.Effects.ActiveExplosionCount, Is.EqualTo(TankExplosionVfx.Capacity));
-            game.TogglePause(); yield return new WaitForSeconds(2.45f);
-            Assert.That(game.Effects.ActiveExplosionCount, Is.EqualTo(TankExplosionVfx.Capacity), "The larger explosion must retain its aftermath beyond the old cutoff");
+            game.TogglePause(); yield return new WaitForSeconds(1.1f);
+            Assert.That(game.Effects.ActiveExplosionCount, Is.EqualTo(TankExplosionVfx.Capacity), "Each burst keeps its brief smoke aftermath");
             Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.True);
-            yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime - 2.45f + .4f);
+            yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime - 1.1f + .4f);
             Assert.That(game.Effects.ActiveExplosionCount, Is.Zero); Assert.That(Shader.GetGlobalInt("_ToyFlashCount"), Is.Zero);
             Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>(true).Any(x => x.IsAlive()), Is.False);
             game.Effects.SuperImpact(point, 24); yield return null;
@@ -106,17 +106,18 @@ namespace TankTown.Tests
         public IEnumerator FlashFadesWithoutShrinkingAndOnlySmokeRemainsAtTheEnd()
         {
             game.Effects.Impact(game.Tank.transform.position + Vector3.forward * 14, 8);
-            yield return new WaitForSeconds(.34f);
+            // The impact flash lasts about 0.39s: sample it at half and at 86% of its life.
+            yield return new WaitForSeconds(.2f);
             var flash = game.Effects.GetComponentsInChildren<ArcadePulse>().Single(x => x.name == "Impact star flash");
             float size = flash.transform.localScale.x;
             var properties = new MaterialPropertyBlock(); var renderer = flash.GetComponent<Renderer>();
             renderer.GetPropertyBlock(properties); float opacity = properties.GetColor("_Color").a;
-            yield return new WaitForSeconds(.24f);
+            yield return new WaitForSeconds(.14f);
             Assert.That(flash, Is.Not.Null);
             Assert.That(flash.transform.localScale.x, Is.GreaterThanOrEqualTo(size * .99f), "The flash must fade at its expanded size rather than snap shut");
             renderer.GetPropertyBlock(properties);
             Assert.That(properties.GetColor("_Color").a, Is.InRange(0.001f, opacity * .5f));
-            yield return new WaitForSeconds(1.82f);
+            yield return new WaitForSeconds(1.06f);
             Assert.That(game.Effects.GetComponentsInChildren<ArcadePulse>(), Is.Empty);
             var alive = game.Effects.GetComponentsInChildren<ParticleSystem>().Where(x => x.IsAlive()).ToArray();
             Assert.That(alive, Is.Not.Empty);

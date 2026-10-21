@@ -27,6 +27,7 @@ namespace TankTown
             var green = world.MakeMaterial(new Color(.15f, .73f, .48f), ToySurface.Organic);
             world.Box("Ocean horizon", new Vector3(0, -3.8f, 0), new Vector3(4000, .12f, 4000), sea, solid: false);
             float edge = world.HalfExtent;
+            var railPaints = new Dictionary<string, Material> { ["CityWhite"] = white, ["CityRock"] = rock };
             foreach (bool vertical in new[] { false, true }) foreach (int side in new[] { -1, 1 })
             {
                 var origin = vertical ? new Vector2(side < 0 ? -edge : edge - 5, -edge) : new Vector2(-edge, side < 0 ? -edge : edge - 5);
@@ -37,8 +38,12 @@ namespace TankTown
                     var rail = new GameObject("Crushable coastal guardrail"); rail.transform.SetParent(world.transform); rail.transform.position = world.GroundPoint(point, .6f);
                     if (vertical) rail.transform.rotation = Quaternion.Euler(0, 90, 0);
                     rail.AddComponent<BoxCollider>().size = new Vector3(7.7f, 1.2f, .4f);
-                    world.Box("Coastal rail", Vector3.up * .25f, new Vector3(7.7f, .36f, .28f), white, rail.transform, false);
-                    foreach (int end in new[] { -1, 1 }) world.Box("Rail post", new Vector3(end * 3.4f, -.05f, 0), new Vector3(.24f, 1.1f, .24f), rock, rail.transform, false);
+                    if (world.CityKit != null) world.CityKit.Attach(rail.transform, "Guardrail", railPaints);
+                    else
+                    {
+                        world.Box("Coastal rail", Vector3.up * .25f, new Vector3(7.7f, .36f, .28f), white, rail.transform, false);
+                        foreach (int end in new[] { -1, 1 }) world.Box("Rail post", new Vector3(end * 3.4f, -.05f, 0), new Vector3(.24f, 1.1f, .24f), rock, rail.transform, false);
+                    }
                     var block = rail.AddComponent<DestructibleBlock>(); block.CanCrush = true; block.Kind = BuildingPart.Prop; block.Initialize(game);
                 }
             }

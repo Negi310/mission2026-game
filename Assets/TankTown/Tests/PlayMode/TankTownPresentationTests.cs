@@ -189,9 +189,10 @@ namespace TankTown.Tests
                 else game.Effects.Impact(point, game.Stats.BlastRadius);
                 Assert.That(game.Effects.GetComponentInChildren<FireballBurst>(), Is.Not.Null);
                 Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Length, Is.GreaterThan(0));
-                yield return new WaitForSeconds(2.45f);
-                Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.True, "Explosion aftermath must outlast the previous short effect");
-                yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime - 2.45f + .2f);
+                yield return new WaitForSeconds(1.1f);
+                Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.True, "Thin smoke must remain briefly after the fire");
+                // Everything clears about two seconds after the blast, so the next target is easy to see.
+                yield return new WaitForSeconds(TankExplosionVfx.BurstLifetime - 1.1f + .2f);
                 Assert.That(game.Effects.GetComponentInChildren<FireballBurst>() == null, Is.True);
                 Assert.That(game.Effects.GetComponentsInChildren<ParticleSystem>().Any(x => x.IsAlive()), Is.False, "Fire, sparks and smoke must clear for the next target");
                 Assert.That(game.Effects.GetComponentsInChildren<ArcadePulse>().Length, Is.Zero);
