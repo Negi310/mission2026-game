@@ -11,8 +11,6 @@ import sys
 import bpy
 from mathutils import Vector
 
-sys.dont_write_bytecode = True
-
 
 def log(message):
     print(f"[bkit] {message}", flush=True)

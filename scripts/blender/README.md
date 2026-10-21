@@ -6,8 +6,10 @@ GUIを開かずに、Unity向けFBX・`.blend`・確認用PNGを書き出しま�
 ## 使い方
 
 ```powershell
-.\scripts\blender\Invoke-Blender.ps1 -Script .\scripts\blender\models\supply_crate.py
+pwsh -File .\scripts\blender\Invoke-Blender.ps1 -Script .\scripts\blender\models\supply_crate.py
 ```
+
+Windows PowerShell 5 (`powershell`) は既定の実行ポリシーでスクリプトを止めるため、PowerShell 7 (`pwsh`) で実行します。
 
 - 出力先は既定で `output/blender/`（gitには入りません）。`-OutputDirectory` で変更できます。
 - Blenderの場所は `D:\Program Files\Blender Foundation\Blender 5.2\blender.exe` を自動で探します。別の場所なら `-BlenderPath` か環境変数 `BLENDER_EXE` で指定します。

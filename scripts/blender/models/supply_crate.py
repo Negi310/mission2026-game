@@ -3,6 +3,7 @@
 import os
 import sys
 
+sys.dont_write_bytecode = True  # scripts/blender に __pycache__ を作らない
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import bkit  # noqa: E402
 
