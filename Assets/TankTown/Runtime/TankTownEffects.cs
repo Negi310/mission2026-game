@@ -7,7 +7,7 @@ namespace TankTown
     public sealed class TankTownEffects : MonoBehaviour
     {
         private Material glow, smoke;
-        private const float FlashStrength = .45f, FlashPersistence = 2.4f;
+        private const float FlashStrength = .45f, FlashPersistence = 1.4f;
         private TankExplosionVfx explosions;
         private readonly List<GameObject> accents = new List<GameObject>(64);
         private bool AccentAvailable()

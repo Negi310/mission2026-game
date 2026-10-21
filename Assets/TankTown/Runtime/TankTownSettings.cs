@@ -28,6 +28,9 @@ namespace TankTown
         [Min(30)] public float turretTurnSpeed = 210;
         [Min(.1f)] public float tireGrip = 7;
         [Min(.8f)] public float rideHeight = 1;
+        [Header("Imported models")]
+        public bool importedTankModel = true;
+        public bool importedCityModels = true;
         [Header("Cannon")]
         [Range(0, 10)] public float cannonElevation = 4;
         [Min(10)] public float shellSpeed = 120;
