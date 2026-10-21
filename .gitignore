@@ -112,3 +112,7 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Blenderスクリプトの出力（プレビュー・FBX・.blend）
+/output/blender/
+__pycache__/
