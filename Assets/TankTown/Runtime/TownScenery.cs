@@ -48,21 +48,47 @@ namespace TankTown
                 }
             }
             BuildCoast(world, rock, sand);
+            var kit = world.CityKit;
+            var paints = kit == null ? null : new Dictionary<string, Material>
+            {
+                ["CityWhite"] = white, ["CitySand"] = sand, ["CityIsland"] = green, ["CityRock"] = rock,
+                ["CityCloud"] = white, ["CityRed"] = world.MakeMaterial(new Color(1, .2f, .15f))
+            };
             for (int i = 0; i < 10; i++)
             {
                 float angle = i * Mathf.PI * 2 / 10;
                 var position = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * (Mathf.Max(240, edge * Mathf.Sqrt(2) + 50) + i % 3 * 32);
+                if (kit != null)
+                {
+                    // Island models stand on the sea surface; the three kinds rotate through the ring.
+                    var kitIsland = new GameObject("Distant island"); kitIsland.transform.SetParent(transform);
+                    kitIsland.transform.SetPositionAndRotation(new Vector3(position.x, -3.8f, position.z), Quaternion.Euler(0, i * 47, 0));
+                    kit.Attach(kitIsland.transform, $"Island {i % 3}", Vector3.zero, Vector3.one * (1 + i % 3 * .15f), paints);
+                    continue;
+                }
                 var island = GameObject.CreatePrimitive(PrimitiveType.Sphere); island.name = "Distant island"; island.transform.SetParent(transform);
                 island.transform.position = position + Vector3.up * (-6 + i % 3 * 3);
                 island.transform.localScale = new Vector3(48 + i % 3 * 16, 26 + i % 3 * 16, 52);
                 island.GetComponent<Renderer>().sharedMaterial = green;
                 island.GetComponent<Collider>().enabled = false; Destroy(island.GetComponent<Collider>());
             }
+            // Sailboats between the coast (edge + 14m) and the islands, sailing along the ring.
+            for (int i = 0; kit != null && i < 5; i++)
+            {
+                float angle = (i + .5f) * Mathf.PI * 2 / 5;
+                float distance = Mathf.Max(edge + 40, 150) + i % 2 * 28;
+                var boat = new GameObject("Distant sailboat"); boat.transform.SetParent(transform);
+                boat.transform.SetPositionAndRotation(new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * distance + Vector3.up * -4.1f,
+                    Quaternion.Euler(0, -angle * Mathf.Rad2Deg + i % 2 * 180, 0));
+                kit.Attach(boat.transform, "Sailboat", paints);
+            }
             for (int i = 0; i < 16; i++)
             {
                 float angle = (i + .3f) * Mathf.PI * 2 / 16;
                 var cloud = new GameObject("Soft toy cloud"); cloud.transform.SetParent(transform);
                 cloud.transform.position = new Vector3(Mathf.Cos(angle) * (150 + i % 4 * 31) * game.StageScale, 48 + i % 5 * 4, Mathf.Sin(angle) * (150 + i % 4 * 31) * game.StageScale);
+                clouds.Add(cloud.transform);
+                if (kit != null) { kit.Attach(cloud.transform, $"Cloud {i % 3}", Vector3.zero, Vector3.one * (.85f + i % 4 * .12f), paints); continue; }
                 for (int lobe = 0; lobe < 5; lobe++)
                 {
                     var puff = GameObject.CreatePrimitive(PrimitiveType.Sphere); puff.transform.SetParent(cloud.transform, false);
@@ -71,7 +97,6 @@ namespace TankTown
                     puff.GetComponent<Renderer>().sharedMaterial = white;
                     puff.GetComponent<Collider>().enabled = false; Destroy(puff.GetComponent<Collider>());
                 }
-                clouds.Add(cloud.transform);
             }
             return sky;
         }

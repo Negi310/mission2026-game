@@ -90,6 +90,52 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
+        public IEnumerator RoadsCloudsAndDistantSceneryUseTheKit()
+        {
+            int half = game.Settings.cityHalfBlocks, lanes = half * 2 + 1;
+            var objects = game.World.GetComponentsInChildren<Transform>(true);
+            // Four approaches per junction, minus the outward stubs along the town edge.
+            Assert.That(objects.Count(x => x.name == "Crosswalk"), Is.EqualTo(lanes * lanes * 4 - lanes * 4));
+            Assert.That(objects.Count(x => x.name == "Manhole"), Is.EqualTo(lanes * half * 2 * 2));
+            var dashes = objects.Where(x => x.name == "Lane dash").Select(x => x.GetComponent<MeshRenderer>()).ToArray();
+            Assert.That(dashes.Length, Is.GreaterThan(100));
+            Assert.That(dashes.All(x => x.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.Off), Is.True);
+            Assert.That(dashes.All(x => x.GetComponent<Collider>() == null), Is.True, "Road marks must not bump the tank");
+            foreach (var crosswalk in objects.Where(x => x.name == "Crosswalk"))
+            {
+                // Each crosswalk lies just outside its junction, on the road surface.
+                Vector3 p = crosswalk.position; float spacing = game.Settings.blockSpacing;
+                float offset = Mathf.Max(Mathf.Abs(p.x - Mathf.Round(p.x / spacing) * spacing), Mathf.Abs(p.z - Mathf.Round(p.z / spacing) * spacing));
+                Assert.That(offset, Is.EqualTo(game.World.RoadWidth / 2 + 1.6f).Within(.01f));
+                Assert.That(p.y - game.World.GroundPoint(p).y, Is.EqualTo(.08f).Within(.02f));
+            }
+
+            foreach (var signal in game.World.Signals)
+            {
+                Assert.That(signal.transform.Find("Signal post and housings"), Is.Not.Null);
+                Assert.That(signal.GetComponentsInChildren<Renderer>().Count(x => x.name == "Traffic light"), Is.EqualTo(6), "The switched bulbs remain");
+                Assert.That(signal.GetComponents<BoxCollider>(), Has.Length.EqualTo(3));
+            }
+
+            var islands = objects.Where(x => x.name == "Distant island").ToArray();
+            Assert.That(islands, Has.Length.EqualTo(10));
+            Assert.That(islands.All(x => x.Find("Island beach") != null && x.GetComponentsInChildren<Collider>().Length == 0), Is.True);
+            var boats = objects.Where(x => x.name == "Distant sailboat").ToArray();
+            Assert.That(boats, Has.Length.EqualTo(5));
+            float coast = game.World.HalfExtent + 14;
+            Assert.That(boats.All(x => new Vector2(x.position.x, x.position.z).magnitude > coast), Is.True, "Boats float beyond the coast");
+            Assert.That(islands.Min(x => new Vector2(x.position.x, x.position.z).magnitude), Is.GreaterThan(boats.Max(x => new Vector2(x.position.x, x.position.z).magnitude)));
+
+            var clouds = objects.Where(x => x.name == "Soft toy cloud").ToArray();
+            Assert.That(clouds, Has.Length.EqualTo(16));
+            Assert.That(clouds.All(x => x.Find("Cloud puffs") != null && x.GetComponentsInChildren<Collider>().Length == 0), Is.True);
+            var puffs = clouds[0].Find("Cloud puffs").GetComponent<MeshFilter>().sharedMesh;
+            Assert.That(puffs.colors.Length, Is.EqualTo(puffs.vertexCount), "Clouds are shaded by their vertex colours");
+            Vector3 before = clouds[0].position; yield return new WaitForSeconds(.5f);
+            Assert.That(clouds[0].position.x - before.x, Is.EqualTo(.45f * .5f).Within(.08f), "Each cloud drifts once per frame, not twice");
+        }
+
+        [UnityTest]
         public IEnumerator KitTrimKeepsItsSizeOnScaledPartsAndInTheDistance()
         {
             var shop = game.World.Buildings.First(x => x.Style == 2);
@@ -125,6 +171,9 @@ namespace TankTown.Tests
                 yield return Load(TownStage.Town);
                 Assert.That(game.World.CityKit, Is.Null);
                 Assert.That(Children(game.World, "Awning stripes"), Is.Empty);
+                Assert.That(Children(game.World, "Crosswalk"), Is.Empty);
+                Assert.That(Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Where(x => x.name == "Soft toy cloud").All(x => x.childCount == 5), Is.True,
+                    "The box city keeps its five-sphere clouds");
                 Assert.That(Children(game.World, "Deep window frame").Length, Is.GreaterThan(100));
                 var fountain = Object.FindObjectsByType<DestructibleBlock>(FindObjectsSortMode.None).First(x => x.name == "Crushable fountain");
                 Assert.That(fountain.GetComponent<MeshRenderer>() != null, Is.True);

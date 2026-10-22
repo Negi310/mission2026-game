@@ -158,7 +158,7 @@ input.SetPressure(1, rightPressure);
 
 戦車の見た目は、Blenderのスクリプト（`scripts/blender/models/player_tank.py`）で作ったモデルを試験的に使っています。転輪のある履帯、前すぼまりの砲塔、太さの変わる砲身、前照灯などを持ち、大きさ・回転軸・当たり判定は従来の箱の戦車と同じです。設定の`importedTankModel`をオフにすると従来の戦車に戻ります。[戦車モデルの検証記録](docs/tank-model-validation.md)。
 
-通常の街と大きな街では、建物の窓・バルコニー・店先・屋上の飾りと、街灯・標識・木・木箱・ベンチ・噴水・ドラム缶・燃料タンク・ガードレール・電柱も、Blenderで作った部品（`scripts/blender/models/city_kit.py`）を使います。建物の部材・当たり判定・壊れ方は従来のままで、飾りだけを置き換えています。設定の`importedCityModels`をオフにすると従来の飾りに戻ります。[街の部品の検証記録](docs/city-kit-validation.md)。更新版は`Builds/TankTown-CityKit/TankTown.exe`です。
+通常の街と大きな街では、建物の窓・バルコニー・店先・屋上の飾りと、街灯・標識・木・木箱・ベンチ・噴水・ドラム缶・燃料タンク・ガードレール・電柱も、Blenderで作った部品（`scripts/blender/models/city_kit.py`）を使います。建物の部材・当たり判定・壊れ方は従来のままで、飾りだけを置き換えています。設定の`importedCityModels`をオフにすると従来の飾りに戻ります。[街の部品の検証記録](docs/city-kit-validation.md)。道路には交差点ごとの横断歩道、マンホール、丸い端の破線を加え、信号機も作り直しました。空には3種類のもこもこした雲、海には丘と林・灯台・小さな村のある島と帆船が見えます。道路の面と坂は従来どおりです。[道路・雲・遠景の検証記録](docs/scenery-kit-validation.md)。更新版は`Builds/TankTown-CityKit/TankTown.exe`です。
 
 光と影のコントラストを強め、爆炎を0.6秒、破片を2.4秒へ短縮した調整は [陰影と破壊後の視認性の検証記録](docs/visibility-validation.md) を参照してください。破片とその影は最後の0.45秒で滑らかに消えます。
 

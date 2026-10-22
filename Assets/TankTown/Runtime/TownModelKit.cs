@@ -70,6 +70,16 @@ namespace TankTown
         internal void Attach(Transform parent, string piece, Dictionary<string, Material> paints = null)
             => Attach(parent, piece, Vector3.zero, Vector3.one, paints);
 
+        // Road marks and other single-part pieces centred on their anchor draw on the item itself,
+        // saving one GameObject for each of the thousands of marks.
+        internal void Draw(GameObject item, string piece, Dictionary<string, Material> paints = null)
+        {
+            if (!pieces.TryGetValue(piece, out var parts)) return;
+            if (parts.Length != 1 || parts[0].Position.sqrMagnitude > 1e-6f) { Attach(item.transform, piece, paints); return; }
+            item.AddComponent<MeshFilter>().sharedMesh = parts[0].Mesh;
+            item.AddComponent<MeshRenderer>().sharedMaterial = Paint(parts[0].Material, paints);
+        }
+
         // The mesh of a single-material piece, such as a unit-sized tree canopy.
         internal Mesh Mesh(string piece) => pieces.TryGetValue(piece, out var parts) && parts.Length > 0 ? parts[0].Mesh : null;
 

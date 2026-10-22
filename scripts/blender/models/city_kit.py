@@ -41,6 +41,9 @@ def palette():
         "white": m("CityWhite", (0.97, 0.99, 1.0)),
         "rock": m("CityRock", (0.76, 0.57, 0.35), roughness=0.8),
         "lime": m("CityLime", (0.64, 1.0, 0.04)),
+        "sand": m("CitySand", (1.0, 0.81, 0.45), roughness=0.9),
+        "island": m("CityIsland", (0.15, 0.73, 0.48), roughness=0.8),
+        "cloud": m("CityCloud", (0.97, 0.99, 1.0), roughness=0.9),
     }
 
 
@@ -378,6 +381,150 @@ def power_pole(p):
     return mb, {"CityCream": "Power pole post", "CityDark": "Power cross arm", "CityGlass": "Insulator"}
 
 
+# ---------------------------------------------------------------- 道路
+
+def lane_dash(p):
+    """車線の破線1本 (0.32×2.1、両端が丸い)。原点は破線の中心の路面。上向きの面だけ。"""
+    mb = bkit.MeshBuilder()
+    mb.decal(rounded_rect(0.32, 2.1, 0.15, steps=3), mat=p["cream"])
+    return mb, {"CityCream": "Lane dash"}
+
+
+def crosswalk(p):
+    """横断歩道。原点は帯の中心の路面で、道路はZ方向に延びる (幅16)。上向きの面だけ。"""
+    mb = bkit.MeshBuilder()
+    for k in range(11):
+        x = -7.0 + k * 1.4
+        mb.decal(rounded_rect(0.55, 2.6, 0.06, steps=1), (x, 0, 0), p["cream"])
+    return mb, {"CityCream": "Crosswalk stripes"}
+
+
+def manhole(p):
+    """マンホールのふた。原点は中心の路面。上向きの面だけ。"""
+    mb = bkit.MeshBuilder()
+    ring = [(math.cos(math.radians(a)) * 0.55, math.sin(math.radians(a)) * 0.55) for a in range(0, 360, 20)]
+    mb.decal(ring, mat=p["frame"])
+    inner = [(math.cos(math.radians(a)) * 0.46, math.sin(math.radians(a)) * 0.46) for a in range(0, 360, 20)]
+    mb.decal(inner, (0, 0.004, 0), p["dark"])
+    for k in range(-2, 3):
+        mb.decal(rounded_rect(0.07, 0.62 - abs(k) * 0.12, 0.02, steps=1), (k * 0.16, 0.008, 0), p["frame"])
+    return mb, {"CityFrame": "Manhole rim", "CityDark": "Manhole cover"}
+
+
+def traffic_signal(p):
+    """信号機。原点は柱の根元。従来どおり、灯は (-1.4, 3.6, 0) の箱 (前面 -Z) と (0, 3.6, -1.4) の箱 (前面 -X) に
+    ゲームが球を3つずつ置くので、灯の位置 (高さ 4.12 / 3.60 / 3.08) を空けてひさしだけ付ける。"""
+    mb = bkit.MeshBuilder()
+    dark, cream = p["dark"], p["cream"]
+    mb.cylinder(0.3, 0.25, (0, 0.125, 0), dark, segments=14)
+    mb.cylinder(0.16, 4.15, (0, 2.32, 0), dark, segments=12, radius_end=0.13)
+    mb.sphere(0.15, (0, 4.4, 0), dark, segments=10)
+    # 腕はどちらもローカルの -X 方向。1つ目はそのまま (灯は -Z 向き)、2つ目は -90度回して腕を -Z 方向にする。
+    # 回すと -Z 向きの灯は +X 向きになってしまうので、2つ目はローカルで +Z 向き (回した後に -X 向き) に作る
+    for yaw, face in ((0, -1), (-90, 1)):
+        with mb.at(yaw=yaw):
+            mb.cylinder(0.075, 1.2, (-0.68, 3.95, 0), cream, axis="x", segments=10)
+            mb.cylinder(0.04, 1.1, (-0.5, 3.6, 0), cream, axis="x", segments=8, roll=-38)
+            mb.box((0.62, 1.68, 0.5), (-1.4, 3.6, 0.03 * face), dark, bevel=0.06, segments=1)
+            mb.box((0.96, 2.0, 0.06), (-1.4, 3.6, -0.25 * face), p["yellow"], bevel=0.03, segments=1)
+            for i in range(3):
+                y = 4.12 - i * 0.52
+                mb.box((0.46, 0.04, 0.34), (-1.4, y + 0.23, 0.44 * face), dark, pitch=12 * face)
+                for side in (-1, 1):
+                    mb.box((0.04, 0.24, 0.3), (-1.4 + side * 0.22, y + 0.11, 0.43 * face), dark)
+    return mb, {"CityDark": "Signal post and housings", "CityCream": "Signal arms", "CityYellow": "Signal backplates"}
+
+
+# ---------------------------------------------------------------- 雲・遠景
+
+def cloud(p, variant):
+    """もこもこした雲。原点は雲の中心 (高さ48〜64に置く)。下ほど青みがかった陰。"""
+    mb = bkit.MeshBuilder()
+    c = p["cloud"]
+    lobes = {
+        0: [((-12, 0.5, 0), 6.0), ((-5, 2.5, 1), 8.0), ((3, 3.5, -1), 9.0), ((11, 1.5, 1), 6.5), ((1, 1.5, 4), 6.0), ((-2, 1, -4), 5.5)],
+        1: [((-16, 0, 0), 4.5), ((-9, 1.5, 1), 6.0), ((-1, 2, 0), 6.5), ((7, 1.5, -1), 5.5), ((14, 0.5, 0), 4.5)],
+        2: [((-6, 1, 0), 6.0), ((0, 5, 0), 7.5), ((6, 2, 1), 6.0), ((1, 1.5, 4), 5.0), ((0, 9, -1), 5.0)],
+    }[variant]
+    for center, radius in lobes:
+        mb.sphere(radius, center, c, segments=14)
+    width = {0: 16, 1: 19, 2: 11}[variant]
+    mb.sphere(1, (0, -1.6, 0), c, segments=16, scale=(width, 3.2, 6.5))
+    return mb, {"CityCloud": "Cloud puffs"}
+
+
+def cloud_shade(x, y, z):
+    # 下から見上げると光の当たらない面になるので、頂点色の陰は控えめにする
+    v = 0.9 + min(1.0, max(0.0, (y + 5) / 13)) * 0.12
+    return (v * 0.94, v * 0.97, min(1.0, v))
+
+
+def island(p, variant):
+    """遠くの島。原点は海面の中心。0は丘と林、1は岩山と灯台、2は小さな村。"""
+    mb = bkit.MeshBuilder()
+    sand, green, rock, leaf = p["sand"], p["island"], p["rock"], p["leaf"]
+    radius = {0: 34, 1: 26, 2: 30}[variant]
+    mb.cylinder(radius, 3.0, (0, -0.5, 0), sand, segments=28, radius_end=radius - 4)
+    rng = [0.37, 0.81, 0.13, 0.59, 0.94, 0.25, 0.68, 0.46]
+
+    def tree(x, z, height):
+        mb.cylinder(0.35, height * 0.4, (x, 1 + height * 0.2, z), p["wood"], segments=6)
+        mb.sphere(height * 0.32, (x, 1 + height * 0.62, z), leaf, segments=8, scale=(1, 1.2, 1))
+
+    if variant == 0:
+        for (x, z), size in (((-8, 4), (20, 12, 16)), ((10, -6), (16, 9, 14)), ((2, 13), (12, 7, 10))):
+            mb.sphere(1, (x, 0.5, z), green, segments=16, scale=size)
+        for k in range(8):
+            a = math.radians(k * 45 + 10)
+            tree(math.cos(a) * (radius - 9), math.sin(a) * (radius - 9), 5 + rng[k] * 3)
+    elif variant == 1:
+        for (x, y, z), size in (((0, 1, 0), (16, 13, 14)), ((-9, 0, 6), (9, 8, 8)), ((8, 0, -7), (8, 6, 7))):
+            mb.sphere(1, (x, y, z), rock, segments=10, scale=size)
+        mb.sphere(1, (0, 9, 0), green, segments=14, scale=(12, 6, 11))
+        # 灯台: 白と赤のしま、展望台、灯、赤い屋根
+        base = 13.5
+        mb.cylinder(2.2, 12, (0, base + 6, 0), p["white"], segments=16, radius_end=1.6)
+        for k in range(3):
+            y = base + 2 + k * 4
+            r = 2.2 - (y - base) / 12 * 0.6 + 0.05
+            mb.cylinder(r, 1.6, (0, y, 0), p["red"], segments=16, radius_end=r - 0.08)
+        mb.cylinder(2.3, 0.4, (0, base + 12.2, 0), p["dark"], segments=16)
+        mb.cylinder(1.1, 1.6, (0, base + 13.2, 0), p["lamp"], segments=12)
+        mb.cylinder(1.5, 1.4, (0, base + 14.7, 0), p["red"], segments=12, radius_end=0.15)
+    else:
+        mb.sphere(1, (0, 0.8, 0), green, segments=16, scale=(22, 6, 20))
+        for k, (x, z) in enumerate(((-8, -5), (-2, -9), (5, -6), (-6, 4), (4, 3))):
+            h = 3 + rng[k] * 1.5
+            mb.box((4, h, 3.5), (x, 4 + h / 2, z), p["cream"], bevel=0.2, segments=1)
+            roof = [(-2.2, 0), (2.2, 0), (0, 1.8)]
+            mb.prism(roof, 4.3, (x, 4 + h, z), p["red"], axis="z")
+        for k in range(5):
+            a = math.radians(k * 72 + 30)
+            tree(math.cos(a) * (radius - 8), math.sin(a) * (radius - 8), 5 + rng[k] * 2)
+        mb.box((3, 0.4, 12), (radius - 4, 0.8, 0), p["wood"])
+    for k in range(5):
+        a = math.radians(k * 73 + variant * 20)
+        r = radius - 2 + rng[k] * 3
+        mb.sphere(1, (math.cos(a) * r, 0.3, math.sin(a) * r), rock, segments=6, scale=(2.2, 1.6, 2.0))
+    return mb, {"CitySand": "Island beach", "CityIsland": "Island hills", "CityRock": "Island rocks",
+                "CityLeaf": "Island trees", "CityWood": "Island wood", "CityWhite": "Lighthouse",
+                "CityRed": "Island red roofs", "CityDark": "Lighthouse gallery", "CityLamp": "Lighthouse lamp",
+                "CityCream": "Island houses"}
+
+
+def sailboat(p):
+    """遠くの海の帆船 (長さ約8)。原点は海面の中心で、船首は +Z。"""
+    mb = bkit.MeshBuilder()
+    hull = [(-3.6, 0.9), (3.4, 0.9), (4.2, 1.5), (3.0, -0.4), (-3.2, -0.4), (-3.9, 1.3)]
+    mb.prism(hull, 2.4, mat=p["white"], bevel=0.08, segments=1)
+    mb.prism([(-3.65, 0.55), (3.6, 0.55), (3.85, 0.85), (-3.8, 0.85)], 2.46, mat=p["red"])
+    mb.box((1.6, 0.8, 2.0), (0, 1.3, -1.0), p["white"], bevel=0.1, segments=1)
+    mb.cylinder(0.1, 8.0, (0, 4.9, 0.4), p["dark"], segments=8)
+    mb.prism([(0.6, 1.6), (0.6, 8.4), (-3.2, 1.8)], 0.06, mat=p["cream"])
+    mb.prism([(0.9, 2.0), (0.9, 7.6), (3.6, 1.6)], 0.06, mat=p["cream"])
+    return mb, {"CityWhite": "Boat hull", "CityRed": "Boat stripe", "CityDark": "Boat mast", "CityCream": "Boat sails"}
+
+
 PIECES = [
     ("Tower window", tower_window), ("Apartment window", apartment_window), ("Shop window", shop_window),
     ("Shop storefront", shop_storefront), ("Apartment balcony", apartment_balcony),
@@ -385,6 +532,8 @@ PIECES = [
     ("Street lamp", street_lamp), ("Street sign", street_sign), ("Tree trunk", tree_trunk),
     ("Crate", crate), ("Bench", bench), ("Fountain", fountain), ("Red barrel", red_barrel), ("Fuel tank", fuel_tank),
     ("Guardrail", guardrail), ("Power pole", power_pole),
+    ("Lane dash", lane_dash), ("Crosswalk", crosswalk), ("Manhole", manhole), ("Traffic signal", traffic_signal),
+    ("Sailboat", sailboat),
 ]
 
 
@@ -404,6 +553,10 @@ def build_kit():
         mb, roles = tree_canopy(p, variant)
         name = f"Tree canopy {variant}"
         groups[name] = mb.build_split(name, parent=root, roles=roles, normalize=True, shade=canopy_shade)
+        mb, roles = cloud(p, variant)
+        groups[f"Cloud {variant}"] = mb.build_split(f"Cloud {variant}", parent=root, roles=roles, shade=cloud_shade)
+        mb, roles = island(p, variant)
+        groups[f"Island {variant}"] = mb.build_split(f"Island {variant}", parent=root, roles=roles)
     return root, groups
 
 
@@ -440,6 +593,14 @@ def layout_preview(groups):
         move(groups["Tree trunk"] if variant == 0 else duplicate(groups["Tree trunk"]), (x, 0, -28.0))
     move(groups["Guardrail"], (7.0, 0.6, -28.0))
     move(groups["Shop roof tiles"], (0, 0, -40.0), (0.5, 1, 0.5))
+    move(groups["Traffic signal"], (14.0, 0, -19.0))
+    move(groups["Crosswalk"], (0, 0.02, -48.0), (0.5, 1, 0.5))
+    move(groups["Lane dash"], (5.0, 0.02, -48.0))
+    move(groups["Manhole"], (-6.0, 0.02, -48.0))
+    move(groups["Sailboat"], (14.0, 0, -36.0), (0.6, 0.6, 0.6))
+    for variant in range(3):
+        move(groups[f"Cloud {variant}"], ((variant - 1) * 14.0, 14.0, 6.0), (0.3, 0.3, 0.3))
+        move(groups[f"Island {variant}"], ((variant - 1) * 22.0, 0, 28.0), (0.3, 0.3, 0.3))
 
 
 if __name__ == "__main__":
