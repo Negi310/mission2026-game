@@ -155,11 +155,13 @@ namespace TankTown.Tests
                 var first = game.World.Layout.Plots.Select(p => p.Reward).ToArray();
                 game.StartOrRestart(); game.AdvanceTime(59.5f); Assert.That(game.IsPlaying, Is.True);
                 game.AdvanceTime(.5f); Assert.That(game.State, Is.EqualTo(RoundState.Results));
+                double requested = Time.realtimeSinceStartupAsDouble;
                 game.StartOrRestart(); yield return null;
                 game = Object.FindFirstObjectByType<TankTownGame>();
                 Assert.That(game.CitySeed, Is.Not.EqualTo(firstSeed));
                 Assert.That(game.World.Layout.Plots.Select(p => p.Reward).ToArray(), Is.Not.EqualTo(first));
-                Assert.That(game.Remaining, Is.InRange(59.5f, 60));
+                // The new city's first frame lasts longer under CPU load; only real time since the retry may be consumed.
+                Assert.That(60 - game.Remaining, Is.InRange(0, Time.realtimeSinceStartupAsDouble - requested));
             }
             finally { TankTownGame.GenerationSeedOverride = previous; }
         }
