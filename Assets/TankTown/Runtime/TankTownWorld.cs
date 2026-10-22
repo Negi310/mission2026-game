@@ -128,7 +128,7 @@ namespace TankTown
                     ["CityGlass"] = glass, ["CityFrame"] = frame, ["CityCream"] = cream, ["CityDark"] = dark,
                     ["CityPaint"] = frame, ["CityLamp"] = lampGlow, ["CityYellow"] = ShotMaterial, ["CityWood"] = wood,
                     ["CityLeaf"] = grass, ["CityGreen"] = grass, ["CityRed"] = ShotMaterial, ["CityWhite"] = cream,
-                    ["CityRock"] = wood, ["CityLime"] = lime
+                    ["CityRock"] = wood, ["CityLime"] = lime, ["CitySand"] = cream, ["CityIsland"] = grass, ["CityCloud"] = frame
                 });
             cannonShellMaterials = new[]
             {
@@ -153,13 +153,22 @@ namespace TankTown
                 float lane = i * spacing;
                 Terrain.Surface("North south ramp avenue", new Vector2(lane - RoadWidth / 2, -paving / 2), new Vector2(RoadWidth, paving), .045f, road);
                 Terrain.Surface("East west ramp avenue", new Vector2(-paving / 2, lane - RoadWidth / 2), new Vector2(paving, RoadWidth), .05f, road);
+                // Kit crosswalks occupy 8.3–10.9m from each junction, so the dashes start beyond them.
+                float clear = RoadWidth / 2 + (cityKit != null ? 4.5f : 1);
                 for (float d = -paving / 2 + 2; d < paving / 2; d += 4)
                 {
-                    if (Mathf.Abs(d - Mathf.Round(d / spacing) * spacing) < RoadWidth / 2 + 1) continue;
+                    if (Mathf.Abs(d - Mathf.Round(d / spacing) * spacing) < clear) continue;
+                    if (cityKit != null)
+                    {
+                        RoadMark("Lane dash", new Vector3(lane, 0, d), 0);
+                        RoadMark("Lane dash", new Vector3(d, 0, lane), 90);
+                        continue;
+                    }
                     SurfaceBox("Lane dash", new Vector3(lane, 0, d), new Vector3(.32f, .02f, 2.1f), cream);
                     SurfaceBox("Lane dash", new Vector3(d, 0, lane), new Vector3(2.1f, .02f, .32f), cream);
                 }
             }
+            if (cityKit != null) CreateRoadMarkings();
             var buildingPaints = new Material[6];
             for (int i = 0; i < 6; i++) buildingPaints[i] = MakeMaterial(ItemIcons.Color((ItemKind)i), ToySurface.Concrete);
             if (CandyTheme) InitializeCandyAccents(buildingPaints);
@@ -228,11 +237,16 @@ namespace TankTown
                     root.transform.position = GroundPoint(junction + new Vector3(shoulder, 0, shoulder));
                     var collider = root.AddComponent<BoxCollider>(); collider.center = Vector3.up * 2; collider.size = new Vector3(.4f, 4, .4f);
                     AddBlock(root, true);
-                    Box("Signal post", Vector3.up * 2, collider.size, dark, root.transform, false);
-                    Box("Signal arm", new Vector3(-.8f, 3.9f, 0), new Vector3(2, .18f, .2f), cream, root.transform, false);
-                    Box("Signal housing", new Vector3(-1.4f, 3.6f, 0), new Vector3(.75f, 1.8f, .6f), dark, root.transform, false);
-                    Box("Cross signal arm", new Vector3(0, 3.9f, -.8f), new Vector3(.2f, .18f, 2), cream, root.transform, false);
-                    Box("Cross signal housing", new Vector3(0, 3.6f, -1.4f), new Vector3(.6f, 1.8f, .75f), dark, root.transform, false);
+                    // The kit signal leaves the six bulb positions open for the switched lights below.
+                    if (cityKit != null) cityKit.Attach(root.transform, "Traffic signal");
+                    else
+                    {
+                        Box("Signal post", Vector3.up * 2, collider.size, dark, root.transform, false);
+                        Box("Signal arm", new Vector3(-.8f, 3.9f, 0), new Vector3(2, .18f, .2f), cream, root.transform, false);
+                        Box("Signal housing", new Vector3(-1.4f, 3.6f, 0), new Vector3(.75f, 1.8f, .6f), dark, root.transform, false);
+                        Box("Cross signal arm", new Vector3(0, 3.9f, -.8f), new Vector3(.2f, .18f, 2), cream, root.transform, false);
+                        Box("Cross signal housing", new Vector3(0, 3.6f, -1.4f), new Vector3(.6f, 1.8f, .75f), dark, root.transform, false);
+                    }
                     var head = root.AddComponent<BoxCollider>(); head.center = new Vector3(-1.4f, 3.6f, 0); head.size = new Vector3(.75f, 1.8f, .6f);
                     var crossHead = root.AddComponent<BoxCollider>(); crossHead.center = new Vector3(0, 3.6f, -1.4f); crossHead.size = new Vector3(.6f, 1.8f, .75f);
                     var lights = new Renderer[6];
@@ -317,7 +331,8 @@ namespace TankTown
             var fixedObjects = new List<GameObject>();
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
-                if (renderer.name == "Lane dash") renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                if (renderer.name == "Lane dash" || renderer.name == "Crosswalk" || renderer.name.StartsWith("Manhole"))
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 if (renderer.gameObject.layer == TownPhysics.MapLayer || renderer.GetComponentInParent<DestructibleBlock>() != null ||
                     renderer.GetComponentInParent<BlockBuilding>() != null || renderer.GetComponentInParent<TankPickup>() != null ||
                     renderer.GetComponentInParent<ItemPickup>() != null || renderer.GetComponentInParent<TownPedestrian>() != null ||
@@ -371,6 +386,37 @@ namespace TankTown
         {
             var item = Box(label, GroundPoint(p, .08f), size, material, solid: false);
             item.transform.rotation = Quaternion.FromToRotation(Vector3.up, Terrain.NormalAt(p));
+        }
+
+        // A flat kit mark laid on the road slope, just above the road surface like the box dashes.
+        private void RoadMark(string piece, Vector3 p, float yaw)
+        {
+            var item = new GameObject(piece);
+            item.transform.SetParent(transform, false);
+            item.transform.SetPositionAndRotation(GroundPoint(p, .08f), Quaternion.FromToRotation(Vector3.up, Terrain.NormalAt(p)) * Quaternion.Euler(0, yaw, 0));
+            cityKit.Draw(item, piece);
+        }
+
+        // Crosswalks on every junction approach toward another junction (not on the short stubs at the
+        // town edge), and one manhole per lane between junctions.
+        private void CreateRoadMarkings()
+        {
+            int half = game.Settings.cityHalfBlocks;
+            float spacing = game.Settings.blockSpacing, band = RoadWidth / 2 + 1.6f;
+            for (int x = -half; x <= half; x++) for (int z = -half; z <= half; z++)
+            {
+                var junction = new Vector3(x * spacing, 0, z * spacing);
+                if (x < half) RoadMark("Crosswalk", junction + Vector3.right * band, 90);
+                if (x > -half) RoadMark("Crosswalk", junction + Vector3.left * band, 90);
+                if (z < half) RoadMark("Crosswalk", junction + Vector3.forward * band, 0);
+                if (z > -half) RoadMark("Crosswalk", junction + Vector3.back * band, 0);
+            }
+            for (int i = -half; i <= half; i++) for (int k = -half; k < half; k++)
+            {
+                float lane = i * spacing, middle = (k + .5f) * spacing;
+                RoadMark("Manhole", new Vector3(lane + RoadWidth * .2f, 0, middle), 0);
+                RoadMark("Manhole", new Vector3(middle, 0, lane - RoadWidth * .2f), 0);
+            }
         }
         private void CreatePark(Vector3 center)
         {

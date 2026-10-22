@@ -20,7 +20,7 @@ Windows PowerShell 5 (`powershell`) は既定の実行ポリシーでスクリ�
 | スクリプト | 内容 | 出力 |
 | --- | --- | --- |
 | `models/player_tank.py` | プレイヤー戦車。寸法・回転軸・部品名は `TankTownWorld.CreateTank` と同じ | `PlayerTank.fbx`、前後のプレビュー |
-| `models/city_kit.py` | 通常の街・大きな街の部品一式。窓・店先・バルコニー・屋上の飾り、街灯・標識・木・木箱・ベンチ・噴水・ドラム缶・燃料タンク・ガードレール・電柱 | `CityKit.fbx`、部品一覧のプレビュー |
+| `models/city_kit.py` | 通常の街・大きな街の部品一式。窓・店先・バルコニー・屋上の飾り、街灯・標識・木・木箱・ベンチ・噴水・ドラム缶・燃料タンク・ガードレール・電柱・信号機、横断歩道・マンホール・車線の破線、雲・遠くの島・帆船 | `CityKit.fbx`、部品一覧のプレビュー |
 | `models/city_buildings.py` | ビル群の街の高層ビル・集合住宅・商店を1棟ずつ作った試作 (ゲームでは未使用) | `CityTower.fbx` など3つ、街並みのプレビュー |
 | `models/supply_crate.py` | 動作確認用の木箱 | `SupplyCrate.fbx` |
 

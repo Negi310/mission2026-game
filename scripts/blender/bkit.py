@@ -169,8 +169,9 @@ class MeshBuilder:
         for face in faces:
             face.smooth = len(face.verts) == 4 and segments > 8
 
-    def sphere(self, radius, position=(0, 0, 0), mat=None, segments=16):
-        matrix = self._matrix(position, 0, 0, 0)
+    def sphere(self, radius, position=(0, 0, 0), mat=None, segments=16, scale=(1, 1, 1)):
+        """球。scale で軸ごとに伸ばすと楕円体になる。"""
+        matrix = self._matrix(position, 0, 0, 0) @ Matrix.Diagonal((*scale, 1))
         verts = bmesh.ops.create_uvsphere(
             self.bm, u_segments=segments, v_segments=max(4, segments // 2), radius=radius, matrix=matrix,
         )["verts"]
@@ -206,13 +207,22 @@ class MeshBuilder:
         if bevel > 0:
             self._bevel(front + back, bevel, segments, index)
 
+    def decal(self, outline, position=(0, 0, 0), mat=None, yaw=0.0):
+        """上から見た輪郭 (X右, Z前) の、上向きの面1枚。路面の白線など、上からしか見ない模様用。"""
+        matrix = self._matrix(position, yaw, 0, 0)
+        face = self.bm.faces.new([self.bm.verts.new(matrix @ Vector((x, 0, z))) for x, z in outline])
+        face.normal_update()
+        if face.normal.y < 0:
+            face.normal_flip()
+        self._paint([face], mat)
+
     def build_split(self, piece, origin=(0, 0, 0), parent=None, roles=None, normalize=False, shade=None):
         """ゲームの部品組み (TownModelKit) 用に、マテリアルごとの別オブジェクトへ分けて書き出す。
 
         空オブジェクト piece の下に "<piece>|<名前>" のメッシュを並べる。名前は roles[マテリアル名]、
         無ければマテリアル名。各メッシュの原点はその形の中心にし、位置は piece の原点からの相対で持つ。
         normalize=True ではまとめて縦横奥行き1の箱に収める (ゲーム側で拡大して使う形)。
-        shade(x, y, z) を渡すと、その位置の明るさ (0〜1以上) を頂点色に入れる。
+        shade(x, y, z) を渡すと、その位置の明るさ (0〜1以上、または (r, g, b)) を頂点色に入れる。
         """
         roles = roles or {}
         bm = self.bm
@@ -237,8 +247,12 @@ class MeshBuilder:
                 layer = part.loops.layers.color.new("Col")
                 for face in part.faces:
                     for loop in face.loops:
-                        v = min(1.0, shade(*loop.vert.co))
-                        loop[layer] = (v * 0.92, v, v * 0.90, 1.0)
+                        value = shade(*loop.vert.co)
+                        if isinstance(value, tuple):
+                            loop[layer] = (*(min(1.0, c) for c in value), 1.0)
+                        else:
+                            v = min(1.0, value)
+                            loop[layer] = (v * 0.92, v, v * 0.90, 1.0)
             lo, hi = _bounds_of(part.verts)
             center = (lo + hi) / 2
             bmesh.ops.transform(part, matrix=UNITY_TO_FBX @ Matrix.Translation(-center), verts=part.verts)
