@@ -136,6 +136,25 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
+        public IEnumerator TitleBackdropUsesTheKitWithDetailedWindowsOnlyNearTheCamera()
+        {
+            SceneManager.LoadScene("TankTown"); yield return null; yield return null;
+            game = Object.FindFirstObjectByType<TankTownGame>();
+            Assert.That(game.State, Is.EqualTo(RoundState.Ready));
+            var preview = game.TitlePreview; var root = preview.Root.transform;
+            Assert.That(root.Find("Preview street furniture"), Is.Not.Null);
+            Assert.That(root.Find("Preview scenery"), Is.Not.Null);
+            int buildings = preview.Layout.Plots.Count(x => !x.Park);
+            Assert.That(root.GetComponentsInChildren<MeshRenderer>(true).Count(x => x.name == "Preview distant windows"), Is.EqualTo(buildings));
+            Assert.That(preview.DetailedWindowSets, Is.InRange(1, buildings / 2), "Only buildings near the orbiting camera get kit windows");
+            Assert.That(root.GetComponentsInChildren<Collider>(true), Is.Empty);
+            Assert.That(root.GetComponentsInChildren<Transform>(true).All(x => x.gameObject.layer == TownTitlePreview.Layer), Is.True);
+            preview.Tick(new Vector3(5000, 0, 5000));
+            Assert.That(preview.DetailedWindowSets, Is.Zero, "Far from the camera the backdrop returns to the cheap glass");
+            Assert.That(root.GetComponentsInChildren<MeshRenderer>().Count(x => x.name == "Preview distant windows"), Is.EqualTo(buildings));
+        }
+
+        [UnityTest]
         public IEnumerator KitTrimKeepsItsSizeOnScaledPartsAndInTheDistance()
         {
             var shop = game.World.Buildings.First(x => x.Style == 2);
@@ -172,6 +191,7 @@ namespace TankTown.Tests
                 Assert.That(game.World.CityKit, Is.Null);
                 Assert.That(Children(game.World, "Awning stripes"), Is.Empty);
                 Assert.That(Children(game.World, "Crosswalk"), Is.Empty);
+                Assert.That(game.TitlePreview.Root.transform.Find("Preview street furniture"), Is.Null, "The title backdrop also keeps its box version");
                 Assert.That(Object.FindObjectsByType<Transform>(FindObjectsSortMode.None).Where(x => x.name == "Soft toy cloud").All(x => x.childCount == 5), Is.True,
                     "The box city keeps its five-sphere clouds");
                 Assert.That(Children(game.World, "Deep window frame").Length, Is.GreaterThan(100));
