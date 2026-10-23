@@ -106,11 +106,17 @@ namespace TankTown.Tests
             Assert.That(game.Remaining, Is.Zero);
             game.Blast(new Vector3(12, 1, 12));
             Assert.That(game.BrokenBlocks, Is.Zero);
+            double requested = Time.realtimeSinceStartupAsDouble;
             game.StartOrRestart();
             yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.State, Is.EqualTo(RoundState.Playing));
-            Assert.That(game.Remaining, Is.InRange(59.5f, 60f), "Retry starts immediately, so its first rendered frame already consumes time");
+            // The round clock is real time and the reloaded city's first frame takes longer under CPU load,
+            // so bound the consumed time by the real time since the request instead of a fixed frame length.
+            float first = game.Remaining;
+            Assert.That(60 - first, Is.InRange(0, Time.realtimeSinceStartupAsDouble - requested), "Retry must restart the full minute");
+            yield return new WaitForSecondsRealtime(.05f);
+            Assert.That(game.Remaining, Is.LessThan(first), "Retry starts immediately, so the clock is already running");
             Assert.That(game.BrokenBlocks, Is.Zero);
         }
 
@@ -470,7 +476,11 @@ namespace TankTown.Tests
             game.Tank.Fire(0);
             var shell = Object.FindFirstObjectByType<TankShell>();
             Assert.That(shell, Is.Not.Null);
-            yield return null;
+            // The shell moves shellSpeed * deltaTime per Update. A stalled frame can sweep up to 40 m and hit
+            // the city before the check, so pin the observed step to one 60 Hz frame (2 m).
+            Time.captureDeltaTime = 1f / 60;
+            try { yield return null; }
+            finally { Time.captureDeltaTime = 0; }
             var travel = shell.transform.position - origin;
             Assert.That(travel.y, Is.GreaterThan(.01f), "The actual shell must rise above its launch point");
             Assert.That(Vector3.Angle(travel, direction), Is.LessThan(.05f), "The shell must follow the barrel rather than the hull forward vector");
