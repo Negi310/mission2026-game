@@ -80,6 +80,19 @@ namespace TankTown
             item.AddComponent<MeshRenderer>().sharedMaterial = Paint(parts[0].Material, paints);
         }
 
+        // Adds the piece to per-material combine lists, for backdrops drawn as a few batched meshes.
+        // The placement scales the piece about its anchor, like Attach's stretch.
+        internal void Combine(Dictionary<Material, List<CombineInstance>> groups, string piece, Matrix4x4 placement, Dictionary<string, Material> paints = null)
+        {
+            if (!pieces.TryGetValue(piece, out var parts)) return;
+            foreach (var part in parts)
+            {
+                var material = Paint(part.Material, paints);
+                if (!groups.TryGetValue(material, out var list)) groups[material] = list = new List<CombineInstance>();
+                list.Add(new CombineInstance { mesh = part.Mesh, transform = placement * Matrix4x4.Translate(part.Position) });
+            }
+        }
+
         // The mesh of a single-material piece, such as a unit-sized tree canopy.
         internal Mesh Mesh(string piece) => pieces.TryGetValue(piece, out var parts) && parts.Length > 0 ? parts[0].Mesh : null;
 

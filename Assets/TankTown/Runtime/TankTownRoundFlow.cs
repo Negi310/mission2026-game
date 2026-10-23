@@ -127,6 +127,7 @@ namespace TankTown
             focus -= rotation * Vector3.right * extent * .32f;
             camera.transform.SetPositionAndRotation(position, Quaternion.LookRotation(focus - position));
             camera.fieldOfView = 54; camera.farClipPlane = 1000;
+            game.TitlePreview?.Tick(position);
         }
     }
 }
