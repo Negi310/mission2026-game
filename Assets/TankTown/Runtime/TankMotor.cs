@@ -10,6 +10,7 @@ namespace TankTown
         public Transform Turret { get; set; }
         public float VehicleScale { get; private set; } = 1;
         public BoxCollider HullCollider { get; private set; }
+        internal TankCannonAim CannonAim { get; private set; }
         public float Cooldown01 => Mathf.Clamp01((nextShot - Time.time) / Mathf.Max(0.01f, game.Stats.ShotCooldown));
         public bool Respawning => respawnAt > 0;
         public bool Relocating => Respawning || returningToSpawn;
@@ -34,6 +35,8 @@ namespace TankTown
         public void Initialize(TankTownGame owner)
         {
             game = owner;
+            CannonAim = new TankCannonAim(owner);
+            Muzzle.parent.gameObject.AddComponent<TankBarrelRecoil>().Initialize(owner, this, Muzzle);
             body = gameObject.AddComponent<Rigidbody>();
             body.mass = 100;
             body.constraints = RigidbodyConstraints.FreezeRotation;
@@ -61,10 +64,12 @@ namespace TankTown
             if (!game.IsPlaying || Relocating || game.Items.StopsForward || Time.time < nextShot) return;
             nextShot = Time.time + game.Stats.ShotCooldown;
             if (game.Items.UseHeld()) return;
-            var shot = game.World.CreateCannonShell(Muzzle.position, Muzzle.forward);
-            shot.AddComponent<TankShell>().Initialize(game, Muzzle.forward);
+            // Re-evaluate at the instant of firing: the HUD preview may be a few frames old.
+            var direction = CannonAim.Resolve(Camera.main, true).Direction;
+            var shot = game.World.CreateCannonShell(Muzzle.position, direction);
+            shot.AddComponent<TankShell>().Initialize(game, direction);
             game.Effects.Trail(shot);
-            game.Effects.Muzzle(Muzzle.position, Muzzle.forward);
+            game.Effects.Muzzle(Muzzle.position, direction);
             game.Sound.Cannon();
         }
 

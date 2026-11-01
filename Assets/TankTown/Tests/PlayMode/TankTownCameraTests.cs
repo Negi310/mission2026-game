@@ -142,6 +142,137 @@ namespace TankTown.Tests
         private float HorizontalDistance()
             => Vector3.ProjectOnPlane(game.CameraRig.transform.position - game.Tank.transform.position, Vector3.up).magnitude;
 
+        private TankCamera LaserReferenceView(bool optIntoCameraShake = true)
+        {
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            var isolated = new Vector3(game.World.HalfExtent + 100, 5, 0);
+            game.Tank.Warp(new Pose(isolated, Quaternion.LookRotation(Vector3.right)));
+            var aim = StationaryView(); aim.parent.position = isolated;
+            var camera = game.CameraRig; camera.Snap();
+            var reference = new GameObject("Laser view without recoil").AddComponent<TankCamera>();
+            reference.Target = camera.Target; reference.AimTarget = camera.AimTarget;
+            reference.Items = game.Items; reference.Offset = camera.Offset; reference.BeamOffset = camera.BeamOffset;
+            reference.BeamLookAhead = camera.BeamLookAhead; reference.BeamShakeAmplitude = 0;
+            reference.Snap();
+            Assert.That(camera.BeamShakeAmplitude, Is.EqualTo(game.Settings.megaBeamCameraShake));
+            if (optIntoCameraShake) camera.BeamShakeAmplitude = .14f;
+            game.Items.Receive(ItemKind.MegaBeam); Assert.That(game.Items.UseHeld(), Is.True);
+            return reference;
+        }
+
+        [UnityTest]
+        public IEnumerator DefaultLaserKeepsTheViewAndAimStableWhileOnlyTheBarrelRecoils()
+        {
+            Time.captureDeltaTime = 1f / 60;
+            var reference = LaserReferenceView(false); var camera = game.CameraRig;
+            Assert.That(game.Settings.megaBeamCameraShake, Is.Zero);
+            Assert.That(camera.BeamShakeAmplitude, Is.Zero);
+            var barrel = game.Tank.Muzzle.parent.Find("Fixed cannon");
+            var recoil = game.Tank.Muzzle.parent.GetComponent<TankBarrelRecoil>();
+            var rest = barrel.localPosition; var origin = game.Tank.Muzzle.position; var forward = game.Tank.Muzzle.forward;
+            float peak = 0;
+            for (int i = 0; i < 80; i++)
+            {
+                yield return null;
+                peak = Mathf.Max(peak, recoil.Displacement);
+                Assert.That(camera.BeamShakeOffset, Is.EqualTo(Vector3.zero));
+                Assert.That(Vector3.Distance(camera.transform.position, reference.transform.position), Is.LessThan(.001f));
+                Assert.That(Quaternion.Angle(camera.transform.rotation, reference.transform.rotation), Is.LessThan(.01f));
+                Assert.That(Vector3.Distance(origin, game.Tank.Muzzle.position), Is.LessThan(.0001f));
+                Assert.That(Vector3.Angle(forward, game.Tank.Muzzle.forward), Is.LessThan(.01f));
+            }
+            Assert.That(peak, Is.InRange(.05f, .0801f));
+            game.TogglePause(); reference.Paused = true;
+            var pose = barrel.localPosition; var view = camera.transform.position;
+            yield return new WaitForSecondsRealtime(.12f);
+            Assert.That(barrel.localPosition, Is.EqualTo(pose)); Assert.That(camera.transform.position, Is.EqualTo(view));
+            game.TogglePause(); reference.Paused = false;
+            game.Items.OnTankCrash(); yield return null;
+            Assert.That(Vector3.Distance(barrel.localPosition, rest), Is.LessThan(.0001f));
+            Assert.That(recoil.Displacement, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator LaserRecoilStaysSmallAndDoesNotChangeAnglesOrDriftIntoTheFollowCamera()
+        {
+            Time.captureDeltaTime = 1f / 60;
+            var reference = LaserReferenceView(); var camera = game.CameraRig;
+            float fov = Camera.main.fieldOfView, peak = 0;
+            int crossings = 0, previousSign = 0;
+            var previous = Vector3.zero;
+            for (int i = 0; i < 170; i++)
+            {
+                yield return null;
+                var difference = camera.transform.position - reference.transform.position;
+                peak = Mathf.Max(peak, difference.magnitude);
+                Assert.That(difference.magnitude, Is.LessThanOrEqualTo(.1403f), "The finer vibration must stay within the reduced amplitude");
+                Assert.That(Vector3.Distance(difference, camera.BeamShakeOffset), Is.LessThan(.001f), "Shake must not accumulate in the smoothed framing");
+                Assert.That(Mathf.Abs(Vector3.Dot(difference, camera.transform.forward)), Is.LessThan(.001f), "Recoil must stay in the image plane instead of zooming");
+                Assert.That(Vector3.Distance(previous, difference), Is.LessThan(.26f), "The faster vibration must remain bounded through attack and release");
+                Assert.That(Quaternion.Angle(camera.transform.rotation, reference.transform.rotation), Is.LessThan(.01f));
+                Assert.That(Camera.main.fieldOfView, Is.EqualTo(fov));
+                float horizontal = Vector3.Dot(difference, camera.transform.right);
+                int sign = horizontal > .001f ? 1 : horizontal < -.001f ? -1 : 0;
+                if (sign != 0) { if (previousSign != 0 && sign != previousSign) crossings++; previousSign = sign; }
+                previous = difference;
+            }
+            Assert.That(peak, Is.GreaterThan(.10f), "The reduced vibration must remain visible");
+            Assert.That(crossings, Is.GreaterThanOrEqualTo(60), "The vibration must be faster than the previous 12 Hz recoil");
+            Assert.That(camera.BeamShakeOffset, Is.EqualTo(Vector3.zero));
+            Assert.That(Vector3.Distance(camera.transform.position, reference.transform.position), Is.LessThan(.001f));
+            Debug.Log($"LASER RECOIL TEST: peakMetres={peak:0.00000}, horizontalCrossings={crossings}, fixedRotation=true, fixedFov={fov:0.0}, noDrift=true");
+        }
+
+        [UnityTest]
+        public IEnumerator LaserRecoilFreezesOnPauseAndClearsOnCancelSnapAndDisable()
+        {
+            Time.captureDeltaTime = 1f / 60;
+            var reference = LaserReferenceView(); var camera = game.CameraRig;
+            yield return new WaitForSeconds(.55f);
+            var position = camera.transform.position; var offset = camera.BeamShakeOffset;
+            game.TogglePause(); reference.Paused = true;
+            yield return new WaitForSecondsRealtime(.12f);
+            Assert.That(camera.transform.position, Is.EqualTo(position));
+            Assert.That(camera.BeamShakeOffset, Is.EqualTo(offset));
+            game.TogglePause(); reference.Paused = false; yield return null;
+            Assert.That(Vector3.Distance(offset, camera.BeamShakeOffset), Is.LessThan(.26f));
+            game.Items.OnTankCrash();
+            yield return new WaitForSeconds(.35f);
+            Assert.That(camera.BeamShakeOffset, Is.EqualTo(Vector3.zero));
+            Assert.That(Vector3.Distance(camera.transform.position, reference.transform.position), Is.LessThan(.001f));
+            game.Items.Receive(ItemKind.MegaBeam); game.Items.UseHeld(); yield return new WaitForSeconds(.21f);
+            camera.Snap(); Assert.That(camera.BeamShakeOffset, Is.EqualTo(Vector3.zero));
+            reference.Snap(); yield return new WaitForSeconds(.21f);
+            position = camera.transform.position - camera.BeamShakeOffset;
+            camera.enabled = false;
+            Assert.That(camera.BeamShakeOffset, Is.EqualTo(Vector3.zero));
+            Assert.That(Vector3.Distance(camera.transform.position, position), Is.LessThan(.001f));
+            camera.enabled = true; yield return null;
+            Assert.That(camera.BeamShakeOffset.magnitude, Is.LessThan(.01f), "Re-enabling must ease into the recoil again");
+        }
+
+        [UnityTest]
+        public IEnumerator LaserRecoilRemainsVisibleAtThirtyFramesPerSecond()
+        {
+            Time.captureDeltaTime = 1f / 30;
+            var reference = LaserReferenceView(); var camera = game.CameraRig;
+            float peak = 0; int crossings = 0, previousSign = 0;
+            for (int i = 0; i < 78; i++)
+            {
+                yield return null;
+                var difference = camera.transform.position - reference.transform.position;
+                peak = Mathf.Max(peak, difference.magnitude);
+                Assert.That(difference.magnitude, Is.LessThanOrEqualTo(.1403f));
+                float horizontal = Vector3.Dot(difference, camera.transform.right);
+                int sign = horizontal > .001f ? 1 : horizontal < -.001f ? -1 : 0;
+                if (sign != 0) { if (previousSign != 0 && sign != previousSign) crossings++; previousSign = sign; }
+            }
+            Assert.That(peak, Is.GreaterThan(.10f), "The wave must not disappear at a lower sampling rate");
+            Assert.That(crossings, Is.GreaterThanOrEqualTo(48));
+            Assert.That(camera.BeamShakeOffset, Is.EqualTo(Vector3.zero));
+            Debug.Log($"LASER LOW FPS TEST: peakMetres={peak:0.00000}, horizontalCrossings={crossings}, fps=30");
+        }
+
         [UnityTest]
         public IEnumerator LaserViewMovesAboveAndAsideSmoothlyAndReturnsAfterTheEffect()
         {
@@ -157,9 +288,10 @@ namespace TankTown.Tests
             for (int i = 0; i < 66; i++)
             {
                 yield return null;
-                maxStep = Mathf.Max(maxStep, Vector3.Distance(previous, camera.transform.position));
+                var framing = camera.transform.position - camera.BeamShakeOffset;
+                maxStep = Mathf.Max(maxStep, Vector3.Distance(previous, framing));
                 maxAngle = Mathf.Max(maxAngle, Quaternion.Angle(previousRotation, camera.transform.rotation));
-                previous = camera.transform.position; previousRotation = camera.transform.rotation;
+                previous = framing; previousRotation = camera.transform.rotation;
                 Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, camera.transform.eulerAngles.z)), Is.LessThan(.01f));
                 Assert.That(Camera.main.fieldOfView, Is.EqualTo(fov));
             }
@@ -192,12 +324,13 @@ namespace TankTown.Tests
             var block = box.AddComponent<DestructibleBlock>(); block.Kind = BuildingPart.Wall; block.Initialize(game);
             var renderer = box.GetComponent<Renderer>(); var properties = new MaterialPropertyBlock();
             properties.SetFloat("_CameraVisibility", 1); renderer.SetPropertyBlock(properties);
-            Physics.SyncTransforms(); var previous = camera.transform.position;
+            Physics.SyncTransforms(); var previous = camera.transform.position - camera.BeamShakeOffset;
             for (int i = 0; i < 23; i++)
             {
                 yield return null;
-                Assert.That(Vector3.Distance(camera.transform.position, previous), Is.LessThan(.1f), "An obstruction must not force the camera to jump");
-                previous = camera.transform.position;
+                var framing = camera.transform.position - camera.BeamShakeOffset;
+                Assert.That(Vector3.Distance(framing, previous), Is.LessThan(.1f), "An obstruction must not force the framing to jump");
+                previous = framing;
             }
             renderer.GetPropertyBlock(properties);
             Assert.That(properties.GetFloat("_CameraVisibility"), Is.Zero, "Foreground above the tank-to-camera ray must also clear the laser view");
@@ -215,8 +348,8 @@ namespace TankTown.Tests
             game.Items.Receive(ItemKind.MegaBeam); game.Items.UseHeld();
             yield return new WaitForSeconds(.7f);
             Assert.That(camera.BeamViewBlend, Is.GreaterThan(.8f));
-            var previous = camera.transform.position; game.Items.OnTankCrash(); yield return null;
-            Assert.That(Vector3.Distance(previous, camera.transform.position), Is.LessThan(.3f), "Cancelling must also blend back");
+            var previous = camera.transform.position - camera.BeamShakeOffset; game.Items.OnTankCrash(); yield return null;
+            Assert.That(Vector3.Distance(previous, camera.transform.position - camera.BeamShakeOffset), Is.LessThan(.3f), "Cancelling must also blend back");
             yield return new WaitForSeconds(2);
             Assert.That(camera.BeamViewBlend, Is.LessThan(.005f));
             Assert.That(Vector3.Distance(camera.transform.position, normalPosition), Is.LessThan(.15f));
@@ -226,6 +359,7 @@ namespace TankTown.Tests
             game.StartOrRestart(); yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.Items.StopsForward, Is.False); Assert.That(game.CameraRig.BeamViewBlend, Is.Zero);
+            Assert.That(game.CameraRig.BeamShakeOffset, Is.EqualTo(Vector3.zero));
         }
 
         [UnityTest]

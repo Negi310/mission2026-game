@@ -33,7 +33,7 @@ namespace TankTown
                 if (seed == 2026) { Capture("generated-01-title", 1280, 720); yield return null; }
                 game.StartOrRestart(); game.Input.useHardware = true;
                 game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
-                if (game.Remaining > 60 || game.World.ItemPickups.Any(p => p.Kind != p.SourceBuilding.RewardKind)) { Fail("wrong time or color reward"); yield break; }
+                if (game.Remaining > game.Settings.roundSeconds || game.World.ItemPickups.Any(p => p.Kind != p.SourceBuilding.RewardKind)) { Fail("wrong time or color reward"); yield break; }
                 View(game, new Vector3(-145, 165, -180), new Vector3(0, 4, 0));
                 yield return null; Capture("generated-" + seed + "-overview", 1920, 1080, false);
                 Debug.Log($"GENERATED MAP SMOKE: seed={game.CitySeed}, buildings={game.World.Buildings.Count}, parks={game.World.ParkCount}, colors={game.World.ItemPickups.Select(p => p.Kind).Distinct().Count()}, centerHeight={game.World.Terrain.HeightAt(Vector3.zero):0.00}");

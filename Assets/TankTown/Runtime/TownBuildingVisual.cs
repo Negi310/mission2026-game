@@ -10,8 +10,8 @@ namespace TankTown
     {
         private readonly BlockBuilding building;
         private readonly List<(DestructibleBlock block, Renderer[] renderers)> parts = new List<(DestructibleBlock, Renderer[])>();
-        private readonly Mesh cube;
-        private readonly System.Func<Mesh, Mesh> distantSilhouette;
+        private readonly TownMeshWorkspace workspace;
+        private readonly List<(DestructibleBlock block, Mesh near, Mesh far, Material material, Matrix4x4 matrix)> sources = new List<(DestructibleBlock, Mesh, Mesh, Material, Matrix4x4)>();
         private Mesh mesh;
         private Mesh nearMesh;
         private readonly Bounds detailBounds;
@@ -26,10 +26,24 @@ namespace TankTown
         internal Mesh MapMesh => mesh;
         internal Mesh DetailMesh => nearMesh;
         internal bool NeedsDetailRefresh => detailed && (nearDetached != building.DetachedParts || nearDamage != building.DamageRevision);
-        internal TownBuildingVisual(BlockBuilding owner, Mesh box, System.Func<Mesh, Mesh> candySilhouette = null)
+        internal TownBuildingVisual(BlockBuilding owner, Mesh box, TownMeshWorkspace sharedWorkspace, System.Func<Mesh, Mesh> candySilhouette = null)
         {
-            building = owner; cube = box; distantSilhouette = candySilhouette;
-            foreach (var block in building.Blocks) parts.Add((block, block.GetComponentsInChildren<Renderer>()));
+            building = owner; workspace = sharedWorkspace;
+            Matrix4x4 local = building.transform.worldToLocalMatrix;
+            foreach (var block in building.Blocks)
+            {
+                var renderers = block.GetComponentsInChildren<Renderer>(); parts.Add((block, renderers));
+                foreach (var renderer in renderers)
+                {
+                    var filter = renderer.GetComponent<MeshFilter>();
+                    if (filter == null || filter.sharedMesh == null || renderer.sharedMaterial == null) continue;
+                    var farShape = candySilhouette?.Invoke(filter.sharedMesh);
+                    // Attached geometry never moves relative to its building. Once it
+                    // detaches, it is excluded and its own renderer handles the motion.
+                    sources.Add((block, filter.sharedMesh, farShape != null ? farShape : box,
+                        renderer.sharedMaterial, local * renderer.transform.localToWorldMatrix));
+                }
+            }
             var near = new GameObject("Batched building mesh", typeof(MeshFilter), typeof(MeshRenderer)); near.transform.SetParent(building.transform, false);
             nearFilter = near.GetComponent<MeshFilter>(); nearRenderer = near.GetComponent<MeshRenderer>();
             var far = new GameObject("Distant building mesh", typeof(MeshFilter), typeof(MeshRenderer)); far.transform.SetParent(building.transform, false);
@@ -65,20 +79,11 @@ namespace TankTown
         }
         private void RebuildNear()
         {
-            var groups = new Dictionary<Material, List<CombineInstance>>();
-            Matrix4x4 local = building.transform.worldToLocalMatrix;
-            foreach (var part in parts)
-            {
-                if (part.block == null || part.block.Detached || part.block.RenderSeparately) continue;
-                foreach (var renderer in part.renderers)
-                {
-                    if (renderer == null || renderer.sharedMaterial == null) continue;
-                    var filter = renderer.GetComponent<MeshFilter>(); if (filter == null) continue;
-                    if (!groups.TryGetValue(renderer.sharedMaterial, out var list)) groups[renderer.sharedMaterial] = list = new List<CombineInstance>();
-                    list.Add(new CombineInstance { mesh = filter.sharedMesh, transform = local * renderer.transform.localToWorldMatrix });
-                }
-            }
-            var next = Combine(groups, "Batched " + building.name, out var materials);
+            workspace.Begin();
+            foreach (var part in sources)
+                if (part.block != null && !part.block.Detached && !part.block.RenderSeparately)
+                    workspace.Add(part.material, part.near, part.matrix);
+            var next = workspace.Combine("Batched " + building.name, out var materials);
             nearFilter.sharedMesh = next; nearRenderer.sharedMaterials = materials;
             if (nearMesh != null) Object.Destroy(nearMesh);
             nearMesh = next; nearDetached = building.DetachedParts; nearDamage = building.DamageRevision;
@@ -86,44 +91,14 @@ namespace TankTown
         internal void RefreshMapMesh() { if (renderedDetached != building.DetachedParts) Rebuild(); }
         private void Rebuild()
         {
-            var groups = new Dictionary<Material, List<CombineInstance>>();
-            Matrix4x4 local = building.transform.worldToLocalMatrix;
-            foreach (var part in parts)
-            {
-                if (part.block == null || part.block.Detached) continue;
-                foreach (var renderer in part.renderers)
-                {
-                    if (renderer == null || renderer.sharedMaterial == null) continue;
-                    var material = renderer.sharedMaterial;
-                    if (!groups.TryGetValue(material, out var list)) groups[material] = list = new List<CombineInstance>();
-                    // Candy fruit and sweets keep a cheap curved silhouette in the distance.
-                    var source = renderer.GetComponent<MeshFilter>();
-                    var shape = source != null ? distantSilhouette?.Invoke(source.sharedMesh) : null;
-                    list.Add(new CombineInstance { mesh = shape != null ? shape : cube, transform = local * renderer.transform.localToWorldMatrix });
-                }
-            }
-            var next = Combine(groups, "Lightweight " + building.name, out var materials);
+            workspace.Begin();
+            foreach (var part in sources)
+                if (part.block != null && !part.block.Detached) workspace.Add(part.material, part.far, part.matrix);
+            var next = workspace.Combine("Lightweight " + building.name, out var materials);
             distantFilter.sharedMesh = mapFilter.sharedMesh = next;
             distant.sharedMaterials = map.sharedMaterials = materials;
             if (mesh != null) Object.Destroy(mesh);
             mesh = next; renderedDetached = building.DetachedParts;
-        }
-        internal static Mesh Combine(Dictionary<Material, List<CombineInstance>> groups, string label, out Material[] sharedMaterials)
-        {
-            var combined = new List<CombineInstance>(); var materials = new List<Material>(); var temporary = new List<Mesh>();
-            foreach (var group in groups)
-            {
-                var piece = new Mesh { indexFormat = IndexFormat.UInt32 }; piece.CombineMeshes(group.Value.ToArray(), true, true);
-                temporary.Add(piece); combined.Add(new CombineInstance { mesh = piece, transform = Matrix4x4.identity }); materials.Add(group.Key);
-            }
-            var next = new Mesh { name = label, indexFormat = IndexFormat.UInt32 };
-            if (combined.Count > 0)
-            {
-                next.CombineMeshes(combined.ToArray(), false, true);
-                next.RecalculateBounds(); next.UploadMeshData(true);
-            }
-            foreach (var piece in temporary) Object.Destroy(piece);
-            sharedMaterials = materials.ToArray(); return next;
         }
         internal void Dispose() { if (mesh != null) Object.Destroy(mesh); if (nearMesh != null) Object.Destroy(nearMesh); }
     }

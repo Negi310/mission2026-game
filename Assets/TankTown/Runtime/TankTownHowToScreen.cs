@@ -22,7 +22,7 @@ namespace TankTown
             var panel = menu.Panel(Root.transform, "How to card", new Vector2(64, -64), new Vector2(1312, 772), Color.white);
             style.TitleControl(panel, new Color(.025f, .09f, .16f, .99f));
             menu.Label(panel.transform, "Tutorial heading", "あそびかた", new Vector2(54, -24), new Vector2(900, 78), 52, Color.white);
-            menu.Label(panel.transform, "Tutorial subtitle", "1分で、街をこわそう！", new Vector2(58, -103), new Vector2(1120, 34), 23, new Color(.8f, .89f, .95f));
+            menu.Label(panel.transform, "Tutorial subtitle", "1分20秒で、街をこわそう！", new Vector2(58, -103), new Vector2(1120, 34), 23, new Color(.8f, .89f, .95f));
             var turn = Step(panel.transform, 54, "01", "まがる", "自動で前進\nA / D で左右へ", Cyan);
             menu.Keycap(turn, "Tutorial A", "A", new Vector2(88, -113), new Vector2(82, 72), 38, Ink);
             menu.Keycap(turn, "Tutorial D", "D", new Vector2(218, -113), new Vector2(82, 72), 38, Ink);

@@ -57,13 +57,13 @@ namespace TankTown.Tests
             Assert.That(Time.timeScale, Is.Zero);
             var position = game.Tank.transform.position;
             yield return new WaitForSecondsRealtime(.12f);
-            Assert.That(game.Remaining, Is.EqualTo(60));
+            Assert.That(game.Remaining, Is.EqualTo(80));
             Assert.That(game.Tank.transform.position, Is.EqualTo(position));
             game.Input.PulsePad(1); yield return null;
             Assert.That(game.IsPlaying, Is.True); Assert.That(Time.timeScale, Is.EqualTo(1));
             Assert.That(title.activeSelf, Is.False);
             Assert.That(Object.FindFirstObjectByType<TankShell>(), Is.Null);
-            Assert.That(game.Remaining, Is.LessThan(60));
+            Assert.That(game.Remaining, Is.LessThan(80));
         }
 
         [UnityTest]

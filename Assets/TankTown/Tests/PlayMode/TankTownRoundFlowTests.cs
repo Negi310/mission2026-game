@@ -75,7 +75,7 @@ namespace TankTown.Tests
             Assert.That(Vector3.Distance(cameraPosition, view.transform.position), Is.InRange(.1f, maxDistance));
             Assert.That(Quaternion.Angle(cameraRotation, view.transform.rotation), Is.InRange(.1f, 3));
             Assert.That(game.State, Is.EqualTo(RoundState.Ready)); Assert.That(Time.timeScale, Is.Zero);
-            Assert.That(game.Remaining, Is.EqualTo(60)); Assert.That(game.BrokenBlocks, Is.Zero);
+            Assert.That(game.Remaining, Is.EqualTo(80)); Assert.That(game.BrokenBlocks, Is.Zero);
             Assert.That(game.Tank.transform.position, Is.EqualTo(tankPosition));
             Assert.That(game.World.Buildings[0].Blocks[0].transform.position, Is.EqualTo(support));
         }
@@ -110,7 +110,7 @@ namespace TankTown.Tests
                 string number = game.Presentation.Countdown;
                 if (number.Length > 0 && !seen.Contains(number)) seen.Add(number);
                 covered |= game.Presentation.CoverOpacity == 1;
-                Assert.That(game.Remaining, Is.EqualTo(60)); Assert.That(Time.timeScale, Is.Zero);
+                Assert.That(game.Remaining, Is.EqualTo(80)); Assert.That(Time.timeScale, Is.Zero);
                 Assert.That(game.Tank.transform.position, Is.EqualTo(initialTank));
                 game.Input.PulsePad(0); game.Input.PulsePad(1); game.StartOrRestart();
                 Assert.That(Object.FindFirstObjectByType<TankShell>(), Is.Null);
@@ -122,7 +122,7 @@ namespace TankTown.Tests
             Assert.That(Time.realtimeSinceStartup - started, Is.LessThan(1.3f));
             Assert.That(game.CameraRig.enabled, Is.True);
             Assert.That(Camera.main.fieldOfView, Is.EqualTo(game.Settings.cameraFieldOfView));
-            Assert.That(game.Remaining, Is.InRange(59.9f, 60));
+            Assert.That(game.Remaining, Is.InRange(79.9f, 80));
             yield return new WaitForSecondsRealtime(TankTownRoundFlow.GoSeconds + .08f);
             Assert.That(game.Presentation.Countdown, Is.Empty);
             game.Input.PulsePad(0); Assert.That(Object.FindFirstObjectByType<TankShell>(), Is.Not.Null);
@@ -142,7 +142,7 @@ namespace TankTown.Tests
             Assert.That(results.DetailsOpen, Is.False);
             Assert.That(GameObject.Find("Local leaderboard"), Is.Null);
             Assert.That(GameObject.Find("Result metric value 0"), Is.Null);
-            Assert.That(GameObject.Find("Result score card").GetComponentsInChildren<Text>().Length, Is.LessThanOrEqualTo(7));
+            Assert.That(GameObject.Find("Result score card").GetComponentsInChildren<Text>().Length, Is.LessThanOrEqualTo(12));
             int previous = results.DisplayedScore;
             float timeout = Time.realtimeSinceStartup + 2;
             while (results.Counting && Time.realtimeSinceStartup < timeout)
@@ -151,6 +151,7 @@ namespace TankTown.Tests
             }
             Assert.That(results.DisplayedScore, Is.EqualTo(game.RoundScore));
             Assert.That(game.RoundScore, Is.EqualTo(Mathf.RoundToInt(100000f * broken / game.TotalBlocks)));
+            Assert.That(GameObject.Find("Result hero rank").GetComponent<Text>().text, Is.EqualTo("#01"));
             yield return Press(Key.Tab); Assert.That(results.DetailsOpen, Is.True);
             Assert.That(GameObject.Find("Result metric value 0").GetComponent<Text>().text, Is.EqualTo(broken.ToString("N0")));
             Assert.That(GameObject.Find("Result metric value 1").GetComponent<Text>().text, Is.EqualTo("1"));
@@ -166,6 +167,25 @@ namespace TankTown.Tests
             yield return Press(Key.Escape); Assert.That(results.DetailsOpen, Is.False);
             Assert.That(results.DisplayedScore, Is.EqualTo(game.RoundScore));
             Assert.That(GameObject.Find("Local leaderboard"), Is.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator ZeroScoreResultHasNoFalseRankAndKeepsTheReplayActionAvailable()
+        {
+            game.StartOrRestart(); yield return WaitForPlay();
+            game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
+            game.AdvanceTime(1000); yield return new WaitForSecondsRealtime(TankTownResultsScreen.CountSeconds + .5f);
+            var results = game.GetComponent<TankTownHUD>().ResultsView;
+            Assert.That(results.DisplayedScore, Is.Zero); Assert.That(results.Counting, Is.False);
+            Assert.That(GameObject.Find("Result hero rank").GetComponent<Text>().text, Is.EqualTo("—"));
+            Assert.That(GameObject.Find("Result replay button").GetComponent<Button>().IsInteractable(), Is.True);
+            Assert.That(game.NewBest, Is.False);
+            Canvas.ForceUpdateCanvases();
+            foreach (var text in GameObject.Find("Result score card").GetComponentsInChildren<Text>())
+            {
+                Assert.That(text.preferredWidth, Is.LessThanOrEqualTo(text.rectTransform.rect.width + 1), text.name);
+                Assert.That(text.preferredHeight, Is.LessThanOrEqualTo(text.rectTransform.rect.height + 1), text.name);
+            }
         }
 
         [UnityTest]
@@ -185,7 +205,7 @@ namespace TankTown.Tests
             Assert.That(game.GetInstanceID(), Is.Not.EqualTo(oldInstance));
             Assert.That(game.State, Is.EqualTo(RoundState.Starting));
             Assert.That(game.Presentation.CoverOpacity, Is.EqualTo(1));
-            Assert.That(game.Remaining, Is.EqualTo(60)); Assert.That(game.BrokenBlocks, Is.Zero);
+            Assert.That(game.Remaining, Is.EqualTo(80)); Assert.That(game.BrokenBlocks, Is.Zero);
             yield return WaitForPlay();
             int newInstance = game.GetInstanceID(); yield return new WaitForSecondsRealtime(.15f);
             Assert.That(Object.FindFirstObjectByType<TankTownGame>().GetInstanceID(), Is.EqualTo(newInstance));

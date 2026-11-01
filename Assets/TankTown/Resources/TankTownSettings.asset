@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb55b8b074edc749b29833fe70fbd3b, type: 3}
   m_Name: TankTownSettings
   m_EditorClassIdentifier: TankTown.Runtime::TankTown.TankTownSettings
-  roundSeconds: 60
+  roundSeconds: 80
   respawnPenalty: 3
   respawnDelay: 0.45
   crashBlastRadius: 10
@@ -35,6 +35,9 @@ MonoBehaviour:
   shellSpeed: 120
   shellVisualScale: 3
   shotCooldown: 0.35
+  cannonAimAssist: 1
+  cannonAimAssistAngle: 6
+  cannonAimAssistRange: 90
   blastRadius: 8
   blastImpulse: 12
   blastBreakRadius: 3
@@ -92,6 +95,7 @@ MonoBehaviour:
   megaBeamElevation: 1
   megaBeamCameraOffset: {x: 9, y: 10, z: -15}
   megaBeamCameraLookAhead: 40
+  megaBeamCameraShake: 0
   megaBeamTurnMultiplier: 0.18
   missileSeconds: 6
   missileTargetRange: 90

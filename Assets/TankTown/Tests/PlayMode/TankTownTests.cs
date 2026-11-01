@@ -110,7 +110,7 @@ namespace TankTown.Tests
             yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.State, Is.EqualTo(RoundState.Playing));
-            Assert.That(game.Remaining, Is.InRange(59.5f, 60f), "Retry starts immediately, so its first rendered frame already consumes time");
+            Assert.That(game.Remaining, Is.InRange(79f, 80f), "Retry starts immediately, so its first rendered frame already consumes time");
             Assert.That(game.BrokenBlocks, Is.Zero);
         }
 

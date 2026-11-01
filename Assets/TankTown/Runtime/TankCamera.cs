@@ -13,7 +13,9 @@ namespace TankTown
         public Vector3 Offset { get; set; } = new Vector3(0, 3, -9);
         public Vector3 BeamOffset { get; set; } = new Vector3(9, 10, -15);
         public float BeamLookAhead { get; set; } = 40;
+        public float BeamShakeAmplitude { get; set; }
         internal float BeamViewBlend => beamView;
+        internal Vector3 BeamShakeOffset => beamShakeOffset;
         public float TurnSmoothTime { get; set; } = .3f;
         public float MaxTurnSpeed { get; set; } = 135;
         public float MaxTurnAcceleration { get; set; } = 240;
@@ -25,6 +27,8 @@ namespace TankTown
         private float yaw, yawVelocity, heightVelocity, scale = 1, scaleVelocity;
         private float fadeProgress, fadeTarget, fadeStartAt;
         private float beamView, beamViewVelocity;
+        private float beamShakeLevel, beamShakeTime;
+        private Vector3 beamShakeOffset;
         private bool initialized;
         private Collider[] occlusionHits = new Collider[256];
         private readonly HashSet<Renderer> occluded = new HashSet<Renderer>();
@@ -67,6 +71,7 @@ namespace TankTown
             anchorVelocity = Vector3.zero;
             yawVelocity = heightVelocity = scaleVelocity = 0;
             beamView = beamViewVelocity = 0;
+            ResetBeamShake();
             initialized = true;
         }
 
@@ -101,7 +106,8 @@ namespace TankTown
             var beamDirection = new Vector3(-BeamOffset.x, 1.5f - BeamOffset.y, BeamLookAhead - BeamOffset.z);
             float beamYaw = Mathf.Atan2(beamDirection.x, beamDirection.z) * Mathf.Rad2Deg;
             float beamPitch = -Mathf.Atan2(beamDirection.y, new Vector2(beamDirection.x, beamDirection.z).magnitude) * Mathf.Rad2Deg;
-            // No roll, shake, FOV change or terrain-driven pitch in either view.
+            // Rotation stays independent of the laser's small positional recoil.
+            // No roll, FOV change or terrain-driven pitch in either view.
             transform.rotation = mount * Quaternion.Euler(beamPitch * beamView, beamYaw * beamView, 0);
             anchor = Vector3.SmoothDamp(anchor, Target.position, ref anchorVelocity, .12f, float.PositiveInfinity, dt);
             float desiredScale = Target.GetComponent<TankMotor>()?.VehicleScale ?? 1;
@@ -111,12 +117,45 @@ namespace TankTown
             prediction.y = 0;
             var ahead = desired + Vector3.ClampMagnitude(prediction / dt * .35f, 10);
             desired.y = Mathf.Max(Target.position.y + viewOffset.y * scale, Mathf.Max(GroundFloor(desired), GroundFloor(ahead)));
-            float height = Mathf.SmoothDamp(transform.position.y, desired.y, ref heightVelocity, .4f, 10, dt);
+            float height = Mathf.SmoothDamp(transform.position.y - beamShakeOffset.y, desired.y, ref heightVelocity, .4f, 10, dt);
             // Only terrain can require clearance. Buildings fade instead of pushing/zooming the camera.
             desired.y = Mathf.Max(height, GroundFloor(desired));
             transform.position = desired;
             previousDesired = desired;
+            // Stable framing drives both follow smoothing and foreground fading;
+            // visual recoil must not feed back into either calculation.
             UpdateOcclusion(dt);
+            UpdateBeamShake(dt);
+            if (beamShakeOffset.sqrMagnitude > 0)
+            {
+                var shaken = desired + beamShakeOffset;
+                shaken.y = Mathf.Max(shaken.y, GroundFloor(shaken));
+                beamShakeOffset = shaken - desired;
+                transform.position = shaken;
+            }
+        }
+
+        private void UpdateBeamShake(float dt)
+        {
+            bool active = Items != null && Items.StopsForward && BeamShakeAmplitude > 0;
+            beamShakeLevel = Mathf.MoveTowards(beamShakeLevel, active ? 1 : 0, dt / (active ? .18f : .24f));
+            if (beamShakeLevel <= 0) { ResetBeamShake(); return; }
+            const float horizontalHz = 18, detailHz = 23, verticalHz = 21;
+            // Keep phase continuous when frame time changes. At lower frame rates,
+            // keep the main wave below Nyquist so it cannot vanish between samples.
+            float phaseRate = Mathf.Min(1, .45f / (horizontalHz * dt));
+            beamShakeTime = Mathf.Repeat(beamShakeTime + dt * phaseRate, 1);
+            float phase = beamShakeTime * Mathf.PI * 2;
+            var motion = new Vector3(.72f * Mathf.Sin(phase * horizontalHz) + .22f * Mathf.Sin(phase * detailHz),
+                .3f * Mathf.Sin(phase * verticalHz), 0);
+            float strength = Mathf.Clamp(BeamShakeAmplitude, 0, .4f) * Mathf.SmoothStep(0, 1, beamShakeLevel);
+            beamShakeOffset = transform.rotation * motion * strength;
+        }
+
+        private void ResetBeamShake()
+        {
+            beamShakeLevel = beamShakeTime = 0;
+            beamShakeOffset = Vector3.zero;
         }
 
         private void UpdateOcclusion(float dt)
@@ -201,6 +240,8 @@ namespace TankTown
 
         private void OnDisable()
         {
+            transform.position -= beamShakeOffset;
+            ResetBeamShake();
             foreach (var pair in visibility) if (pair.Key != null) SetVisibility(pair.Key, 1);
             visibility.Clear();
             foreach (var block in exposed) if (block != null) block.ExposeForCamera(false);

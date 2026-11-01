@@ -127,5 +127,78 @@ namespace TankTown.Tests
             Assert.That(game.World.GetComponentsInChildren<MeshCollider>().Count(x => x.gameObject.layer == TownPhysics.GroundLayer), Is.GreaterThan(1));
             yield return null;
         }
+        [UnityTest] public IEnumerator CrowdSharesGeometryAndKeepsRigidBodyAndAnimatedLimbs()
+        {
+            var people = game.World.Pedestrians;
+            Assert.That(people.Count, Is.GreaterThan(10));
+            var meshes = people.Select(x => x.GetComponentInChildren<SkinnedMeshRenderer>().sharedMesh).Distinct().ToArray();
+            Assert.That(meshes.Length, Is.EqualTo(2), "Only hat and hair geometry should be allocated per world");
+            foreach (var person in people)
+            {
+                var renderers = person.GetComponentsInChildren<Renderer>();
+                Assert.That(renderers.Length, Is.EqualTo(1));
+                Assert.That(renderers[0].sharedMaterials.Length, Is.EqualTo(3));
+                Assert.That(person.GetComponent<CapsuleCollider>().radius, Is.EqualTo(game.Settings.pedestrianHitRadius));
+            }
+            var first = people[0]; first.enabled = false;
+            var skin = first.GetComponentInChildren<SkinnedMeshRenderer>();
+            var original = new Mesh(); var moved = new Mesh();
+            try
+            {
+                skin.BakeMesh(original);
+                skin.bones[3].localRotation *= Quaternion.Euler(70, 0, 0);
+                skin.BakeMesh(moved);
+                var weights = skin.sharedMesh.boneWeights; var a = original.vertices; var b = moved.vertices;
+                int arm = System.Array.FindIndex(weights, x => x.boneIndex0 == 3);
+                int body = System.Array.FindIndex(weights, x => x.boneIndex0 == 0);
+                Assert.That(Vector3.Distance(a[arm], b[arm]), Is.GreaterThan(.1f), "The sleeve must follow its shoulder joint");
+                Assert.That(Vector3.Distance(a[body], b[body]), Is.LessThan(.0001f), "The body must stay rigid");
+                Assert.That(a.All(skin.localBounds.Contains), Is.True, "Walking geometry must fit within its culling bounds");
+            }
+            finally { Object.Destroy(original); Object.Destroy(moved); }
+            yield return null;
+        }
+        [UnityTest] public IEnumerator CarsShareTheirMeshAndKeepIndividualPaintAndCollision()
+        {
+            var cars = game.World.TrafficCars;
+            Assert.That(cars.Count, Is.GreaterThan(10));
+            var filters = cars.Select(x => x.transform.Find("Batched traffic car").GetComponent<MeshFilter>()).ToArray();
+            Assert.That(filters.Select(x => x.sharedMesh).Distinct().Count(), Is.EqualTo(1));
+            Assert.That(filters.Select(x => x.GetComponent<Renderer>().sharedMaterials[0]).Distinct().Count(), Is.GreaterThan(1));
+            foreach (var car in cars)
+            {
+                Assert.That(car.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(2), "No disabled prototype parts should remain");
+                Assert.That(car.GetComponent<BoxCollider>().size, Is.EqualTo(new Vector3(1.8f, 2, 3.3f)));
+                Assert.That(car.GetComponent<ChainExplosive>(), Is.Not.Null);
+            }
+            yield return null;
+        }
+        [UnityTest] public IEnumerator RepeatedMeshCombinesReuseScratchWithoutRetainingRemovedGeometry()
+        {
+            var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var cube = source.GetComponent<MeshFilter>().sharedMesh;
+            var workspace = new TownMeshWorkspace();
+            Mesh first = null, second = null;
+            var other = game.World.MakeMaterial(Color.magenta);
+            try
+            {
+                workspace.Begin();
+                workspace.Add(game.World.ShotMaterial, cube, Matrix4x4.identity);
+                workspace.Add(other, cube, Matrix4x4.Translate(Vector3.right * 3));
+                first = workspace.Combine("Two materials", out var paints);
+                Assert.That(first.subMeshCount, Is.EqualTo(2));
+                Assert.That(paints, Is.EqualTo(new[] { game.World.ShotMaterial, other }));
+                Assert.That(first.bounds.size.x, Is.EqualTo(4).Within(.001f));
+                workspace.Begin(); workspace.Add(other, cube, Matrix4x4.identity);
+                second = workspace.Combine("One material", out paints);
+                Assert.That(second.subMeshCount, Is.EqualTo(1));
+                Assert.That(second.vertexCount, Is.EqualTo(cube.vertexCount));
+                Assert.That(second.bounds.size, Is.EqualTo(Vector3.one));
+                Assert.That(paints, Is.EqualTo(new[] { other }));
+                Assert.That(workspace.ScratchMeshCount, Is.EqualTo(2), "Rebuilding must reuse the native scratch meshes");
+            }
+            finally { workspace.Dispose(); Object.Destroy(source); Object.Destroy(first); Object.Destroy(second); }
+            yield return null;
+        }
     }
 }

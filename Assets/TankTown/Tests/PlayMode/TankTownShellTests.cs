@@ -16,6 +16,7 @@ namespace TankTown.Tests
             captureStep = Time.captureDeltaTime; Time.captureDeltaTime = 1f / 60;
             SceneManager.LoadScene("TankTown"); yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>(); game.StartOrRestart(); game.Input.useHardware = true;
+            game.Settings.cannonAimAssist = false; // These tests exercise the unassisted barrel direction.
             game.Tank.Warp(new Pose(game.World.SpawnPosition, Quaternion.identity));
             game.Tank.enabled = false; game.Tank.GetComponent<Rigidbody>().isKinematic = true;
             foreach (var explosive in game.World.Explosives) explosive.gameObject.SetActive(false);

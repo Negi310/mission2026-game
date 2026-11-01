@@ -5,7 +5,7 @@ namespace TankTown
     [CreateAssetMenu(menuName = "Tank Town/Settings")]
     public sealed class TankTownSettings : ScriptableObject
     {
-        [Min(1)] public float roundSeconds = 60;
+        [Min(1)] public float roundSeconds = 80;
         [Min(0)] public float respawnPenalty = 3;
         [Min(0.1f)] public float respawnDelay = .45f;
         [Header("Tank crash")]
@@ -36,6 +36,10 @@ namespace TankTown
         [Min(10)] public float shellSpeed = 120;
         [Min(.1f)] public float shellVisualScale = 3;
         [Min(0)] public float shotCooldown = 0.35f;
+        [Header("Cannon aim assistance")]
+        public bool cannonAimAssist = true;
+        [Range(0, 12)] public float cannonAimAssistAngle = 6;
+        [Range(10, 150)] public float cannonAimAssistRange = 90;
         [Min(1)] public float blastRadius = 8;
         [Min(0)] public float blastImpulse = 12;
         [Min(0)] public float blastBreakRadius = 3;
@@ -102,6 +106,7 @@ namespace TankTown
         [Range(0, 10)] public float megaBeamElevation = 1;
         public Vector3 megaBeamCameraOffset = new Vector3(9, 10, -15);
         [Min(10)] public float megaBeamCameraLookAhead = 40;
+        [Range(0, .4f)] public float megaBeamCameraShake = 0;
         [Range(.05f, 1)] public float megaBeamTurnMultiplier = .18f;
         [Min(1)] public float missileSeconds = 6;
         [Min(10)] public float missileTargetRange = 90;
