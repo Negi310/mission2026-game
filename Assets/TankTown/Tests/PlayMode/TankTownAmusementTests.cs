@@ -62,7 +62,7 @@ namespace TankTown.Tests
         public IEnumerator AllRideShapesHaveRealSupportsAndFullDestructionRewards()
         {
             yield return PlayPark();
-            Assert.That(game.World.HalfExtent, Is.EqualTo(268)); Assert.That(game.Settings.roundSeconds, Is.EqualTo(60));
+            Assert.That(game.World.HalfExtent, Is.EqualTo(268)); Assert.That(game.Settings.roundSeconds, Is.EqualTo(80));
             Assert.That(game.World.Buildings.Count, Is.EqualTo(133)); Assert.That(game.World.ParkCount, Is.EqualTo(12));
             for (int style = 0; style <= 6; style++)
             {

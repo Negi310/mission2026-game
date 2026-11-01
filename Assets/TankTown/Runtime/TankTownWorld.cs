@@ -35,7 +35,13 @@ namespace TankTown
         private TankTownGame game;
         private TownTrafficGrid trafficGrid;
         private Mesh proxyCube;
-        private readonly List<Mesh> vehicleMeshes = new List<Mesh>();
+        private readonly TownMeshWorkspace meshWorkspace = new TownMeshWorkspace();
+        private Mesh vehicleMesh;
+        private Material[] vehiclePaints;
+        private Material vehicleTemplatePaint;
+        private readonly TownCrowdGeometry crowdGeometry = new TownCrowdGeometry();
+        internal void DrawCitizen(Transform model, Transform[] limbs, int variant, Material shirt, Material skin, Material clothing, Mesh head)
+            => crowdGeometry.Draw(model, limbs, variant, shirt, skin, clothing, head);
         private float presentAt;
         internal void UpdatePresentation(Vector3 view)
         {
@@ -205,7 +211,7 @@ namespace TankTown
             var distantShape = CandyTheme ? new System.Func<Mesh, Mesh>(candyGeometry.DistantSilhouette) : null;
             if (AmusementTheme) distantShape = amusementGeometry.DistantSilhouette;
             if (cityKit != null) distantShape = cityKit.DistantShape;
-            foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube, distantShape);
+            foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube, meshWorkspace, distantShape);
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
                 if (renderer.gameObject.name != "Town paving" && renderer.gameObject.name != "North south ramp avenue" && renderer.gameObject.name != "East west ramp avenue") continue;
@@ -348,6 +354,19 @@ namespace TankTown
             var root = new GameObject("Explosive city car"); root.transform.SetParent(transform);
             var collider = root.AddComponent<BoxCollider>(); collider.center = Vector3.up * .25f; collider.size = new Vector3(1.8f, 2, 3.3f);
             if (!carPaints.TryGetValue(color, out var bodyColor)) { bodyColor = MakeMaterial(color); carPaints.Add(color, bodyColor); }
+            if (vehicleMesh == null) CreateSharedCarMesh(root.transform, bodyColor);
+            var paints = (Material[])vehiclePaints.Clone();
+            for (int i = 0; i < paints.Length; i++) if (paints[i] == vehicleTemplatePaint) paints[i] = bodyColor;
+            var visual = new GameObject("Batched traffic car", typeof(MeshFilter), typeof(MeshRenderer)); visual.transform.SetParent(root.transform, false);
+            visual.GetComponent<MeshFilter>().sharedMesh = vehicleMesh; visual.GetComponent<MeshRenderer>().sharedMaterials = paints;
+            AddBlock(root, true);
+            var explosive = root.AddComponent<ChainExplosive>(); explosive.Initialize(game, game.Settings.carExplosionRadius, vehicle: true); Explosives.Add(explosive);
+            var traffic = root.AddComponent<TownTrafficCar>(); traffic.Initialize(game, route, phase, speed); TrafficCars.Add(traffic);
+        }
+
+        private void CreateSharedCarMesh(Transform parent, Material bodyColor)
+        {
+            var root = new GameObject("Car mesh template"); root.transform.SetParent(parent, false);
             Box("Car body", Vector3.zero, new Vector3(1.7f, .55f, 3.2f), bodyColor, root.transform, false);
             Box("Car cabin", new Vector3(0, .75f, -.15f), new Vector3(1.4f, 1.05f, 1.65f), bodyColor, root.transform, false);
             Box("Front windshield", new Vector3(0, .75f, .685f), new Vector3(1.22f, .65f, .035f), glass, root.transform, false);
@@ -365,21 +384,16 @@ namespace TankTown
                     wheel.GetComponent<Collider>().enabled = false; Destroy(wheel.GetComponent<Collider>());
                 }
             }
-            AddBlock(root, true);
-            var explosive = root.AddComponent<ChainExplosive>(); explosive.Initialize(game, game.Settings.carExplosionRadius, vehicle: true); Explosives.Add(explosive);
-            var traffic = root.AddComponent<TownTrafficCar>(); traffic.Initialize(game, route, phase, speed); TrafficCars.Add(traffic);
-            // Only the car root moves, so retain the complete model in a material batch.
-            var groups = new Dictionary<Material, List<UnityEngine.CombineInstance>>();
+            // All cars use the same geometry; only the body material changes.
+            meshWorkspace.Begin();
             foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>())
             {
                 var filter = renderer.GetComponent<MeshFilter>();
-                if (!groups.TryGetValue(renderer.sharedMaterial, out var list)) groups[renderer.sharedMaterial] = list = new List<UnityEngine.CombineInstance>();
-                list.Add(new UnityEngine.CombineInstance { mesh = filter.sharedMesh, transform = root.transform.worldToLocalMatrix * renderer.transform.localToWorldMatrix });
+                meshWorkspace.Add(renderer.sharedMaterial, filter.sharedMesh, root.transform.worldToLocalMatrix * renderer.transform.localToWorldMatrix);
                 renderer.enabled = false;
             }
-            var mesh = TownBuildingVisual.Combine(groups, "Batched traffic car", out var paints); vehicleMeshes.Add(mesh);
-            var visual = new GameObject("Batched traffic car", typeof(MeshFilter), typeof(MeshRenderer)); visual.transform.SetParent(root.transform, false);
-            visual.GetComponent<MeshFilter>().sharedMesh = mesh; visual.GetComponent<MeshRenderer>().sharedMaterials = paints;
+            vehicleMesh = meshWorkspace.Combine("Shared traffic car", out vehiclePaints); vehicleTemplatePaint = bodyColor;
+            root.SetActive(false); Destroy(root);
         }
 
         private void SurfaceBox(string label, Vector3 p, Vector3 size, Material material)
@@ -786,7 +800,9 @@ namespace TankTown
             foreach (var building in Buildings) building.Presentation?.Dispose();
             if (proxyCube != null) Destroy(proxyCube);
             cityKit?.Dispose();
-            foreach (var mesh in vehicleMeshes) if (mesh != null) Destroy(mesh);
+            crowdGeometry.Dispose();
+            if (vehicleMesh != null) Destroy(vehicleMesh);
+            meshWorkspace.Dispose();
             Terrain?.Dispose();
             geometry.Dispose();
             candyGeometry?.Dispose();

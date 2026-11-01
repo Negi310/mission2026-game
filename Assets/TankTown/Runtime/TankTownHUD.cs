@@ -23,7 +23,7 @@ namespace TankTown
         private Image viewFade;
         private Image pointsBacking;
         private readonly TextGenerator timerMetrics = new TextGenerator(), pointsMetrics = new TextGenerator();
-        private Text aim;
+        private TankTownReticle aim;
         internal TankTownUpgradeHud UpgradesView { get; private set; }
         internal TankTownSpecialHud SpecialsView { get; private set; }
         private Text pickupText;
@@ -80,7 +80,7 @@ namespace TankTown
             clockRect.anchorMin = clockRect.anchorMax = clockRect.pivot = new Vector2(.5f, 1);
             clockRect.anchoredPosition = new Vector2(0, -24); clockRect.sizeDelta = new Vector2(226, 72);
             style.Header(clock);
-            timer = Label(clock.transform, "01:00", new Vector2(12, 0), new Vector2(202, 72), 58, Color.white);
+            timer = Label(clock.transform, "01:20", new Vector2(12, 0), new Vector2(202, 72), 58, Color.white);
             timer.name = "Round time";
             timer.font = displayFont; timer.alignment = TextAnchor.MiddleCenter;
             timer.fontStyle = FontStyle.Bold;
@@ -108,11 +108,12 @@ namespace TankTown
             game.Stats.Changed += ShowUpgrade;
             var chainRoot = new GameObject("Chain celebration", typeof(RectTransform)); chainRoot.transform.SetParent(hud, false);
             chainDisplay = chainRoot.AddComponent<TankTownChainDisplay>(); chainDisplay.Initialize(game, font, displayFont, style);
-            aim = Label(hud, "＋", Vector2.zero, new Vector2(40, 40), 32, Color.white);
+            var reticle = new GameObject("Cannon reticle", typeof(RectTransform), typeof(TankTownReticle));
+            reticle.transform.SetParent(hud, false);
+            aim = reticle.GetComponent<TankTownReticle>();
             aim.rectTransform.anchorMin = aim.rectTransform.anchorMax = aim.rectTransform.pivot = Vector2.one * .5f;
-            aim.alignment = TextAnchor.MiddleCenter;
-            aim.fontStyle = FontStyle.Bold;
-            aim.gameObject.AddComponent<Outline>().effectColor = ink;
+            aim.rectTransform.sizeDelta = new Vector2(80, 80);
+            aim.raycastTarget = false;
             modalShade = Panel("Pause and results backdrop", hud, Vector2.zero, Vector2.zero, new Color(.025f, .07f, .12f, .62f));
             modalShade.GetComponent<Image>().sprite = null;
             var shadeRect = modalShade.GetComponent<RectTransform>();
@@ -122,7 +123,7 @@ namespace TankTown
             style.Card(card, ink);
             var cr = card.GetComponent<RectTransform>();
             cr.anchorMin = cr.anchorMax = cr.pivot = new Vector2(.5f, .5f);
-            Label(card.transform, "1 MINUTE DESTRUCTION PLAYGROUND", new Vector2(38, -30), new Vector2(570, 27), 16, new Color(.22f, .55f, .43f));
+            Label(card.transform, "DESTRUCTION PLAYGROUND", new Vector2(38, -30), new Vector2(570, 27), 16, new Color(.22f, .55f, .43f));
             cardTitle = Label(card.transform, "", new Vector2(38, -78), new Vector2(560, 62), 42, ink);
             cardTitle.fontStyle = FontStyle.Bold;
             cardBody = Label(card.transform, "", new Vector2(40, -156), new Vector2(550, 110), 21, ink);
@@ -271,7 +272,7 @@ namespace TankTown
             CenterHeaderText(score, pointsMetrics, "0 pt", -24);
             Minimap?.Tick();
             viewFade.color = new Color(.02f, .065f, .10f, Mathf.Max(game.CameraRig.FadeOpacity, game.Presentation.CoverOpacity));
-            aim.enabled = game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
+            aim.enabled = game.IsPlaying && game.CameraRig.FadeOpacity <= .01f && !game.Tank.Relocating;
             // Project the actual muzzle direction after the comfort camera has moved.
             if (!game.IsPlaying || Camera.main == null) return;
             var viewportSize = Camera.main.targetTexture != null ? new Vector2(Camera.main.pixelWidth, Camera.main.pixelHeight) : new Vector2(Screen.width, Screen.height);
@@ -281,6 +282,10 @@ namespace TankTown
             pickupText.rectTransform.anchoredPosition = ((Vector2)receipt - viewportSize * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
             Vector3 projected = Camera.main.WorldToScreenPoint(game.Tank.Muzzle.position + game.Tank.Muzzle.forward * 70);
             aim.rectTransform.anchoredPosition = ((Vector2)projected - viewportSize * .5f) / canvas.GetComponent<Canvas>().scaleFactor;
+            var solution = game.Tank.CannonAim.Resolve(Camera.main);
+            var target = Camera.main.WorldToScreenPoint(solution.Point);
+            bool hasTarget = solution.Target != null && target.z > 0;
+            aim.Tick(game.Tank.Cooldown01, hasTarget, hasTarget ? ((Vector2)target - (Vector2)projected) / canvas.GetComponent<Canvas>().scaleFactor : Vector2.zero);
         }
     }
 }

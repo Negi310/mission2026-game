@@ -49,7 +49,7 @@ namespace TankTown
                 yield return TitleLayout(game);
             yield return new WaitForSecondsRealtime(4);
             Capture("flow-02-title-orbit", 1280, 720);
-            if (game.State != RoundState.Ready || game.Remaining != 60 || Vector3.Distance(overview, Camera.main.transform.position) < 1) { Fail("title orbit or frozen timer"); yield break; }
+            if (game.State != RoundState.Ready || game.Remaining != game.Settings.roundSeconds || Vector3.Distance(overview, Camera.main.transform.position) < 1) { Fail("title orbit or frozen timer"); yield break; }
             yield return Press(Key.H); Capture("flow-03-how-to", 1280, 720);
             if (!game.HowToOpen) { Fail("H did not open tutorial"); yield break; }
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-menu-layout") >= 0)
@@ -62,7 +62,7 @@ namespace TankTown
                 covered |= game.Presentation.CoverOpacity == 1;
                 string text = game.Presentation.Countdown;
                 if (text.Length > 0 && !seen.Contains(text)) { seen.Add(text); Capture("flow-04-countdown-" + text, 1280, 720); }
-                if (game.Remaining != 60 || FindFirstObjectByType<TankShell>() != null) { Fail("intro consumed time or fired"); yield break; }
+                if (game.Remaining != game.Settings.roundSeconds || FindFirstObjectByType<TankShell>() != null) { Fail("intro consumed time or fired"); yield break; }
                 yield return null;
             }
             if (!covered || !seen.SequenceEqual(new[] { "3", "2", "1" })) { Fail("countdown sequence or uncovered camera cut"); yield break; }
@@ -79,15 +79,26 @@ namespace TankTown
             }
             game.ChainBlast(new Vector3(700, 30, 700), 1, 3); game.ApplyPenalty();
             yield return new WaitForSecondsRealtime(.5f);
-            game.AdvanceTime(1000); yield return new WaitForSecondsRealtime(.12f);
+            bool existingBest = Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-result-existing-best") >= 0;
+            if (existingBest)
+            {
+                game.Ranking.Submit(60000, 2026, out _);
+                // This opt-in development fixture changes memory only; it never writes a player record.
+                typeof(TankTownGame).GetProperty(nameof(TankTownGame.BestScore)).SetValue(game, 60000);
+            }
+            game.AdvanceTime(1000);
+            if (existingBest && (game.NewBest || game.BestScore != 60000 || game.FinalRank != 2))
+            { Fail("existing-best result fixture did not produce the normal rank-two palette"); yield break; }
+            Debug.Log($"RESULT PALETTE SMOKE: newBest={game.NewBest}, rank={game.FinalRank}, best={game.BestScore}, score={game.RoundScore}");
+            yield return new WaitForSecondsRealtime(.12f);
             Capture("flow-07-score-count-up", 1920, 1080);
-            yield return new WaitForSecondsRealtime(TankTownResultsScreen.CountSeconds + .1f); Capture("flow-08-results", 1920, 1080);
+            yield return new WaitForSecondsRealtime(TankTownResultsScreen.CountSeconds + .6f); Capture("flow-08-results", 1920, 1080);
             Capture("flow-09-results-720", 1280, 720);
             var results = game.GetComponent<TankTownHUD>().ResultsView;
             if (Array.IndexOf(Environment.GetCommandLineArgs(), "--tank-town-menu-layout") >= 0)
             {
                 if (results.DetailsOpen || GameObject.Find("Local leaderboard") != null ||
-                    GameObject.Find("Result score card").GetComponentsInChildren<Text>().Length > 7)
+                    GameObject.Find("Result score card").GetComponentsInChildren<Text>().Length > 12)
                     throw new InvalidOperationException("The default result still contains detailed records");
                 CaptureMenuLayouts("Result score card", "results", false);
                 CaptureMenuLayouts("Result score card", "results-max", true);
@@ -106,7 +117,7 @@ namespace TankTown
                     throw new InvalidOperationException("Closing result details changed the score or records");
                 // The global replay action must also work from the optional records view.
                 yield return Press(Key.Tab);
-                Debug.Log("MENU LAYOUT COMPLETE: simple result and optional records; keyboard and mouse disclosure; no duplicate record; four resolutions; screen insets; readable text; maximum score and ten ranking rows");
+                Debug.Log("MENU LAYOUT COMPLETE: colorful party result and optional records; keyboard and mouse disclosure; no duplicate record; four resolutions; screen insets; readable text; maximum score and ten ranking rows");
             }
             if (results.DisplayedScore != game.RoundScore || game.Remaining != 0 || game.State != RoundState.Results) { Fail("result score did not settle"); yield break; }
             int score = game.RoundScore, broken = game.BrokenBlocks, instance = game.GetInstanceID();
@@ -145,8 +156,13 @@ namespace TankTown
                         if (maximumValues)
                         {
                             bool details = rootName == "Result details card";
-                            GameObject.Find(details ? "Result detail score" : "Result score").GetComponent<Text>().text = details ? "100,000 pt" : "100,000<size=30> pt</size>";
+                            GameObject.Find(details ? "Result detail score" : "Result score").GetComponent<Text>().text = details ? "100,000 pt" : "100,000<size=38> pt</size>";
                             GameObject.Find(details ? "Result best score" : "Result record note").GetComponent<Text>().text = "BEST 100,000 pt";
+                            if (!details)
+                            {
+                                GameObject.Find("Result hero rank").GetComponent<Text>().text = "#11";
+                                GameObject.Find("Result toy score board").GetComponent<TankTownResultArt>().SetMotion(1);
+                            }
                             if (details)
                             {
                                 GameObject.Find("Result ranking position").GetComponent<Text>().text = "10位";

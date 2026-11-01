@@ -45,7 +45,7 @@ namespace TankTown.Tests
             }
             game.StartOrRestart(); yield return null; yield return null; game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.IsPlaying && game.World.CandyTheme, Is.True); Assert.That(game.CitySeed, Is.EqualTo(seed));
-            Assert.That(game.Settings.roundSeconds, Is.EqualTo(60)); Assert.That(game.World.HalfExtent, Is.EqualTo(268));
+            Assert.That(game.Settings.roundSeconds, Is.EqualTo(80)); Assert.That(game.World.HalfExtent, Is.EqualTo(268));
             game.AdvanceTime(1000); game.StartOrRestart(); yield return null; yield return null; game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.Stage, Is.EqualTo(TownStage.CandyTown)); Assert.That(game.IsPlaying, Is.True);
             game.TogglePause(); game.ReturnToTitle(); yield return null; yield return null; game = Object.FindFirstObjectByType<TankTownGame>();

@@ -28,30 +28,8 @@ namespace TankTown
             hitbox.radius = game.Settings.pedestrianHitRadius; hitbox.height = 2.8f; hitbox.center = Vector3.up * 1.4f;
             model = new GameObject("Low poly citizen").transform; model.SetParent(transform, false);
             model.localScale = Vector3.one * (.95f + variant % 3 * .08f);
-            Part("Shirt", new Vector3(0, 1.08f, 0), new Vector3(.62f, .75f, .4f), shirt, model);
-            var face = Part("Faceted head", new Vector3(0, 1.74f, 0), Vector3.one * .65f, skin, model);
-            face.GetComponent<MeshFilter>().sharedMesh = head;
-            Part(variant % 3 == 0 ? "Hat" : "Hair", new Vector3(0, 2, -.02f), new Vector3(.59f, .17f, .49f), variant % 3 == 0 ? shirt : dark, model);
-            if (variant % 3 == 0) Part("Hat brim", new Vector3(0, 1.98f, .15f), new Vector3(.66f, .06f, .42f), shirt, model);
-            for (int side = -1; side <= 1; side += 2)
-            {
-                Part("Eye", new Vector3(side * .115f, 1.77f, .292f), new Vector3(.075f, .09f, .05f), dark, model);
-                int n = side == -1 ? 0 : 1;
-                limbs[n] = new GameObject("Walking leg").transform; limbs[n].SetParent(model, false); limbs[n].localPosition = new Vector3(side * .16f, .68f, 0);
-                Part("Trousers", Vector3.down * .28f, new Vector3(.25f, .6f, .28f), dark, limbs[n]);
-                Part("Shoe", new Vector3(0, -.57f, .08f), new Vector3(.29f, .15f, .43f), dark, limbs[n]);
-                limbs[n + 2] = new GameObject("Walking arm").transform; limbs[n + 2].SetParent(model, false); limbs[n + 2].localPosition = new Vector3(side * .39f, 1.42f, 0);
-                Part("Sleeve", Vector3.down * .27f, new Vector3(.19f, .55f, .23f), shirt, limbs[n + 2]);
-                Part("Hand", Vector3.down * .58f, Vector3.one * .2f, skin, limbs[n + 2]);
-            }
+            game.World.DrawCitizen(model, limbs, variant, shirt, skin, dark, head);
             SnapToWalk(); gameObject.AddComponent<TownMovingTarget>().Initialize(game);
-        }
-        private static GameObject Part(string name, Vector3 position, Vector3 size, Material material, Transform parent)
-        {
-            var item = GameObject.CreatePrimitive(PrimitiveType.Cube); item.name = name;
-            item.GetComponent<Collider>().enabled = false; Destroy(item.GetComponent<Collider>());
-            item.transform.SetParent(parent, false); item.transform.localPosition = position; item.transform.localScale = size;
-            item.GetComponent<Renderer>().sharedMaterial = material; return item;
         }
         private void Sample(out Vector3 point, out Vector3 forward)
         {

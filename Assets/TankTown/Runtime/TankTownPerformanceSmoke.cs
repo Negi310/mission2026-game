@@ -59,6 +59,21 @@ namespace TankTown
             yield return Measure(game, "destruction", 2.8f, 0);
             TankTownSmokeCapture.Capture(Path.Combine(output, "performance-destruction.png"), true, 1920, 1080);
             File.WriteAllText(Path.Combine(output, "performance-results.json"), JsonUtility.ToJson(new Report { results = results.ToArray() }, true));
+            // Capture a close view after all timed phases to verify the shared animated
+            // citizen mesh in the actual player, without changing the measured workload.
+            var person = game.World.Pedestrians.Find(x => x.Walking);
+            if (person != null)
+            {
+                game.CameraRig.enabled = false;
+                // Use the open starting road so a building cannot hide the close-up.
+                person.enabled = false;
+                person.transform.SetPositionAndRotation(game.World.GroundPoint(new Vector3(0, 0, -game.World.HalfExtent + 14), .04f), Quaternion.identity);
+                var camera = Camera.main;
+                camera.transform.position = person.transform.position + person.transform.forward * 5 + person.transform.right * 2 + Vector3.up * 2.2f;
+                camera.transform.LookAt(person.transform.position + Vector3.up * 1.1f);
+                yield return null;
+                TankTownSmokeCapture.Capture(Path.Combine(output, "performance-citizen.png"), true, 1920, 1080);
+            }
             Debug.Log($"PERFORMANCE SMOKE COMPLETE: buildings={game.World.Buildings.Count}, blocks={game.TotalBlocks}, broken={game.BrokenBlocks}");
             Application.Quit(0);
         }

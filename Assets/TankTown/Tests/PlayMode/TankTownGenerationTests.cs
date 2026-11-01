@@ -75,7 +75,7 @@ namespace TankTown.Tests
             Assert.That(game.World.Buildings.Count, Is.EqualTo(classicBuildings * 4)); Assert.That(game.World.ParkCount, Is.EqualTo(classicParks * 4));
             Assert.That(source.cityHalfBlocks, Is.EqualTo(half), "Stage configuration must not modify the shared resource");
             Assert.That(game.World.ItemPickups.Select(p => p.Kind).Distinct().Count(), Is.EqualTo(6));
-            Assert.That(game.Settings.roundSeconds, Is.EqualTo(60)); Assert.That(game.Settings.megaBeamLength, Is.EqualTo(source.megaBeamLength * 2));
+            Assert.That(game.Settings.roundSeconds, Is.EqualTo(80)); Assert.That(game.Settings.megaBeamLength, Is.EqualTo(source.megaBeamLength * 2));
             game.AdvanceTime(1000); game.StartOrRestart(); yield return null; yield return null;
             game = Object.FindFirstObjectByType<TankTownGame>();
             Assert.That(game.Stage, Is.EqualTo(TownStage.BigCity)); Assert.That(game.IsPlaying, Is.True);
@@ -141,7 +141,7 @@ namespace TankTown.Tests
         }
 
         [UnityTest]
-        public IEnumerator NormalRetryGeneratesANewCityAndOneMinuteEndsTheRound()
+        public IEnumerator NormalRetryGeneratesANewCityAndEightySecondsEndsTheRound()
         {
             var previous = TankTownGame.GenerationSeedOverride;
             try
@@ -149,17 +149,17 @@ namespace TankTown.Tests
                 TankTownGame.GenerationSeedOverride = null;
                 SceneManager.LoadScene("TankTown"); yield return null;
                 game = Object.FindFirstObjectByType<TankTownGame>();
-                Assert.That(game.Remaining, Is.EqualTo(60));
+                Assert.That(game.Remaining, Is.EqualTo(80));
                 Assert.That(Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None).Any(t => t.text.Contains("3分") || t.text.Contains("3 MINUTE")), Is.False);
                 int firstSeed = game.CitySeed;
                 var first = game.World.Layout.Plots.Select(p => p.Reward).ToArray();
-                game.StartOrRestart(); game.AdvanceTime(59.5f); Assert.That(game.IsPlaying, Is.True);
+                game.StartOrRestart(); game.AdvanceTime(game.Remaining - .5f); Assert.That(game.IsPlaying, Is.True);
                 game.AdvanceTime(.5f); Assert.That(game.State, Is.EqualTo(RoundState.Results));
                 game.StartOrRestart(); yield return null;
                 game = Object.FindFirstObjectByType<TankTownGame>();
                 Assert.That(game.CitySeed, Is.Not.EqualTo(firstSeed));
                 Assert.That(game.World.Layout.Plots.Select(p => p.Reward).ToArray(), Is.Not.EqualTo(first));
-                Assert.That(game.Remaining, Is.InRange(59.5f, 60));
+                Assert.That(game.Remaining, Is.InRange(79f, 80));
             }
             finally { TankTownGame.GenerationSeedOverride = previous; }
         }

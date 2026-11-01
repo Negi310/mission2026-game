@@ -220,6 +220,7 @@ namespace TankTown
             CameraRig.Items = Items;
             CameraRig.BeamOffset = Settings.megaBeamCameraOffset;
             CameraRig.BeamLookAhead = Settings.megaBeamCameraLookAhead;
+            CameraRig.BeamShakeAmplitude = Settings.megaBeamCameraShake;
             CameraRig.Terrain = World.Terrain;
             CameraRig.TurnSmoothTime = Settings.cameraTurnSmoothTime;
             CameraRig.MaxTurnSpeed = Settings.cameraMaxTurnSpeed;
