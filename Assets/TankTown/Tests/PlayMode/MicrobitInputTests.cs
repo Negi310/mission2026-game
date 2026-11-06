@@ -28,8 +28,6 @@ namespace TankTown.Tests
                 {
                     int actions = 0; horn.performed += _ => actions++;
                     steering.Enable(); horn.Enable();
-                    // Prime ButtonControl's frame tracking before the first tap.
-                    _ = device.horn.wasPressedThisFrame;
                     device.Submit(.37f, false); InputSystem.Update(); root.SendMessage("Update");
                     Assert.That(input.Steering, Is.EqualTo(.37f).Within(.0001f));
                     Assert.That(steering.ReadValue<float>(), Is.EqualTo(.37f).Within(.0001f));
@@ -65,10 +63,53 @@ namespace TankTown.Tests
                 InputSystem.settings.editorInputBehaviorInPlayMode = previousEditor;
             }
         }
+        [Test] public void FreshDeviceDeliversFirstPressAndReleaseInOneUpdate()
+        {
+            bool previousBackground = Application.runInBackground;
+            var previousBehavior = InputSystem.settings.backgroundBehavior;
+            var previousEditor = InputSystem.settings.editorInputBehaviorInPlayMode;
+            Application.runInBackground = true;
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            var root = new GameObject("First hardware strike"); MicrobitWheel device = null;
+            try
+            {
+                var input = root.AddComponent<TankInput>(); root.GetComponent<MicrobitController>().enabled = false;
+                int presses = 0; input.PadPressed += _ => presses++;
+                device = MicrobitWheel.Create();
+                // No baseline update, no test-side read of ButtonControl before the tap.
+                device.Submit(.5f, true, 528.5f, 800); InputSystem.Update(); root.SendMessage("Update");
+                Assert.That(presses, Is.EqualTo(1)); Assert.That(input.MicrobitPresses, Is.EqualTo(1));
+                Assert.That(device.horn.isPressed, Is.False);
+            }
+            finally
+            {
+                if (device != null && device.added) InputSystem.RemoveDevice(device);
+                Object.DestroyImmediate(root); Application.runInBackground = previousBackground;
+                InputSystem.settings.backgroundBehavior = previousBehavior;
+                InputSystem.settings.editorInputBehaviorInPlayMode = previousEditor;
+            }
+        }
+        [Test] public void DiagnosticCountsRejectedLinesAndPreservesPeakBeforeRelease()
+        {
+            var diagnostics = new MicrobitDiagnostics();
+            var decoder = new MicrobitLineDecoder { LineReceived = diagnostics.Line };
+            var bytes = System.Text.Encoding.ASCII.GetBytes("0,0\n0,800\n0,0\n0,9999\n");
+            diagnostics.Bytes(bytes, bytes.Length); decoder.Feed(bytes, bytes.Length, diagnostics.Frame);
+            var result = diagnostics.Read();
+            Assert.That(result.Bytes, Is.EqualTo(bytes.Length)); Assert.That(result.Valid, Is.EqualTo(3));
+            Assert.That(result.Invalid, Is.EqualTo(1)); Assert.That(result.Line, Is.EqualTo("0,9999"));
+            Assert.That(result.Piezo, Is.Zero); Assert.That(result.Maximum, Is.EqualTo(800)); Assert.That(result.Minimum, Is.Zero);
+            diagnostics.ResetPeaks(); Assert.That(diagnostics.Read().Maximum, Is.Zero);
+        }
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
         [Test] public void WindowsDiscoveryAndMissingPortFailWithoutCrashing()
         {
             Assert.That(MicrobitSerial.FindPorts(), Is.Not.Null);
+            Assert.That(MicrobitSerial.FindBluetoothPorts(), Is.Not.Null);
+            Assert.That(MicrobitSerial.FindControllerPorts(true), Is.Not.Null);
+            Assert.That(MicrobitSerial.IsBluetoothSerialService("{00001101-0000-1000-8000-00805F9B34FB}_LOCALMFG&0002"), Is.True);
+            Assert.That(MicrobitSerial.IsBluetoothSerialService("{00001812-0000-1000-8000-00805f9b34fb}"), Is.False);
             Assert.Throws<System.ComponentModel.Win32Exception>(() => { using (var port = new MicrobitSerial("COM999999")) { } });
         }
 #endif

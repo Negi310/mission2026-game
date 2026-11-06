@@ -7,20 +7,30 @@ using Microsoft.Win32.SafeHandles;
 
 namespace TankTown
 {
-    // Windows USB CDC transport without a System.IO.Ports plugin or external bridge process.
+    // Windows USB CDC / Bluetooth SPP without System.IO.Ports or a bridge process.
     internal sealed class MicrobitSerial : IDisposable
     {
         private readonly SafeFileHandle handle;
-        internal static string[] FindPorts()
+        internal static string[] FindPorts() => FindDevicePorts("USB", id => id.StartsWith("VID_0D28&PID_0204", StringComparison.OrdinalIgnoreCase));
+        internal static string[] FindBluetoothPorts() => FindDevicePorts("BTHENUM", IsBluetoothSerialService);
+        internal static bool IsBluetoothSerialService(string id) => id.StartsWith("{00001101-0000-1000-8000-00805f9b34fb}", StringComparison.OrdinalIgnoreCase);
+        internal static string[] FindControllerPorts(bool includeBluetooth)
+        {
+            var result = new List<string>();
+            if (includeBluetooth) result.AddRange(FindBluetoothPorts());
+            foreach (string port in FindPorts()) if (!result.Contains(port)) result.Add(port);
+            return result.ToArray();
+        }
+        private static string[] FindDevicePorts(string bus, Func<string, bool> match)
         {
             var ports = new List<string>();
-            IntPtr usb = OpenKey(new IntPtr(unchecked((int)0x80000002)), @"SYSTEM\CurrentControlSet\Enum\USB");
+            IntPtr usb = OpenKey(new IntPtr(unchecked((int)0x80000002)), @"SYSTEM\CurrentControlSet\Enum\" + bus);
             if (usb == IntPtr.Zero) return ports.ToArray();
             try
             {
                 foreach (string id in SubKeys(usb))
                 {
-                    if (!id.StartsWith("VID_0D28&PID_0204", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!match(id)) continue;
                     IntPtr device = OpenKey(usb, id);
                     if (device == IntPtr.Zero) continue;
                     try
@@ -50,7 +60,7 @@ namespace TankTown
         private static IntPtr OpenKey(IntPtr parent, string path)
         {
             int result = RegOpenKeyEx(parent, path, 0, 0x20019, out var key);
-            if (result == 2) return IntPtr.Zero;
+            if (result == 2 || result == 3) return IntPtr.Zero;
             if (result != 0) throw new Win32Exception(result);
             return key;
         }

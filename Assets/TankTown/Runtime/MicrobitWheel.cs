@@ -46,7 +46,11 @@ namespace TankTown
         internal static MicrobitWheel Create()
         {
             if (InputSystem.LoadLayout(nameof(MicrobitWheel)) == null) InputSystem.RegisterLayout<MicrobitWheel>();
-            var device = InputSystem.AddDevice<MicrobitWheel>(); device.MakeCurrent(); return device;
+            var device = InputSystem.AddDevice<MicrobitWheel>();
+            // ButtonControl lazily enables transition tracking. A press/release arriving
+            // together before its first query would otherwise disappear.
+            _ = device.horn.wasPressedThisFrame;
+            device.MakeCurrent(); return device;
         }
         internal void Submit(float value, bool fire, float rawAngle = 0, int rawPiezo = 0)
         {

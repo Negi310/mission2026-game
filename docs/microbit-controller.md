@@ -8,7 +8,7 @@
 2. コントローラーの送信プログラムを起動し、必要ならそのファームウェアの手順でペアリング可能な状態にします。
 3. Windowsの「デバイスの追加 → Bluetooth」からmicro:bitをペアリングします。今回のBLE受信処理はWindowsに登録されたGATTサービスを列挙する方式です。ゲーム内のペアリング画面はありません。
 4. スマホのUART確認アプリなど、コントローラーへ接続している別アプリは切断します。
-5. 対応ビルドの `TankTown.exe` を起動します。標準設定 `transport: auto` はBLE UARTを探し、見つからなければ従来のUSBも探します。Bluetoothだけに限定するには設定を `bluetooth` にするか、起動引数 `--microbit-bluetooth` を付けます。
+5. 対応ビルドの `TankTown.exe` を起動します。v0.4.1の標準設定 `transport: auto` はBLE UART、Bluetooth SPPのCOM、従来のUSBを探します。BLEだけに限定するには設定を `bluetooth` にするか、起動引数 `--microbit-bluetooth` を付けます。
 6. Unity Console／Player.logに `MICROBIT CONNECTED: Input System wheel` が出たら、左右へ傾けて旋回、ピエゾを叩いて砲撃を試します。タイトル・リザルトでも砲撃入力で開始／再挑戦できます。
 
 **現在のBluetooth送信方式・実機との接続は未確認です。** BLE UART（micro:bit／Nordic系）の標準サービスを初期値として実装しています。別のサービスなら送信コードに合わせてUUIDを変更してください。Bluetoothという名称だけではBLE UARTかSPPかを判別できません。
@@ -92,6 +92,18 @@ Bluetooth受信・CSV解析・閾値判定はv0.4.0からの対応です。配�
 
 WindowsのBLE処理は標準APIを使い、外部ブリッジやPython実行環境を必要としません。[GATT通知](https://learn.microsoft.com/en-us/windows/win32/api/bluetoothleapis/nf-bluetoothleapis-bluetoothgattregisterevent)、[通知購読](https://learn.microsoft.com/en-us/windows/win32/api/bluetoothleapis/nf-bluetoothleapis-bluetoothgattsetdescriptorvalue)。
 
+## 接続診断（v0.4.1から搭載）
+
+旋回も砲撃もできない場合、閾値の前にデータ受信を確認します。ZIPをすべて展開し、`TankTown/TankTown.exe` を起動して **F8** を押すか、同じフォルダの `接続診断.cmd` を開きます。別のゲーム実行版は閉じてから試してください。
+
+- `受信 0 bytes`：ゲームには文字列が届いていません。Bluetoothの方式、Windowsのペアリング、UARTサービスUUID／COMポートを確認します。
+- 受信bytesは増えるが有効行が0：改行が届いていない、CSVや数値範囲が異なる可能性があります。「最後の受信片」「最後の行」「不正行」を確認します。
+- 有効行と角度は動くが砲撃判定が0：ピエゾの最小・最大と砲撃閾値・再受付値を比較します。静止値が再受付値より高いままだと次の砲撃を受け付けません。画面のスライダーで調整し、保存・再接続できます。
+- 砲撃判定は増えるがInput Systemへの送信が0：ゲームが前面でない可能性があります。
+- 「ゲーム入力」が増えている：入力はゲーム側へ渡っています。ラウンドの状態や射撃クールタイムなど、その後のゲーム処理を確認します。
+
+「診断をコピー」で受信状態・最後の文字列・生値・閾値・エラーをまとめてコピーできます。これと送信側のコードがあれば、BLE UARTかBluetooth COMか、UUIDや区切りが一致しているかを調べられます。診断ビルドはBluetooth SPPのCOMも自動探索します。公開v0.4.0のCOM方式では番号の指定が必要でした。初回の短い押下／解放をInput Systemが取りこぼす問題も修正していますが、旋回もできない今回の原因と同じとは断定していません。
+
 ## 検証記録（2026-11-06）
 
 Unity 6000.3.19f1の分離コピーでPlayMode 40件成功。2値CSV、小数・空白・CRLF、範囲外データ拒否、分割通知と複数行、短いピエゾピーク、ヒステリシス、クールダウン、切断／再接続、受信キュー上限、角度補正、Input ActionsとTankInputへの砲撃・旋回、生値の伝達、WindowsのBLEサービス列挙と未接続時の失敗、既存のラウンド遷移を確認しました。記録は `Logs/microbit-bluetooth-final-tests.xml` と対応ログです。
@@ -99,3 +111,5 @@ Unity 6000.3.19f1の分離コピーでPlayMode 40件成功。2値CSV、小数・
 Windows Development Build成功。`Builds/TankTown-Bluetooth/TankTown.exe` に設定ファイルとこの手順を同梱しています。Bluetoothのみの探索を有効にした実行版で、タイトルの4解像度・ホバー、遊び方、カウントダウン、砲撃、リザルト、Space再挑戦が成功し、終了コード0でした。記録は `Logs/microbit-bluetooth-build.log`、`microbit-bluetooth-player.log`、`microbit-bluetooth-smoke-status.json`。BLEで実機データを受信した試験ではありません。この記録はDevelopment版の検証です。配布用ビルドの最終結果はv0.4.0のリリース本文に記載します。
 
 入力範囲の訂正後、送信値±1023を最大旋回として受理し、±528.5で半分の旋回量、±34以内で中立になることを確認しました。追加した端点・中間値を含むPlayMode 43件が成功しています。記録は `Logs/release-v040-range-tests.xml` と対応ログです。ピエゾの範囲0〜1023と閾値は変更していません。
+
+診断対応の検証ではPlayMode 46件が成功しました。公開版の仮想デバイス作成処理で初回の押下・解放を取りこぼすことを別のテストで再現（期待1、実際0）し、作成時から追跡する修正とCSVから開始・実砲弾発射までのテストを追加しました。記録は `Logs/microbit-diagnostics-tests.xml`、`microbit-v040-first-strike-repro-fixed.xml`。Windows Development Buildと、診断を開いた状態でのログ出力、非表示状態でのタイトル・ホバー・開始・結果・再挑戦を確認しています。最終GUIキャプチャは非表示ウィンドウで黒画像になるため、最終画像による確認はできていません。記録は `microbit-diagnostics-final-build.log`、`microbit-diagnostics-final-player.log`、`microbit-diagnostics-flow-status.json`。これは実機通信の成功ではなく、旋回も砲撃もできない報告の原因は未確定です。この修正と診断画面をv0.4.1として配布します。実機接続の原因特定と動作確認は引き続き必要です。

@@ -13,6 +13,7 @@ namespace TankTown
         public event Action HelpPressed;
         public event Action<TownStage> StagePressed;
         public float Steering { get; private set; }
+        public int MicrobitPresses { get; private set; }
         public bool useHardware;
         public TankTownSettings settings;
         private float wheel;
@@ -44,7 +45,7 @@ namespace TankTown
             var microbit = MicrobitWheel.current;
             if (microbit != null && !microbit.added) microbit = null;
             Steering = microbit != null ? microbit.steering.ReadValue() : useHardware ? wheel : Gamepad.current?.leftStick.x.ReadValue() ?? 0;
-            if (microbit != null && microbit.horn.wasPressedThisFrame) PulsePad(0);
+            if (microbit != null && microbit.horn.wasPressedThisFrame) { MicrobitPresses++; PulsePad(0); }
             if (keyboard != null)
             {
                 if (keyboard.digit1Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.Town);
