@@ -91,7 +91,7 @@ namespace TankTown
                         foreach (string path in services)
                         {
                             if (token.IsCancellationRequested) return;
-                            try { ReadBluetooth(path, token, target, configuration.receiveUuid, Math.Max(3000, (int)(configuration.timeoutSeconds * 2000)), telemetry); }
+                            try { ReadBluetooth(path, token, target, configuration.receiveUuid, Math.Max(15000, (int)(configuration.timeoutSeconds * 2000)), telemetry); }
                             catch (Exception e) when (TransportError(e)) { connectionError = "BLE: " + e.Message; }
                         }
                     }
@@ -159,7 +159,7 @@ namespace TankTown
                     if (token.IsCancellationRequested) return;
                     Volatile.Write(ref validAt, Environment.TickCount); connectionError = null; telemetry.Frame(frame); target.Enqueue(frame, Now);
                 });
-            }))
+            }, telemetry.BleTrace))
             {
                 telemetry.Status("BLE UART通知を購読済み・受信待ち");
                 while (!token.IsCancellationRequested && unchecked(Environment.TickCount - Volatile.Read(ref validAt)) <= idleMillis) Thread.Sleep(20);

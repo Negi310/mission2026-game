@@ -13,6 +13,7 @@ namespace TankTown
     {
         private readonly object gate = new object();
         private readonly Action<byte[], int> receive;
+        private readonly Action<string> trace;
         private readonly SafeFileHandle handle;
         private IntPtr subscription;
         private GCHandle context;
@@ -57,9 +58,10 @@ namespace TankTown
             Canonical(path).Contains(Canonical(uuid)) && (string.IsNullOrWhiteSpace(filter) || Canonical(path).Contains(Canonical(filter)));
         private static string Canonical(string value) => (value ?? "").Replace("-", "").Replace(":", "").Replace("{", "").Replace("}", "").ToLowerInvariant();
 
-        internal MicrobitBluetooth(string path, string receiveUuid, Action<byte[], int> receive)
+        internal MicrobitBluetooth(string path, string receiveUuid, Action<byte[], int> receive, Action<string> trace = null)
         {
             this.receive = receive;
+            this.trace = trace;
             handle = CreateFile(path, 0xC0000000, 3, IntPtr.Zero, 3, 0, IntPtr.Zero);
             if (handle.IsInvalid) { handle.Dispose(); throw new Win32Exception(); }
             try
@@ -68,15 +70,9 @@ namespace TankTown
                 if (count == 0) throw new System.IO.IOException("BLE UART has no characteristics");
                 var items = new Characteristic[count];
                 Check(BluetoothGATTGetCharacteristics(handle, IntPtr.Zero, count, items, out count, 0));
-                bool explicitUuid = Guid.TryParse(receiveUuid, out var expected);
-                Characteristic selected = default; bool found = false;
-                for (int i = 0; i < count; i++)
-                {
-                    if (items[i].Notifiable == 0 && items[i].Indicatable == 0) continue;
-                    if (explicitUuid && items[i].Uuid.AsGuid != expected) continue;
-                    selected = items[i]; found = true; break;
-                }
+                bool found = TrySelectCharacteristic(items, count, receiveUuid, out Characteristic selected);
                 if (!found) throw new System.IO.IOException("No matching BLE UART notify/indicate characteristic");
+                trace?.Invoke("特性 " + selected.Uuid.AsGuid + " / notify=" + selected.Notifiable + " / indicate=" + selected.Indicatable);
                 CheckBufferResult(BluetoothGATTGetDescriptors(handle, ref selected, 0, null, out ushort descriptorsCount, 0));
                 if (descriptorsCount == 0) throw new System.IO.IOException("BLE UART has no CCCD");
                 var descriptors = new Descriptor[descriptorsCount];
@@ -91,30 +87,59 @@ namespace TankTown
                 Check(BluetoothGATTRegisterEvent(handle, 0, ref registration, callback, GCHandle.ToIntPtr(context), out subscription, 0));
                 var value = new DescriptorValue { Type = 2, Notify = (byte)(selected.Notifiable != 0 ? 1 : 0), Indicate = (byte)(selected.Notifiable == 0 ? 1 : 0) };
                 Check(BluetoothGATTSetDescriptorValue(handle, ref cccd, ref value, 0));
+                trace?.Invoke("購読完了: " + selected.Uuid.AsGuid + (value.Indicate != 0 ? " indication" : " notification"));
             }
             catch { Dispose(); throw; }
+        }
+
+        internal static bool TrySelectCharacteristic(Characteristic[] items, int count, string receiveUuid, out Characteristic selected)
+        {
+            selected = default;
+            bool explicitUuid = Guid.TryParse(receiveUuid, out var expected);
+            var microbitTx = new Guid("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+            bool found = false;
+            for (int i = 0; i < count; i++)
+            {
+                var item = items[i];
+                if (item.Notifiable == 0 && item.Indicatable == 0) continue;
+                var uuid = item.Uuid.AsGuid;
+                if (explicitUuid && uuid != expected) continue;
+                if (!found || (!explicitUuid && uuid == microbitTx)) { selected = item; found = true; }
+                if (explicitUuid || uuid == microbitTx) break;
+            }
+            return found;
         }
 
         [AOT.MonoPInvokeCallback(typeof(GattCallback))]
         private static void OnValue(int eventType, IntPtr output, IntPtr callbackContext)
         {
             // Never let an exception cross the unmanaged callback boundary.
+            MicrobitBluetooth target = null;
             try
             {
-                var target = (MicrobitBluetooth)GCHandle.FromIntPtr(callbackContext).Target;
+                target = (MicrobitBluetooth)GCHandle.FromIntPtr(callbackContext).Target;
                 lock (target.gate)
                 {
-                    if (target.disposed || output == IntPtr.Zero) return;
-                    var changed = Marshal.PtrToStructure<ValueChanged>(output);
-                    if (changed.Value == IntPtr.Zero || changed.DataSize.ToUInt64() < 4) return;
-                    int count = Marshal.ReadInt32(changed.Value);
-                    if (count <= 0 || count > 512 || (ulong)(count + 4) > changed.DataSize.ToUInt64()) return;
-                    var bytes = new byte[count];
-                    Marshal.Copy(IntPtr.Add(changed.Value, 4), bytes, 0, count);
-                    target.receive(bytes, count);
+                    if (target.disposed) return;
+                    target.trace?.Invoke("callback");
+                    if (!TryCopyValue(output, out var bytes, out string error)) { target.trace?.Invoke("callback error: " + error); return; }
+                    target.receive(bytes, bytes.Length);
                 }
             }
-            catch { }
+            catch (Exception e) { try { target?.trace?.Invoke("callback error: " + e.GetType().Name + " " + e.Message); } catch { } }
+        }
+
+        internal static bool TryCopyValue(IntPtr output, out byte[] bytes, out string error)
+        {
+            bytes = null; error = "";
+            if (output == IntPtr.Zero) { error = "empty event"; return false; }
+            var changed = Marshal.PtrToStructure<ValueChanged>(output);
+            if (changed.Value == IntPtr.Zero || changed.DataSize.ToUInt64() < 4) { error = "missing value/size=" + changed.DataSize; return false; }
+            int count = Marshal.ReadInt32(changed.Value);
+            if (count <= 0 || count > 512 || (ulong)(count + 4) > changed.DataSize.ToUInt64()) { error = "count=" + count + " size=" + changed.DataSize; return false; }
+            bytes = new byte[count];
+            Marshal.Copy(IntPtr.Add(changed.Value, 4), bytes, 0, count);
+            return true;
         }
 
         public void Dispose()
@@ -158,7 +183,7 @@ namespace TankTown
         [StructLayout(LayoutKind.Sequential)]
         internal struct Registration { public ushort Count; public Characteristic Characteristic; }
         [StructLayout(LayoutKind.Sequential)]
-        private struct ValueChanged { public ushort Handle; public UIntPtr DataSize; public IntPtr Value; }
+        internal struct ValueChanged { public ushort Handle; public UIntPtr DataSize; public IntPtr Value; }
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate void GattCallback(int eventType, IntPtr output, IntPtr context);
         [DllImport("setupapi.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern IntPtr SetupDiGetClassDevs(ref Guid guid, string enumerator, IntPtr parent, uint flags);

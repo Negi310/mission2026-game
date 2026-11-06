@@ -263,6 +263,40 @@ namespace TankTown.Tests
             Assert.That(MicrobitBluetooth.MatchesService(path, new MicrobitInputSettings().serviceUuid, "AA:BB:CC:DD:EE:FF"), Is.True);
             Assert.That(MicrobitBluetooth.MatchesService(path, new MicrobitInputSettings().serviceUuid, "00:11:22:33:44:55"), Is.False);
         }
+        [Test] public void BleSelectsMicrobitTransmitIndicationAndHonorsExplicitOverride()
+        {
+            var nordicTx = new System.Guid("6e400003-b5a3-f393-e0a9-e50e24dcca9e");
+            var microbitTx = new System.Guid("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
+            var items = new[] {
+                new MicrobitBluetooth.Characteristic { Uuid = new MicrobitBluetooth.Uuid { LongValue = nordicTx }, Notifiable = 1 },
+                new MicrobitBluetooth.Characteristic { Uuid = new MicrobitBluetooth.Uuid { LongValue = microbitTx }, Indicatable = 1 }
+            };
+            Assert.That(MicrobitBluetooth.TrySelectCharacteristic(items, items.Length, "", out var selected), Is.True);
+            Assert.That(selected.Uuid.AsGuid, Is.EqualTo(microbitTx)); Assert.That(selected.Indicatable, Is.EqualTo(1));
+            Assert.That(MicrobitBluetooth.TrySelectCharacteristic(items, items.Length, nordicTx.ToString(), out selected), Is.True);
+            Assert.That(selected.Uuid.AsGuid, Is.EqualTo(nordicTx));
+            Assert.That(MicrobitBluetooth.TrySelectCharacteristic(items, items.Length, System.Guid.Empty.ToString(), out _), Is.False);
+        }
+        [Test] public void BleNotificationCopiesNativePayloadAndRejectsTruncation()
+        {
+            var payload = System.Text.Encoding.ASCII.GetBytes("0,512\n");
+            var value = System.Runtime.InteropServices.Marshal.AllocHGlobal(payload.Length + 4);
+            var output = System.Runtime.InteropServices.Marshal.AllocHGlobal(System.Runtime.InteropServices.Marshal.SizeOf<MicrobitBluetooth.ValueChanged>());
+            try
+            {
+                System.Runtime.InteropServices.Marshal.WriteInt32(value, payload.Length);
+                System.Runtime.InteropServices.Marshal.Copy(payload, 0, System.IntPtr.Add(value, 4), payload.Length);
+                var evt = new MicrobitBluetooth.ValueChanged { DataSize = (System.UIntPtr)(uint)(payload.Length + 4), Value = value };
+                System.Runtime.InteropServices.Marshal.StructureToPtr(evt, output, false);
+                Assert.That(MicrobitBluetooth.TryCopyValue(output, out var received, out _), Is.True);
+                Assert.That(received, Is.EqualTo(payload));
+                evt.DataSize = (System.UIntPtr)4u;
+                System.Runtime.InteropServices.Marshal.StructureToPtr(evt, output, false);
+                Assert.That(MicrobitBluetooth.TryCopyValue(output, out _, out _), Is.False);
+                Assert.That(MicrobitBluetooth.TryCopyValue(System.IntPtr.Zero, out _, out _), Is.False);
+            }
+            finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(value); System.Runtime.InteropServices.Marshal.FreeHGlobal(output); }
+        }
 #endif
     }
 }
