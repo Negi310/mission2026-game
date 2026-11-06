@@ -100,6 +100,12 @@ namespace TankTown.Editor
             });
             if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 throw new System.Exception("Tank Town build failed: " + report.summary.result);
+            foreach (string relative in new[] { "microbit-controller.json", "docs/microbit-controller.md", "hardware/microbit/main.py" })
+            {
+                string destination = Path.Combine(Path.GetDirectoryName(outputPath), relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                File.Copy(relative, destination, true);
+            }
         }
     }
 }

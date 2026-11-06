@@ -18,6 +18,8 @@ namespace TankTown
         private float wheel;
         private readonly bool[] held = new bool[2];
 
+        private void Awake() => gameObject.AddComponent<MicrobitController>();
+
         public void SetWheel(float normalized) => wheel = Mathf.Clamp(normalized, -1, 1);
 
         public void SetPressure(int pad, float normalized)
@@ -39,14 +41,17 @@ namespace TankTown
         private void Update()
         {
             var keyboard = Keyboard.current;
-            Steering = useHardware ? wheel : Gamepad.current?.leftStick.x.ReadValue() ?? 0;
+            var microbit = MicrobitWheel.current;
+            if (microbit != null && !microbit.added) microbit = null;
+            Steering = microbit != null ? microbit.steering.ReadValue() : useHardware ? wheel : Gamepad.current?.leftStick.x.ReadValue() ?? 0;
+            if (microbit != null && microbit.horn.wasPressedThisFrame) PulsePad(0);
             if (keyboard != null)
             {
                 if (keyboard.digit1Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.Town);
                 if (keyboard.digit2Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.BigCity);
                 if (keyboard.digit3Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.CandyTown);
                 if (keyboard.digit4Key.wasPressedThisFrame) StagePressed?.Invoke(TownStage.AmusementPark);
-                if (!useHardware)
+                if (!useHardware && microbit == null)
                 {
                     if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) Steering = -1;
                     if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) Steering = 1;

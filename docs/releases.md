@@ -19,7 +19,7 @@ if ($unity.ExitCode -ne 0) { throw '配布ビルドが失敗しました。ロ�
 ./scripts/Package-TankTownRelease.ps1 -BuildPath '<検証用プロジェクト>/Builds/TankTown-Release' -OutputDirectory './Builds/Releases'
 ```
 
-スクリプトは起動に必要なexe・DLL・データ・ランタイムのみをコピーし、日本語の遊び方を加えてZIPを作ります。Burstの`DoNotShip`フォルダ、画面キャプチャ、ログ、開発用バックアップは梱包しません。SHA-256も出力します。同じバージョンの既存ZIPは上書きしません。梱包時の作業フォルダは出力先に残します。
+スクリプトは起動に必要なexe・DLL・データ・ランタイム、コントローラー設定JSON、日本語接続手順、旧USBファームウェアをコピーし、日本語の遊び方を加えてZIPを作ります。これらのコントローラーファイルはUnityのビルド処理で配布フォルダへコピーします。Bluetoothで既にCSVを送信している機材には、旧USBファームウェアを書き込む必要はありません。Burstの`DoNotShip`フォルダ、画面キャプチャ、ログ、開発用バックアップは梱包しません。SHA-256も出力します。同じバージョンの既存ZIPは上書きしません。梱包時の作業フォルダは出力先に残します。
 
 ## 検証と公開
 

@@ -1,0 +1,15 @@
+{
+  "transport": "auto",
+  "serialPort": "",
+  "bluetoothDevice": "",
+  "serviceUuid": "6e400001-b5a3-f393-e0a9-e50e24dcca9e",
+  "receiveUuid": "",
+  "angleCenter": 0,
+  "fullSteerAngle": 1023,
+  "deadzoneDegrees": 34,
+  "invertSteering": false,
+  "piezoThreshold": 350,
+  "piezoRelease": 180,
+  "piezoCooldownSeconds": 0.12,
+  "timeoutSeconds": 0.35
+}
