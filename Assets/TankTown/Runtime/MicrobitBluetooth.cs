@@ -134,9 +134,12 @@ namespace TankTown
             bytes = null; error = "";
             if (output == IntPtr.Zero) { error = "empty event"; return false; }
             var changed = Marshal.PtrToStructure<ValueChanged>(output);
-            if (changed.Value == IntPtr.Zero || changed.DataSize.ToUInt64() < 4) { error = "missing value/size=" + changed.DataSize; return false; }
+            if (changed.Value == IntPtr.Zero || changed.DataSize.ToUInt64() == 0) { error = "missing value/size=" + changed.DataSize; return false; }
             int count = Marshal.ReadInt32(changed.Value);
-            if (count <= 0 || count > 512 || (ulong)(count + 4) > changed.DataSize.ToUInt64()) { error = "count=" + count + " size=" + changed.DataSize; return false; }
+            // Some Windows BLE callbacks report the payload length, while others
+            // include the four-byte DataSize field. The user's device reports 7/7.
+            ulong size = changed.DataSize.ToUInt64();
+            if (count <= 0 || count > 512 || (size != (ulong)count && size < (ulong)(count + 4))) { error = "count=" + count + " size=" + changed.DataSize; return false; }
             bytes = new byte[count];
             Marshal.Copy(IntPtr.Add(changed.Value, 4), bytes, 0, count);
             return true;
