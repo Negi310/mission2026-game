@@ -38,12 +38,23 @@ $stagingRoot = Join-Path $outputRoot (".staging-" + [Guid]::NewGuid().ToString('
 $gameRoot = Join-Path $stagingRoot 'TankTown'
 [System.IO.Directory]::CreateDirectory($gameRoot) | Out-Null
 $allowed = @('TankTown.exe', 'UnityPlayer.dll', 'TankTown_Data', 'MonoBleedingEdge',
-    'D3D12', 'UnityCrashHandler64.exe', 'WinPixEventRuntime.dll', 'build-info.json')
+    'D3D12', 'UnityCrashHandler64.exe', 'WinPixEventRuntime.dll', 'build-info.json', 'microbit-controller.json')
 foreach ($name in $allowed) {
     $sourcePath = Join-Path $buildRoot $name
     if (Test-Path -LiteralPath $sourcePath) {
         Copy-Item -LiteralPath $sourcePath -Destination $gameRoot -Recurse
     }
+}
+
+foreach ($relative in @('docs/microbit-controller.md', 'hardware/microbit/main.py')) {
+    $sourcePath = Join-Path $buildRoot $relative
+    if (!(Test-Path -LiteralPath $sourcePath)) { throw "コントローラーの配布ファイルがありません: $relative" }
+    $destination = Join-Path $gameRoot $relative
+    [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($destination)) | Out-Null
+    Copy-Item -LiteralPath $sourcePath -Destination $destination
+}
+if (!(Test-Path -LiteralPath (Join-Path $gameRoot 'microbit-controller.json'))) {
+    throw 'コントローラー設定ファイルがありません。'
 }
 
 $instructions = @"
@@ -62,6 +73,16 @@ TANK TOWN v$($info.version) / Windows 64bit
 詳しい操作: タイトルの「あそびかた」
 リザルト: Spaceでもういちど / Tabで記録を見る / Escで記録を閉じる
 終了: Alt+F4（標準は全画面表示）
+
+Bluetoothハンドル（Windowsにペアリング済みのBLE UARTが対象）
+1. WindowsのBluetooth設定からコントローラーをペアリングします。
+2. コントローラー側で「角度,ピエゾ値」と改行を続けて送信してください。
+3. ゲームは自動でBLE UARTを探し、受信するとハンドルと砲撃に反映します。
+4. 感度・閾値・接続先は同じフォルダのmicrobit-controller.jsonを編集して再起動します。
+   初期値: 角度±90度、砲撃350以上、再受付180以下。
+詳しくはdocs/microbit-controller.mdを参照してください。
+Bluetooth機器での通信と送信コードのUUID適合は未確認です。
+既存の送信プログラムはそのまま使ってください。同梱main.pyは旧USB方式専用です。
 
 TankTown_Data、UnityPlayer.dll、MonoBleedingEdgeなどは起動に必要です。
 exeだけ取り出さず、同梱フォルダごと保持してください。
