@@ -131,6 +131,11 @@ namespace TankTown
             Physics.IgnoreLayerCollision(TownPhysics.PedestrianLayer, TownPhysics.PedestrianLayer, true);
             Input = gameObject.AddComponent<TankInput>();
             Input.settings = Settings;
+            var controller = Input.GetComponent<MicrobitController>();
+            var hardware = controller.Configuration ?? new MicrobitInputSettings();
+            var tuning = ControlTuning.Load();
+            if (tuning != null) { tuning.Apply(Settings, hardware); controller.ResetTuningInput(); }
+            Input.gameObject.AddComponent<TankControlTuningPanel>().Initialize(this, controller);
             var worldRoot = new GameObject("Procedural Town");
             World = worldRoot.AddComponent<TankTownWorld>();
             World.Build(this);

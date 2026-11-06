@@ -46,6 +46,7 @@ namespace TankTown
                 if (port != null) { settings.serialPort = port; settings.transport = "serial"; }
                 if (Array.IndexOf(args, "--microbit-bluetooth") >= 0) settings.transport = "bluetooth";
                 if (Array.IndexOf(args, "--microbit-invert") >= 0) settings.invertSteering = true;
+                ControlTuning.Load()?.ApplyHardware(settings);
                 settings.Validate();
             }
             catch (Exception e) when (e is IOException || e is UnauthorizedAccessException || e is ArgumentException)
@@ -191,6 +192,7 @@ namespace TankTown
             Debug.Log("MICROBIT DISCONNECTED: keyboard/gamepad restored");
         }
         internal void ResetDiagnosticPeaks() => diagnostics.ResetPeaks();
+        internal void ResetTuningInput() { session?.Reset(); inbox.Reset(); ReleaseInput(); }
         internal void ApplyDiagnosticSettings(int threshold, int release, string serialPort, bool selectPort)
         {
             if (settings == null || string.IsNullOrEmpty(ConfigurationPath)) throw new InvalidOperationException("設定を読み込めていません");
@@ -199,6 +201,8 @@ namespace TankTown
             if (selectPort) { revised.serialPort = serialPort.Trim(); revised.transport = string.IsNullOrEmpty(revised.serialPort) ? "auto" : "serial"; }
             revised.Validate();
             File.WriteAllText(ConfigurationPath, JsonUtility.ToJson(revised, true));
+            var tuning = ControlTuning.Load();
+            if (tuning != null) { tuning.threshold = threshold; tuning.release = release; tuning.Save(); }
             enabled = false; enabled = true;
         }
         private void OnDisable()

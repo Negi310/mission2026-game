@@ -30,7 +30,7 @@ namespace TankTown
         private void Update()
         {
             if (Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
-            { visible = !visible; if (visible) ReadSettings(); }
+            { if (!visible) GetComponent<TankControlTuningPanel>()?.Close(); visible = !visible; if (visible) ReadSettings(); }
             BlockMenuClicks();
             if (visible && Time.unscaledTime >= loggedAt)
             { loggedAt = Time.unscaledTime + 2; Debug.Log("MICROBIT DIAG: " + Report().Replace('\n', ' ')); }
@@ -123,6 +123,7 @@ namespace TankTown
             finally { GUILayout.EndScrollView(); GUILayout.EndArea(); GUI.matrix = previous; }
         }
         private void OnDisable() { if (blockedUi != null) blockedUi.enabled = uiWasEnabled; blockedUi = null; }
+        internal void Close() { visible = false; BlockMenuClicks(); }
         private void OnDestroy() { if (font != null) Destroy(font); if (backdrop != null) Destroy(backdrop); }
     }
 }
