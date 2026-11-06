@@ -44,6 +44,34 @@ namespace TankTown.Tests
             Time.timeScale = 1; yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator CsvStrikeOnFreshDeviceStartsRoundAndNextStrikeFiresShell()
+        {
+            game.Input.GetComponent<MicrobitController>().enabled = false;
+            var device = MicrobitWheel.Create();
+            try
+            {
+                var decoder = new MicrobitLineDecoder(); var inbox = new MicrobitReceiveBuffer(); var session = new MicrobitSession();
+                double sampleAt = 0;
+                System.Action feed = () =>
+                {
+                    var bytes = System.Text.Encoding.ASCII.GetBytes("0,0\n0,800\n0,0\n");
+                    decoder.Feed(bytes, bytes.Length, frame => { inbox.Enqueue(frame, sampleAt); sampleAt += .02; });
+                    bool fire = inbox.Process(session, sampleAt, .35);
+                    device.Submit(session.Steering, fire, session.Angle, session.Piezo);
+                };
+                // The first update contains low/peak/release, without priming button reads.
+                feed(); yield return null;
+                Assert.That(game.State == RoundState.Starting || game.IsPlaying, Is.True);
+                Assert.That(game.Input.MicrobitPresses, Is.EqualTo(1));
+                yield return WaitForPlay();
+                sampleAt = 2; feed(); yield return null;
+                Assert.That(game.Input.MicrobitPresses, Is.EqualTo(2));
+                Assert.That(Object.FindFirstObjectByType<TankShell>(), Is.Not.Null);
+            }
+            finally { if (device.added) InputSystem.RemoveDevice(device); }
+        }
+
         private IEnumerator Press(Key key)
         {
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(key)); yield return null;

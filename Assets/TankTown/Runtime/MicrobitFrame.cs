@@ -47,6 +47,7 @@ namespace TankTown
         internal float Steering { get; private set; }
         internal float Angle { get; private set; }
         internal int Piezo { get; private set; }
+        internal bool Armed => armed;
         internal bool Receive(MicrobitFrame frame, double now)
         {
             bool continuous = active && now - lastAt <= settings.timeoutSeconds && analog == frame.IsAnalog;

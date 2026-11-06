@@ -33,6 +33,8 @@ namespace TankTown
                 throw new ArgumentException("Invalid micro:bit angle, piezo or timeout settings");
             if (!Guid.TryParse(serviceUuid, out _) || (!string.IsNullOrWhiteSpace(receiveUuid) && !Guid.TryParse(receiveUuid, out _)))
                 throw new ArgumentException("Invalid Bluetooth serviceUuid/receiveUuid");
+            if (!string.IsNullOrWhiteSpace(serialPort) && !System.Text.RegularExpressions.Regex.IsMatch(serialPort, @"^COM[1-9][0-9]*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                throw new ArgumentException("serialPort must be COM followed by a positive number");
         }
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
         internal float NormalizeAngle(float angle)

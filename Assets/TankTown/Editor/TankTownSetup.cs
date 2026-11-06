@@ -106,6 +106,8 @@ namespace TankTown.Editor
                 Directory.CreateDirectory(Path.GetDirectoryName(destination));
                 File.Copy(relative, destination, true);
             }
+            File.Copy("hardware/microbit/launch-diagnostics.cmd",
+                Path.Combine(Path.GetDirectoryName(outputPath), "接続診断.cmd"), true);
         }
     }
 }
