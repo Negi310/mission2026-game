@@ -12,10 +12,21 @@ namespace TankTown
         {
             internal string Status, Chunk, Line;
             internal long Bytes, Valid, Invalid;
+            internal long BleCallbacks, BleCallbackErrors;
+            internal string BleStage, BleError;
             internal float Angle;
             internal int Piezo, Minimum, Maximum;
         }
         internal void Status(string value) { lock (gate) { state.Status = value; } }
+        internal void BleTrace(string value)
+        {
+            lock (gate)
+            {
+                if (value == "callback") state.BleCallbacks++;
+                else if (value.StartsWith("callback error: ", StringComparison.Ordinal)) { state.BleCallbackErrors++; state.BleError = value; }
+                else state.BleStage = value;
+            }
+        }
         internal void Bytes(byte[] bytes, int count)
         {
             if (count == 0) return;

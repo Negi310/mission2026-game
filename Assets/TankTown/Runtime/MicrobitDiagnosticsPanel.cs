@@ -56,6 +56,7 @@ namespace TankTown
             string hint = !controller.Connected ? "有効なデータを受信できていません" : controller.Armed ? "次の打撃を受付可能" : "再受付値以下へ戻るのを待っています";
             return $"状態: {data.Status}\n" +
                 $"受信: {data.Bytes} bytes / 有効行 {data.Valid} / 不正行 {data.Invalid}\n" +
+                $"BLE: {data.BleStage} / 通知 {data.BleCallbacks} / 通知エラー {data.BleCallbackErrors} {data.BleError}\n" +
                 $"最後の受信片: {data.Chunk}\n最後の行: {data.Line}\n" +
                 $"角度: {data.Angle:0.0} / ピエゾ: {data.Piezo} / 最小: {(data.Valid == 0 ? "--" : data.Minimum.ToString())} / 最大: {data.Maximum}\n" +
                 $"砲撃閾値: {config?.piezoThreshold} / 再受付値: {config?.piezoRelease} / {hint}\n" +
