@@ -12,8 +12,8 @@ namespace TankTown
         // Empty selects the notify/indicate characteristic in the UART service.
         public string receiveUuid = "";
         public float angleCenter = 0;
-        public float fullSteerAngle = 90;
-        public float deadzoneDegrees = 3;
+        public float fullSteerAngle = 1023;
+        public float deadzoneDegrees = 34;
         public bool invertSteering;
         public int piezoThreshold = 350;
         public int piezoRelease = 180;
@@ -25,7 +25,7 @@ namespace TankTown
             transport = (transport ?? "auto").Trim().ToLowerInvariant();
             if (transport != "auto" && transport != "usb" && transport != "serial" && transport != "bluetooth" && transport != "off")
                 throw new ArgumentException("transport must be auto, usb, serial, bluetooth or off");
-            if (!Finite(fullSteerAngle) || fullSteerAngle <= 0 || fullSteerAngle > 90 || !Finite(angleCenter) || Math.Abs(angleCenter) > 90 ||
+            if (!Finite(fullSteerAngle) || fullSteerAngle <= 0 || fullSteerAngle > 1023 || !Finite(angleCenter) || Math.Abs(angleCenter) > 1023 ||
                 !Finite(deadzoneDegrees) || deadzoneDegrees < 0 || deadzoneDegrees >= fullSteerAngle ||
                 piezoThreshold < 1 || piezoThreshold > 1023 || piezoRelease < 0 || piezoRelease >= piezoThreshold ||
                 !Finite(piezoCooldownSeconds) || piezoCooldownSeconds < 0 || piezoCooldownSeconds > 2 ||

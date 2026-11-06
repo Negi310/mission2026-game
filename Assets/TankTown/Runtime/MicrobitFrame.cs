@@ -12,7 +12,7 @@ namespace TankTown
         internal readonly int Piezo;
         internal MicrobitFrame(float steering, ushort horn) : this() { Steering = steering; Horn = horn; }
         private MicrobitFrame(float angle, int piezo, bool analog) : this()
-        { Angle = angle; Piezo = piezo; IsAnalog = analog; Steering = angle / 90f; Horn = 0; }
+        { Angle = angle; Piezo = piezo; IsAnalog = analog; Steering = angle / 1023f; Horn = 0; }
         internal static bool TryParse(string line, out MicrobitFrame frame)
         {
             frame = default;
@@ -21,7 +21,7 @@ namespace TankTown
             if (fields.Length == 2)
             {
                 if (!float.TryParse(fields[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float angle) ||
-                    float.IsNaN(angle) || float.IsInfinity(angle) || angle < -90 || angle > 90 ||
+                    float.IsNaN(angle) || float.IsInfinity(angle) || angle < -1023 || angle > 1023 ||
                     !int.TryParse(fields[1].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int piezo) || piezo < 0 || piezo > 1023) return false;
                 frame = new MicrobitFrame(angle, piezo, true); return true;
             }

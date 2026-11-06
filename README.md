@@ -20,7 +20,7 @@ Unity **6000.3.19f1** で開き、メニュー **Tank Town → Create or open pl
 
 ## 操作
 
-v0.4.0からmicro:bitのBLE UART／USB・Bluetooth COMから`角度,ピエゾ値\n`を受信し、Input Systemの`MicrobitWheel`へ旋回軸・閾値による砲撃・センサー生値を渡します。角度は-90〜90度、ピエゾは0〜1023。[接続・閾値の調整・Input Actions](docs/microbit-controller.md)。配布ZIPの`microbit-controller.json`で接続先、中立、感度、閾値を設定できます。Windows向けで、Bluetooth実機の接続確認は未実施です。
+v0.4.0からmicro:bitのBLE UART／USB・Bluetooth COMから`角度,ピエゾ値\n`を受信し、Input Systemの`MicrobitWheel`へ旋回軸・閾値による砲撃・センサー生値を渡します。角度の送信値は-1023〜1023、ピエゾは0〜1023。[接続・閾値の調整・Input Actions](docs/microbit-controller.md)。配布ZIPの`microbit-controller.json`で接続先、中立、感度、閾値を設定できます。Windows向けで、Bluetooth実機の接続確認は未実施です。
 
 |操作|試作用の入力|
 |---|---|

@@ -22,12 +22,12 @@ micro:bitのUARTはBluetooth Low EnergyのGATTサービスであり、Windowsの
 ```text
 0,0
 -30,512
-45.5,980
+1023,980
 ```
 
-各行の末尾に本物の改行LFを付けます。文字としてのバックスラッシュ＋nではありません。CRLF、コンマ前後の空白、小数の角度にも対応します。角度-90〜90度、ピエゾ0〜1023の整数を受け付けます。範囲外、NaN、Infinity、不正な行、64文字超の行は無視します。BLEの複数通知に分割された行は改行まで結合し、1通知に複数行あってもすべて解析します。
+各行の末尾に本物の改行LFを付けます。文字としてのバックスラッシュ＋nではありません。CRLF、コンマ前後の空白、小数の角度にも対応します。角度の送信値-1023〜1023、ピエゾ0〜1023の整数を受け付けます。範囲外、NaN、Infinity、不正な行、64文字超の行は無視します。BLEの複数通知に分割された行は改行まで結合し、1通知に複数行あってもすべて解析します。
 
-- 角度は中立・最大旋回角・遊びを反映して-1〜1へ正規化します。初期値は中立0度、±90度で最大旋回、±3度は遊びです。
+- 角度の送信値は中立・最大旋回値・遊びを反映して-1〜1へ正規化します。初期値は中立0、±1023で最大旋回、±34は遊びです。入力範囲は利用者の訂正に合わせて変更しています。
 - ピエゾは初期値350以上の立ち上がりで1発。180以下まで戻ると再受付します。叩いた後の振動による再発火を抑える最短間隔は0.12秒です。これはゲーム内の砲撃クールタイムと別です。
 - 初接続・再接続時の高いピエゾ値で誤射せず、一度低い値へ戻ってから受け付けます。高いまま保持しても連射しません。
 - 画面更新の間に届いた低→高→低の短いピークも判定します。同じ画面更新内の複数の砲撃は1発にまとめます。
@@ -44,9 +44,9 @@ micro:bitのUARTはBluetooth Low EnergyのGATTサービスであり、Windowsの
 |`bluetoothDevice`|空欄|複数台ある場合、接続する機器のBluetoothアドレスで絞る。例 `AA:BB:CC:DD:EE:FF`。機器名ではない|
 |`serviceUuid`|`6e400001-b5a3-f393-e0a9-e50e24dcca9e`|micro:bit／Nordic UARTサービス|
 |`receiveUuid`|空欄|空欄ではUARTサービスの通知・indication可能な特性を選択。独自UUIDも指定可能|
-|`angleCenter`|`0`|中立の角度|
-|`fullSteerAngle`|`90`|中立から最大旋回までの角度。少ない傾きで曲げるなら45など|
-|`deadzoneDegrees`|`3`|中立付近の遊び|
+|`angleCenter`|`0`|中立の送信値|
+|`fullSteerAngle`|`1023`|中立から最大旋回までの送信値。少ない傾きで曲げるなら512など|
+|`deadzoneDegrees`|`34`|中立付近の遊び。キー名は旧来のまま、送信値と同じ単位で指定|
 |`invertSteering`|`false`|左右を反転|
 |`piezoThreshold`|`350`|砲撃する値|
 |`piezoRelease`|`180`|再受付するために戻る値。砲撃閾値より小さくする|
@@ -67,7 +67,7 @@ UnityでPlayし、`Window > Analysis > Input Debugger > Devices > micro:bit Whee
 |---|---|---|
 |旋回|補正済み-1〜1|`<MicrobitWheel>/steering`|
 |砲撃|閾値で生成した押下・解放|`<MicrobitWheel>/horn`|
-|角度の生値|-90〜90度|`<MicrobitWheel>/angle`|
+|角度の生値|-1023〜1023|`<MicrobitWheel>/angle`|
 |ピエゾの生値|整数0〜1023|`<MicrobitWheel>/piezo`|
 
 旋回はValue/Axis、砲撃はButton、ピエゾの確認はPassThrough/Integerなどで利用できます。ゲームはInput SystemのDynamic Updateを使用します。Windowsの `joy.cpl` には表示しません。
@@ -97,3 +97,5 @@ WindowsのBLE処理は標準APIを使い、外部ブリッジやPython実行環�
 Unity 6000.3.19f1の分離コピーでPlayMode 40件成功。2値CSV、小数・空白・CRLF、範囲外データ拒否、分割通知と複数行、短いピエゾピーク、ヒステリシス、クールダウン、切断／再接続、受信キュー上限、角度補正、Input ActionsとTankInputへの砲撃・旋回、生値の伝達、WindowsのBLEサービス列挙と未接続時の失敗、既存のラウンド遷移を確認しました。記録は `Logs/microbit-bluetooth-final-tests.xml` と対応ログです。
 
 Windows Development Build成功。`Builds/TankTown-Bluetooth/TankTown.exe` に設定ファイルとこの手順を同梱しています。Bluetoothのみの探索を有効にした実行版で、タイトルの4解像度・ホバー、遊び方、カウントダウン、砲撃、リザルト、Space再挑戦が成功し、終了コード0でした。記録は `Logs/microbit-bluetooth-build.log`、`microbit-bluetooth-player.log`、`microbit-bluetooth-smoke-status.json`。BLEで実機データを受信した試験ではありません。この記録はDevelopment版の検証です。配布用ビルドの最終結果はv0.4.0のリリース本文に記載します。
+
+入力範囲の訂正後、送信値±1023を最大旋回として受理し、±528.5で半分の旋回量、±34以内で中立になることを確認しました。追加した端点・中間値を含むPlayMode 43件が成功しています。記録は `Logs/release-v040-range-tests.xml` と対応ログです。ピエゾの範囲0〜1023と閾値は変更していません。

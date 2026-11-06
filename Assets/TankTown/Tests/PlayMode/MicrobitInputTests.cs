@@ -47,7 +47,7 @@ namespace TankTown.Tests
                     device.Submit(session.Steering, strike, session.Angle, session.Piezo);
                     InputSystem.Update(); root.SendMessage("Update");
                     Assert.That(shots, Is.EqualTo(3)); Assert.That(actions, Is.EqualTo(3));
-                    Assert.That(input.Steering, Is.EqualTo((45f - 3) / 87).Within(.0001f));
+                    Assert.That(input.Steering, Is.EqualTo((45f - 34) / 989).Within(.0001f));
                     Assert.That(device.angle.ReadValue(), Is.EqualTo(45));
                     Assert.That(device.piezo.ReadValue(), Is.EqualTo(900));
                     input.useHardware = true; input.SetWheel(.2f);
@@ -112,13 +112,15 @@ namespace TankTown.Tests
         [TestCase("90,1023\r\n", 90f, 1023)]
         [TestCase(" -22.5 , 512 \n", -22.5f, 512)]
         [TestCase("+0.5,350", .5f, 350)]
+        [TestCase("-1023,0", -1023f, 0)]
+        [TestCase("1023,1023", 1023f, 1023)]
         public void ParsesAngleAndPiezo(string line, float angle, int piezo)
         {
             Assert.That(MicrobitFrame.TryParse(line, out var frame), Is.True);
             Assert.That(frame.IsAnalog, Is.True);
             Assert.That(frame.Angle, Is.EqualTo(angle)); Assert.That(frame.Piezo, Is.EqualTo(piezo));
         }
-        [TestCase("91,0")][TestCase("-90.1,100")][TestCase("NaN,0")][TestCase("Infinity,0")]
+        [TestCase("1024,0")][TestCase("-1023.1,100")][TestCase("NaN,0")][TestCase("Infinity,0")]
         [TestCase("0,1024")][TestCase("0,-1")][TestCase("0,3.5")][TestCase("1,2,3")][TestCase("[1,2]")]
         public void RejectsInvalidAnalogFrames(string line) => Assert.That(MicrobitFrame.TryParse(line, out _), Is.False);
 
@@ -161,7 +163,7 @@ namespace TankTown.Tests
             Assert.That(inbox.Process(session, .06, .35), Is.True, "Peak and release received in one rendered frame");
             Assert.That(session.Angle, Is.EqualTo(45)); Assert.That(session.Piezo, Is.Zero);
             Assert.That(inbox.Process(session, .08, .35), Is.False);
-            feed(new string('x', 100) + "\n-90,0\n");
+            feed(new string('x', 100) + "\n-1023,0\n");
             Assert.That(inbox.Process(session, .09, .35), Is.False); Assert.That(session.Steering, Is.EqualTo(-1));
             feed("0,900\n"); Assert.That(inbox.Process(session, 2, .35), Is.False, "Stale queued shot discarded");
             Assert.That(session.Connected, Is.False);
@@ -178,8 +180,18 @@ namespace TankTown.Tests
         {
             var config = new MicrobitInputSettings();
             JsonUtility.FromJsonOverwrite("{\"piezoThreshold\":500}", config);
-            config.Validate(); Assert.That(config.fullSteerAngle, Is.EqualTo(90));
+            config.Validate(); Assert.That(config.fullSteerAngle, Is.EqualTo(1023));
             config.piezoRelease = 500; Assert.Throws<System.ArgumentException>(config.Validate);
+        }
+        [Test] public void FullSigned1023RangeProducesProportionalSteering()
+        {
+            var config = new MicrobitInputSettings(); config.Validate();
+            var session = new MicrobitSession(config);
+            session.Receive(Analog(1023, 0), 0); Assert.That(session.Steering, Is.EqualTo(1));
+            session.Receive(Analog(-1023, 0), .02); Assert.That(session.Steering, Is.EqualTo(-1));
+            session.Receive(Analog(528.5f, 0), .04); Assert.That(session.Steering, Is.EqualTo(.5f).Within(.0001f));
+            session.Receive(Analog(-528.5f, 0), .06); Assert.That(session.Steering, Is.EqualTo(-.5f).Within(.0001f));
+            session.Receive(Analog(33, 0), .08); Assert.That(session.Steering, Is.Zero);
         }
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
         [Test] public void BleDiscoveryAndNativeLayoutsMatchWindowsSdk()
