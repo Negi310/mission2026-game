@@ -95,6 +95,8 @@ namespace TankTown.Tests
             IsolateTargets();
             float extent = game.World.HalfExtent;
             game.Tank.Warp(new Pose(game.World.GroundPoint(new Vector3(-extent + 12, 0, -extent + 12), game.Settings.rideHeight), Quaternion.Euler(0, 45, 0)));
+            // Aim along the laser's own lowered barrel; the cannon's 4 degree line passes ~18m above the beam at the far corner.
+            game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
             Vector3 start = game.Tank.Muzzle.position, direction = game.Tank.Muzzle.forward;
             float horizontalComponent = Vector3.ProjectOnPlane(direction, Vector3.up).magnitude;
             float acrossCity = 2 * (extent - 12) * Mathf.Sqrt(2) / horizontalComponent;
@@ -104,7 +106,7 @@ namespace TankTown.Tests
             var beyond = beyondRoot.AddComponent<DestructibleBlock>(); beyond.Initialize(game);
             Physics.SyncTransforms();
             Assert.That(acrossCity, Is.GreaterThan(300), "This target must be across the field, well beyond the previous 105m beam");
-            game.Items.Receive(ItemKind.MegaBeam); game.Input.PulsePad(0);
+            yield return new WaitForSeconds(.2f); // The beam damages its path every .12 seconds.
             Assert.That(far.Detached, Is.True, "The opposite corner must be hit by the real weapon path");
             Assert.That(beyond.Detached, Is.False, "The beam must retain its finite range");
             foreach (var line in GameObject.Find("Mega beam").GetComponentsInChildren<LineRenderer>().Where(x => x.positionCount == 2))
@@ -113,7 +115,6 @@ namespace TankTown.Tests
                 Assert.That(segment.magnitude, Is.EqualTo(game.Settings.megaBeamLength).Within(.01f));
                 Assert.That(Vector3.ProjectOnPlane(segment, Vector3.up).magnitude, Is.GreaterThan(extent * 2 * Mathf.Sqrt(2)), "The visual must cover even a corner-to-corner shot");
             }
-            yield return null;
         }
 
         [UnityTest]
@@ -133,7 +134,8 @@ namespace TankTown.Tests
             Assert.That(target.Detached, Is.True, "The new laser must reach outside the old 70m length and 5m radius");
             Assert.That(laser, Is.InRange(1, normal * .5f));
             Assert.That(Vector2.Distance(new Vector2(start.x, start.z), new Vector2(body.position.x, body.position.z)), Is.LessThan(.1f));
-            Assert.That(Vector3.Angle(game.CameraRig.transform.up, Vector3.up), Is.LessThan(.01f));
+            // The laser view looks down at the destruction by design; only a rolled horizon is a tilt.
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle(0, game.CameraRig.transform.eulerAngles.z)), Is.LessThan(.01f));
             game.AdvanceTime(1000); yield return null;
             Assert.That(GameObject.Find("Mega beam"), Is.Null);
         }

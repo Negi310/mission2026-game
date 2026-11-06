@@ -37,7 +37,7 @@ Unity 6000.3.19f1の独立した検証コピーで実施しました。
 - 新規の `TankTownTankModelTests` 2件: 回転軸・弾の出る位置・砲身の仰角、全マテリアルがトイ風シェーダーであること、当たり判定やAnimatorを追加しないこと、大きさと接地面、ブルドーザーの塗り替えと復元。
 - 戦車・アイテム・点滅・カメラ・表示・砲弾など関連するPlayMode 70件がすべて成功（160.0秒）。
 - PlayMode全体は170件中168件が成功（433.4秒）。失敗は次のレーザー2件だけです。
-- `TankTownMobilityTests` のレーザー2件（`LaserCrossesTheCity...`、`LaserReachesWideDistantTargets...`）は失敗します。変更前のコード（HEAD）でも同じ値で失敗するため、今回の変更によるものではありません。
+- `TankTownMobilityTests` のレーザー2件（`LaserCrossesTheCity...`、`LaserReachesWideDistantTargets...`）は失敗します。変更前のコード（HEAD）でも同じ値で失敗するため、今回の変更によるものではありません。後に[Issue #45](laser-bomb-checks-validation.md)でテストを現在の仕様に合わせました。
 - 画面はPlayMode中にゲームのカメラをテクスチャへ描画して撮影しました（固定の時間刻み）。左右の部品の位置（キューポラは右、アンテナは左後ろ）がBlenderのプレビューと一致し、左右反転していないことを確認しました。
 
 ## ビルド
@@ -45,6 +45,6 @@ Unity 6000.3.19f1の独立した検証コピーで実施しました。
 検証コピーで `TankTownSetup.BuildWindows`（Windows x64 Development Build）が成功し、`Builds/TankTown-TankModel/TankTown.exe` へ配置しました。RuntimeアセンブリのSHA-256は検証コピーと一致しています（`8E1F4F678F60FE6D5380F03D5F102DDE911FBB839E972F94F79486C38FC6F450`）。通常の `Builds/TankTown` とGitHub Releaseは変更していません。
 
 - 実プレイヤーの `--tank-town-smoke` は終了コード0で最後まで進み、新しい戦車での走行・砲撃・衝突復帰・坂・結果画面を撮影しました。
-- `--tank-town-items-smoke` はブルドーザーの体当たりまで撮影した後、巨大爆弾の撮影で `TankTownSmokeCapture.cs:385` のNullReferenceExceptionにより止まり、終了しません。変更前のビルド（`Builds/TankTown-SmokeLod`）でも同じ行で止まるため、今回の変更によるものではありません。
+- `--tank-town-items-smoke` はブルドーザーの体当たりまで撮影した後、巨大爆弾の撮影で `TankTownSmokeCapture.cs:385` のNullReferenceExceptionにより止まり、終了しません。変更前のビルド（`Builds/TankTown-SmokeLod`）でも同じ行で止まるため、今回の変更によるものではありません。後に[Issue #45](laser-bomb-checks-validation.md)で診断を直しました。
 
 配布用ビルド（`BuildWindowsRelease`）と手動での操作確認は行っていません。

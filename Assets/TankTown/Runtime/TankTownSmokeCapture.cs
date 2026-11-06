@@ -373,18 +373,23 @@ namespace TankTown
 
             yield return WaitForTankRecovery(game);
             ItemFixture(game, 12, 12);
+            int beforeBomb = game.BrokenBlocks;
             game.Items.Receive(ItemKind.GigantBomb); game.Input.PulsePad(0);
             var bomb = FindFirstObjectByType<GigantBomb>();
+            if (bomb == null) { Debug.LogError("ITEMS SMOKE: the giant bomb was not thrown"); Application.Quit(1); yield break; }
             DiagnosticView(game, body.position + new Vector3(-28, 28, -32), game.World.Buildings[12].transform.position + Vector3.up * 8);
-            yield return new WaitForSeconds(.35f);
+            // The bomb detonates and is destroyed on its first contact, a few frames after the throw.
+            // Record it at the launch point, then read only the state it keeps after destruction.
             Capture(Path.Combine(output, "items-09-bomb-throw.png"));
-            yield return new WaitForSeconds(.8f);
+            float thrown = Time.time;
+            while (bomb != null && !bomb.Detonated && Time.time - thrown < game.Settings.gigantBombFuse + 1) yield return null;
+            if (!bomb.Detonated) { Debug.LogError("ITEMS SMOKE: the giant bomb did not detonate"); Application.Quit(1); yield break; }
             int bombContacts = bomb.Contacts;
             Capture(Path.Combine(output, "items-10-bomb-impact.png"));
-            int beforeBomb = game.BrokenBlocks;
-            var bombPosition = bomb.transform.position;
+            var bombPosition = bomb.DetonationPoint;
             DiagnosticView(game, bombPosition + new Vector3(-46, 34, -50), bombPosition);
-            yield return new WaitForSeconds(game.Items.Remaining(ItemKind.GigantBomb) + .12f);
+            // Let the new blast visuals expand before recording the explosion.
+            yield return new WaitForSeconds(.12f);
             Capture(Path.Combine(output, "items-11-gigant-explosion.png"));
             int blastBlocks = game.BrokenBlocks - beforeBomb;
 
