@@ -21,7 +21,7 @@ namespace TankTown
             if (fields.Length == 2)
             {
                 if (!float.TryParse(fields[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float angle) ||
-                    float.IsNaN(angle) || float.IsInfinity(angle) || angle < -1023 || angle > 1023 ||
+                    float.IsNaN(angle) || float.IsInfinity(angle) || angle < -32768 || angle > 32767 ||
                     !int.TryParse(fields[1].Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int piezo) || piezo < 0 || piezo > 1023) return false;
                 frame = new MicrobitFrame(angle, piezo, true); return true;
             }

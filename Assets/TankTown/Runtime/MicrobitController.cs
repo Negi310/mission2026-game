@@ -80,11 +80,13 @@ namespace TankTown
         {
             while (!token.IsCancellationRequested)
             {
+                int bleCount = -1;
                 if (configuration.transport == "auto" || configuration.transport == "bluetooth")
                 {
                     try
                     {
                         var services = MicrobitBluetooth.FindServices(configuration.serviceUuid, configuration.bluetoothDevice);
+                        bleCount = services.Length;
                         telemetry.Status("BLE UART探索: 対応サービス " + services.Length + " 件");
                         foreach (string path in services)
                         {
@@ -100,7 +102,7 @@ namespace TankTown
                     try
                     {
                         var ports = string.IsNullOrWhiteSpace(configuration.serialPort) ? MicrobitSerial.FindControllerPorts(configuration.transport != "usb") : new[] { configuration.serialPort };
-                        telemetry.Status("BLE/COM探索中: 対応COM " + (ports.Length == 0 ? "なし" : string.Join(", ", ports)));
+                        telemetry.Status("BLE UART " + (bleCount < 0 ? "未探索" : bleCount + " 件") + " / 対応COM " + (ports.Length == 0 ? "なし" : string.Join(", ", ports)));
                         foreach (string port in ports)
                         {
                             if (token.IsCancellationRequested) return;

@@ -161,7 +161,7 @@ namespace TankTown.Tests
             Assert.That(frame.IsAnalog, Is.True);
             Assert.That(frame.Angle, Is.EqualTo(angle)); Assert.That(frame.Piezo, Is.EqualTo(piezo));
         }
-        [TestCase("1024,0")][TestCase("-1023.1,100")][TestCase("NaN,0")][TestCase("Infinity,0")]
+        [TestCase("32768,0")][TestCase("-32768.1,100")][TestCase("NaN,0")][TestCase("Infinity,0")]
         [TestCase("0,1024")][TestCase("0,-1")][TestCase("0,3.5")][TestCase("1,2,3")][TestCase("[1,2]")]
         public void RejectsInvalidAnalogFrames(string line) => Assert.That(MicrobitFrame.TryParse(line, out _), Is.False);
 
@@ -209,6 +209,19 @@ namespace TankTown.Tests
             feed("0,900\n"); Assert.That(inbox.Process(session, 2, .35), Is.False, "Stale queued shot discarded");
             Assert.That(session.Connected, Is.False);
         }
+        [Test] public void AcceptsLiteralBackslashNAsWellAsNewlineAcrossChunks()
+        {
+            var decoder = new MicrobitLineDecoder(); var frames = new System.Collections.Generic.List<MicrobitFrame>();
+            foreach (string chunk in new[] { "-100,0\\", "n200,800\\n", "-30,0\r\n" })
+            {
+                var bytes = System.Text.Encoding.ASCII.GetBytes(chunk);
+                decoder.Feed(bytes, bytes.Length, frames.Add);
+            }
+            Assert.That(frames.Count, Is.EqualTo(3));
+            Assert.That(frames[0].Angle, Is.EqualTo(-100));
+            Assert.That(frames[1].Piezo, Is.EqualTo(800));
+            Assert.That(frames[2].Angle, Is.EqualTo(-30));
+        }
         [Test] public void ReceiveQueueIsBoundedAndResetsBaselineOnOverflow()
         {
             var inbox = new MicrobitReceiveBuffer(); var session = new MicrobitSession();
@@ -233,6 +246,8 @@ namespace TankTown.Tests
             session.Receive(Analog(528.5f, 0), .04); Assert.That(session.Steering, Is.EqualTo(.5f).Within(.0001f));
             session.Receive(Analog(-528.5f, 0), .06); Assert.That(session.Steering, Is.EqualTo(-.5f).Within(.0001f));
             session.Receive(Analog(33, 0), .08); Assert.That(session.Steering, Is.Zero);
+            session.Receive(Analog(-1024, 0), .10); Assert.That(session.Steering, Is.EqualTo(-1));
+            session.Receive(Analog(1500, 0), .12); Assert.That(session.Steering, Is.EqualTo(1));
         }
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
         [Test] public void BleDiscoveryAndNativeLayoutsMatchWindowsSdk()
