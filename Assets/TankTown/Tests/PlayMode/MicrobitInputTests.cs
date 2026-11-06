@@ -279,7 +279,7 @@ namespace TankTown.Tests
         }
         [Test] public void BleNotificationCopiesNativePayloadAndRejectsTruncation()
         {
-            var payload = System.Text.Encoding.ASCII.GetBytes("0,512\n");
+            var payload = System.Text.Encoding.ASCII.GetBytes("0,512\\n");
             var value = System.Runtime.InteropServices.Marshal.AllocHGlobal(payload.Length + 4);
             var output = System.Runtime.InteropServices.Marshal.AllocHGlobal(System.Runtime.InteropServices.Marshal.SizeOf<MicrobitBluetooth.ValueChanged>());
             try
@@ -290,6 +290,20 @@ namespace TankTown.Tests
                 System.Runtime.InteropServices.Marshal.StructureToPtr(evt, output, false);
                 Assert.That(MicrobitBluetooth.TryCopyValue(output, out var received, out _), Is.True);
                 Assert.That(received, Is.EqualTo(payload));
+                // Observed on the user's actual micro:bit: count=7, size=7.
+                evt.DataSize = (System.UIntPtr)(uint)payload.Length;
+                System.Runtime.InteropServices.Marshal.StructureToPtr(evt, output, false);
+                Assert.That(MicrobitBluetooth.TryCopyValue(output, out received, out _), Is.True);
+                var decoder = new MicrobitLineDecoder(); MicrobitFrame frame = default; int frames = 0;
+                decoder.Feed(received, received.Length, item => { frame = item; frames++; });
+                Assert.That(frames, Is.EqualTo(1)); Assert.That(frame.Piezo, Is.EqualTo(512));
+                // Small notifications can be split at any byte, including one-byte chunks.
+                System.Runtime.InteropServices.Marshal.WriteInt32(value, 1);
+                evt.DataSize = (System.UIntPtr)1u;
+                System.Runtime.InteropServices.Marshal.StructureToPtr(evt, output, false);
+                Assert.That(MicrobitBluetooth.TryCopyValue(output, out received, out _), Is.True);
+                Assert.That(received.Length, Is.EqualTo(1));
+                System.Runtime.InteropServices.Marshal.WriteInt32(value, payload.Length);
                 evt.DataSize = (System.UIntPtr)4u;
                 System.Runtime.InteropServices.Marshal.StructureToPtr(evt, output, false);
                 Assert.That(MicrobitBluetooth.TryCopyValue(output, out _, out _), Is.False);
