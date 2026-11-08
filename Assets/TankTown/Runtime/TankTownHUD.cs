@@ -60,6 +60,9 @@ namespace TankTown
             font = Resources.Load<Font>("Fonts/NotoSansJP-Regular");
             if (font == null) font = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 24);
             displayFont = font;
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            displayFont = Font.CreateDynamicFontFromOSFont(new[] { "Arial Rounded MT Bold", "Arial Black", "Arial" }, 40);
+#endif
             var root = new GameObject("Tank Town HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas = root.transform;
             root.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -219,6 +222,7 @@ namespace TankTown
             if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
             UpgradesView?.Dispose(); SpecialsView?.Dispose(); titleView?.Dispose();
             // The bundled font is a shared Resources asset.
+            if(displayFont != null && displayFont != font) Destroy(displayFont);
             style?.Dispose();
             Minimap?.Dispose();
             ((System.IDisposable)timerMetrics).Dispose(); ((System.IDisposable)pointsMetrics).Dispose();
