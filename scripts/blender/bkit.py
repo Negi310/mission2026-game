@@ -207,6 +207,124 @@ class MeshBuilder:
         if bevel > 0:
             self._bevel(front + back, bevel, segments, index)
 
+    def tube(self, path, radius, position=(0, 0, 0), mat=None, sides=8, closed=False, radius_at=None,
+             yaw=0.0, pitch=0.0, roll=0.0):
+        """折れ線 path に沿った丸い管 (絞り出したクリームの縁取りなど)。
+
+        radius_at(i, t) を渡すと、i番目の点 (t は0〜1の位置) の太さを radius に掛ける。
+        closed=True では最後の点が最初の点へつながる輪になり、それ以外は両端をふさぐ。
+        """
+        matrix = self._matrix(position, yaw, pitch, roll)
+        points = [Vector(p) for p in path]
+        count = len(points)
+
+        def tangent(i):
+            if closed:
+                return (points[(i + 1) % count] - points[i - 1]).normalized()
+            return (points[min(i + 1, count - 1)] - points[max(i - 1, 0)]).normalized()
+
+        # 平行移動で向きを運ぶ (ねじれの少ない枠)
+        first = tangent(0)
+        helper = Vector((0, 1, 0)) if abs(first.y) < 0.9 else Vector((1, 0, 0))
+        normal = first.cross(helper).normalized()
+        rings = []
+        previous = first
+        for i, point in enumerate(points):
+            direction = tangent(i)
+            normal = previous.rotation_difference(direction) @ normal
+            normal = (normal - direction * normal.dot(direction)).normalized()
+            binormal = direction.cross(normal)
+            previous = direction
+            scale = radius * (radius_at(i, i / max(count - 1, 1)) if radius_at else 1.0)
+            ring = []
+            for k in range(sides):
+                angle = 2 * math.pi * k / sides
+                local = point + (normal * math.cos(angle) + binormal * math.sin(angle)) * scale
+                ring.append(self.bm.verts.new(matrix @ local))
+            rings.append(ring)
+        faces = []
+        spans = count if closed else count - 1
+        for i in range(spans):
+            a, b = rings[i], rings[(i + 1) % count]
+            for k in range(sides):
+                j = (k + 1) % sides
+                faces.append(self.bm.faces.new((a[k], a[j], b[j], b[k])))
+        if not closed:
+            faces.append(self.bm.faces.new(list(reversed(rings[0]))))
+            faces.append(self.bm.faces.new(rings[-1]))
+        bmesh.ops.recalc_face_normals(self.bm, faces=faces)
+        self._paint(faces, mat)
+        for face in faces:
+            face.smooth = len(face.verts) == 4
+
+    def lathe(self, profile, position=(0, 0, 0), mat=None, segments=16, radius_at=None,
+              yaw=0.0, pitch=0.0, roll=0.0):
+        """横から見た輪郭 [(半径, 高さ), ...] (下から上) をY軸まわりに回した形。
+
+        両端の半径が0なら尖り、0でなければ平らな面でふさぐ。radius_at(角度ラジアン) で
+        回転方向に半径を変えられる (ひだのあるドームなど)。
+        """
+        matrix = self._matrix(position, yaw, pitch, roll)
+        rings = []
+        for r, y in profile:
+            if r <= 1e-6:
+                rings.append([self.bm.verts.new(matrix @ Vector((0, y, 0)))])
+                continue
+            ring = []
+            for k in range(segments):
+                angle = 2 * math.pi * k / segments
+                scale = r * (radius_at(angle) if radius_at else 1.0)
+                ring.append(self.bm.verts.new(matrix @ Vector((math.cos(angle) * scale, y, math.sin(angle) * scale))))
+            rings.append(ring)
+        faces = []
+        for a, b in zip(rings, rings[1:]):
+            if len(a) == 1 and len(b) == 1:
+                continue
+            for k in range(segments):
+                j = (k + 1) % segments
+                if len(a) == 1:
+                    faces.append(self.bm.faces.new((a[0], b[j], b[k])))
+                elif len(b) == 1:
+                    faces.append(self.bm.faces.new((a[k], a[j], b[0])))
+                else:
+                    faces.append(self.bm.faces.new((a[k], a[j], b[j], b[k])))
+        for ring in (rings[0], rings[-1]):
+            if len(ring) > 1:
+                faces.append(self.bm.faces.new(ring))
+        bmesh.ops.recalc_face_normals(self.bm, faces=faces)
+        self._paint(faces, mat)
+        for face in faces:
+            face.smooth = len(face.verts) <= 4
+
+    def shell(self, grid, thickness, position=(0, 0, 0), mat=None, smooth=True, yaw=0.0, pitch=0.0, roll=0.0):
+        """格子に並べた点 grid[行][列] を面にした、厚み thickness の板 (屋根の布や曲面の壁)。
+
+        厚みは下 (-Y) へ付け、縁もふさぐので裏から見ても欠けない。
+        """
+        matrix = self._matrix(position, yaw, pitch, roll)
+        down = Vector((0, thickness, 0))
+        top = [[self.bm.verts.new(matrix @ Vector(p)) for p in row] for row in grid]
+        bottom = [[self.bm.verts.new(matrix @ (Vector(p) - down)) for p in row] for row in grid]
+        rows, cols = len(grid), len(grid[0])
+        faces = []
+        for i in range(rows - 1):
+            for j in range(cols - 1):
+                faces.append(self.bm.faces.new((top[i][j], top[i][j + 1], top[i + 1][j + 1], top[i + 1][j])))
+                faces.append(self.bm.faces.new((bottom[i][j], bottom[i + 1][j], bottom[i + 1][j + 1], bottom[i][j + 1])))
+
+        def outline(layer):
+            return ([layer[0][j] for j in range(cols)] + [layer[i][cols - 1] for i in range(1, rows)]
+                    + [layer[rows - 1][j] for j in range(cols - 2, -1, -1)] + [layer[i][0] for i in range(rows - 2, 0, -1)])
+
+        upper, lower = outline(top), outline(bottom)
+        for k in range(len(upper)):
+            n = (k + 1) % len(upper)
+            faces.append(self.bm.faces.new((upper[k], upper[n], lower[n], lower[k])))
+        bmesh.ops.recalc_face_normals(self.bm, faces=faces)
+        self._paint(faces, mat)
+        for face in faces:
+            face.smooth = smooth
+
     def decal(self, outline, position=(0, 0, 0), mat=None, yaw=0.0):
         """上から見た輪郭 (X右, Z前) の、上向きの面1枚。路面の白線など、上からしか見ない模様用。"""
         matrix = self._matrix(position, yaw, 0, 0)
@@ -216,13 +334,15 @@ class MeshBuilder:
             face.normal_flip()
         self._paint([face], mat)
 
-    def build_split(self, piece, origin=(0, 0, 0), parent=None, roles=None, normalize=False, shade=None):
+    def build_split(self, piece, origin=(0, 0, 0), parent=None, roles=None, normalize=False, shade=None, uv=False):
         """ゲームの部品組み (TownModelKit) 用に、マテリアルごとの別オブジェクトへ分けて書き出す。
 
         空オブジェクト piece の下に "<piece>|<名前>" のメッシュを並べる。名前は roles[マテリアル名]、
         無ければマテリアル名。各メッシュの原点はその形の中心にし、位置は piece の原点からの相対で持つ。
         normalize=True ではまとめて縦横奥行き1の箱に収める (ゲーム側で拡大して使う形)。
         shade(x, y, z) を渡すと、その位置の明るさ (0〜1以上、または (r, g, b)) を頂点色に入れる。
+        uv=True では、面ごとに一番近い軸の方向から投影したメートル単位のUVを付ける
+        (お菓子の街のテクスチャは1メートルあたりの繰り返しで貼るため)。
         """
         roles = roles or {}
         bm = self.bm
@@ -253,6 +373,8 @@ class MeshBuilder:
                         else:
                             v = min(1.0, value)
                             loop[layer] = (v * 0.92, v, v * 0.90, 1.0)
+            if uv:
+                _box_uvs(part)
             lo, hi = _bounds_of(part.verts)
             center = (lo + hi) / 2
             bmesh.ops.transform(part, matrix=UNITY_TO_FBX @ Matrix.Translation(-center), verts=part.verts)
@@ -278,6 +400,18 @@ class MeshBuilder:
         for mat in self.materials:
             mesh.materials.append(mat)
         return _attach(bpy.data.objects.new(name, mesh), origin, parent)
+
+
+def _box_uvs(bm):
+    """Unity座標のまま (鏡映前) に、面の向きに一番近い軸で投影したメートル単位のUVを付ける。"""
+    layer = bm.loops.layers.uv.new("UVMap")
+    for face in bm.faces:
+        face.normal_update()
+        n = face.normal
+        axis = max(range(3), key=lambda a: abs(n[a]))
+        for loop in face.loops:
+            x, y, z = loop.vert.co
+            loop[layer].uv = {0: (z, y), 1: (x, z), 2: (x, y)}[axis]
 
 
 def _bounds_of(verts):
@@ -369,7 +503,8 @@ def render_preview(path, direction=(1.0, 0.8, 1.3), focus=None, distance=3.6, le
     """
     scene = bpy.context.scene
     bpy.context.view_layer.update()
-    meshes = [o for o in scene.objects if o.type == "MESH"]
+    # 非表示 (hide_render) の物は範囲と床の高さに含めない
+    meshes = [o for o in scene.objects if o.type == "MESH" and not o.hide_render]
     lo, hi = _bounds(focus or meshes)
     floor_z = _bounds(meshes)[0].z
     center = (lo + hi) / 2

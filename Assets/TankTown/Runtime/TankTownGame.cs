@@ -145,7 +145,7 @@ namespace TankTown
             PickupDisplay = Tank.gameObject.AddComponent<TankPickupDisplay>();
             PickupDisplay.Initialize(this);
             Input.PadPressed += HandlePad;
-            Input.StartPressed += StartOrRestart;
+            Input.StartPressed += ConfirmMenu;
             Input.PausePressed += TogglePause;
             Input.HelpPressed += ToggleHowTo;
             Input.StagePressed += SelectStage;
@@ -178,8 +178,15 @@ namespace TankTown
 
         private void HandlePad(int pad)
         {
-            if (State == RoundState.Ready || State == RoundState.Results || State == RoundState.Paused) StartOrRestart();
+            if (State == RoundState.Ready || State == RoundState.Results || State == RoundState.Paused) ConfirmMenu();
             else if (IsPlaying) Tank.Fire(pad);
+        }
+
+        private void ConfirmMenu()
+        {
+            var hud = GetComponent<TankTownHUD>();
+            if (hud != null && hud.ConfirmMenu()) return;
+            StartOrRestart();
         }
 
         private void SetupView()

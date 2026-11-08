@@ -44,6 +44,7 @@ def palette():
         "sand": m("CitySand", (1.0, 0.81, 0.45), roughness=0.9),
         "island": m("CityIsland", (0.15, 0.73, 0.48), roughness=0.8),
         "cloud": m("CityCloud", (0.97, 0.99, 1.0), roughness=0.9),
+        "rubber": m("CityRubber", (0.12, 0.16, 0.19), roughness=0.9),
     }
 
 
@@ -525,6 +526,118 @@ def sailboat(p):
     return mb, {"CityWhite": "Boat hull", "CityRed": "Boat stripe", "CityDark": "Boat mast", "CityCream": "Boat sails"}
 
 
+# ---------------------------------------------------------------- 車
+# 原点は車のルート (当たり判定 1.8×2×3.3 の中心より0.25下)、地面は y=-0.72、前は +Z。
+# 車体の色 (CityPaint) はゲーム側で車ごとに塗り替える。
+
+CAR_ROLES = {"CityPaint": "Car body", "CityGlass": "Car windows", "CityRubber": "Car tyres", "CityWhite": "Car hubcaps",
+             "CityDark": "Car trim", "CityCream": "Car headlights", "CityRed": "Car tail lights", "CityWood": "Cargo crates"}
+WHEEL_Y = -0.38
+
+
+def car_wheels(mb, p, track=0.79, axle=1.0, radius=0.34):
+    for side in (-1, 1):
+        for end in (-1, 1):
+            at = (side * track, WHEEL_Y, end * axle)
+            mb.cylinder(radius, 0.26, at, p["rubber"], axis="x", segments=14)
+            mb.cylinder(radius * 0.5, 0.28, at, p["white"], axis="x", segments=10)
+            # 車体の側面で、タイヤの上を囲む黒い縁
+            arch = [(side * 0.84, WHEEL_Y + math.sin(a) * (radius + 0.09), end * axle + math.cos(a) * (radius + 0.09))
+                    for a in (math.radians(18 + 144 * k / 6) for k in range(7))]
+            mb.tube(arch, 0.045, mat=p["dark"], sides=5)
+
+
+def slope_glass(mb, mat, a, b, width, center, start=0.15, end=0.88, thickness=0.03):
+    """キャビンの傾いた面 a→b (横から見た (z, y)) に貼る前後の窓ガラス。center はキャビンの内側の点。"""
+    dz, dy = b[0] - a[0], b[1] - a[1]
+    length = math.hypot(dz, dy)
+    nz, ny = dy / length, -dz / length
+    if nz * ((a[0] + b[0]) / 2 - center[0]) + ny * ((a[1] + b[1]) / 2 - center[1]) < 0:
+        nz, ny = -nz, -ny
+    p0 = (a[0] + dz * start, a[1] + dy * start)
+    p1 = (a[0] + dz * end, a[1] + dy * end)
+    mb.prism([p0, p1, (p1[0] + nz * thickness, p1[1] + ny * thickness), (p0[0] + nz * thickness, p0[1] + ny * thickness)],
+             width, mat=mat)
+
+
+def car_front_and_back(mb, p, front=1.6, back=-1.62, tail=(0.32, 0.14), tail_y=0.06, tail_x=0.56):
+    dark = p["dark"]
+    mb.box((1.62, 0.16, 0.16), (0, -0.3, front - 0.02), dark, bevel=0.05, segments=1)
+    mb.box((1.62, 0.16, 0.16), (0, -0.3, back + 0.04), dark, bevel=0.05, segments=1)
+    mb.box((0.7, 0.12, 0.04), (0, -0.06, front + 0.025), dark)
+    for side in (-1, 1):
+        mb.cylinder(0.1, 0.05, (side * 0.56, -0.04, front + 0.02), p["cream"], axis="z", segments=10)
+        mb.box((tail[0], tail[1], 0.05), (side * tail_x, tail_y, back - 0.01), p["red"])
+
+
+def car_hatchback(p):
+    """丸みのある小型車。"""
+    mb = bkit.MeshBuilder()
+    paint, glass = p["paint"], p["glass"]
+    body = [(-1.58, -0.42), (1.56, -0.42), (1.63, -0.22), (1.6, 0.1), (1.45, 0.22), (0.7, 0.3), (-1.45, 0.32),
+            (-1.6, 0.15), (-1.63, -0.2)]
+    mb.prism(body, 1.64, mat=paint, bevel=0.07)
+    cabin = [(-1.40, 0.28), (0.68, 0.28), (0.14, 0.96), (-1.16, 0.98), (-1.37, 0.62)]
+    mb.prism(cabin, 1.44, mat=paint, bevel=0.06)
+    for side in (-1, 1):
+        mb.box((0.12, 0.1, 0.16), (side * 0.78, 0.42, 0.45), paint, bevel=0.03, segments=1)
+    mb.prism([(-0.40, 0.42), (0.50, 0.42), (0.10, 0.88), (-0.40, 0.88)], 1.46, mat=glass)
+    mb.prism([(-1.26, 0.42), (-0.52, 0.42), (-0.52, 0.88), (-1.10, 0.88), (-1.27, 0.60)], 1.46, mat=glass)
+    slope_glass(mb, glass, (0.68, 0.28), (0.14, 0.96), 1.2, (-0.4, 0.6), start=0.2, end=0.9)
+    slope_glass(mb, glass, (-1.37, 0.62), (-1.16, 0.98), 1.2, (-0.4, 0.6), start=0.12, end=0.85)
+    car_front_and_back(mb, p)
+    car_wheels(mb, p)
+    return mb, CAR_ROLES
+
+
+def car_van(p):
+    """背の高い箱形のワゴン。"""
+    mb = bkit.MeshBuilder()
+    paint, glass, dark = p["paint"], p["glass"], p["dark"]
+    body = [(-1.6, -0.42), (1.56, -0.42), (1.64, -0.22), (1.62, 0.08), (1.42, 0.24), (-1.6, 0.24), (-1.64, -0.2)]
+    mb.prism(body, 1.66, mat=paint, bevel=0.07)
+    cabin = [(-1.6, 0.2), (1.12, 0.2), (0.62, 1.12), (-1.58, 1.16)]
+    mb.prism(cabin, 1.6, mat=paint, bevel=0.08)
+    for side in (-1, 1):
+        mb.box((0.12, 0.12, 0.16), (side * 0.84, 0.62, 0.82), paint, bevel=0.03, segments=1)
+        mb.box((0.56, 0.42, 0.03), (side * 0.32, 0.77, -1.6), glass)
+        mb.box((0.06, 0.06, 2.0), (side * 0.6, 1.19, -0.45), dark)
+    mb.prism([(0.02, 0.5), (0.86, 0.5), (0.6, 0.98), (0.02, 0.98)], 1.62, mat=glass)
+    mb.prism([(-1.44, 0.56), (-0.1, 0.56), (-0.1, 0.98), (-1.44, 0.98)], 1.62, mat=glass)
+    # スライドドアの継ぎ目
+    mb.box((1.62, 0.74, 0.025), (0, 0.59, -0.06), dark)
+    slope_glass(mb, glass, (1.12, 0.2), (0.62, 1.12), 1.36, (-0.4, 0.6), start=0.25, end=0.88)
+    car_front_and_back(mb, p, back=-1.63, tail=(0.14, 0.34), tail_y=0.08, tail_x=0.7)
+    car_wheels(mb, p, track=0.8)
+    return mb, CAR_ROLES
+
+
+def car_pickup(p):
+    """荷台に木箱を積んだ小型トラック。"""
+    mb = bkit.MeshBuilder()
+    paint, glass, dark = p["paint"], p["glass"], p["dark"]
+    body = [(-1.6, -0.42), (1.56, -0.42), (1.63, -0.22), (1.6, 0.1), (1.45, 0.24), (-1.6, 0.26), (-1.64, -0.2)]
+    mb.prism(body, 1.66, mat=paint, bevel=0.07)
+    cabin = [(-0.48, 0.24), (0.62, 0.24), (0.18, 0.98), (-0.44, 1.0)]
+    mb.prism(cabin, 1.5, mat=paint, bevel=0.06)
+    for side in (-1, 1):
+        mb.box((0.08, 0.36, 1.12), (side * 0.79, 0.42, -1.04), paint, bevel=0.02, segments=1)
+        mb.box((0.12, 0.1, 0.16), (side * 0.81, 0.46, 0.4), paint, bevel=0.03, segments=1)
+    mb.box((1.66, 0.36, 0.08), (0, 0.42, -1.58), paint, bevel=0.02, segments=1)
+    mb.prism([(-0.34, 0.44), (0.42, 0.44), (0.12, 0.88), (-0.34, 0.88)], 1.52, mat=glass)
+    mb.box((1.1, 0.34, 0.03), (0, 0.74, -0.47), glass)
+    slope_glass(mb, glass, (0.62, 0.24), (0.18, 0.98), 1.24, (0.0, 0.6), start=0.22, end=0.88)
+    mb.box((1.5, 0.03, 1.08), (0, 0.27, -1.03), dark)
+    mb.box((0.62, 0.42, 0.56), (0.25, 0.5, -0.98), p["wood"], bevel=0.03, segments=1)
+    mb.box((0.44, 0.3, 0.44), (-0.36, 0.44, -1.2), p["wood"], bevel=0.03, segments=1)
+    car_front_and_back(mb, p, tail_x=0.62)
+    car_wheels(mb, p, track=0.8)
+    return mb, CAR_ROLES
+
+
+CARS = [("Car hatchback", car_hatchback), ("Car van", car_van), ("Car pickup", car_pickup)]
+
+
 PIECES = [
     ("Tower window", tower_window), ("Apartment window", apartment_window), ("Shop window", shop_window),
     ("Shop storefront", shop_storefront), ("Apartment balcony", apartment_balcony),
@@ -533,7 +646,7 @@ PIECES = [
     ("Crate", crate), ("Bench", bench), ("Fountain", fountain), ("Red barrel", red_barrel), ("Fuel tank", fuel_tank),
     ("Guardrail", guardrail), ("Power pole", power_pole),
     ("Lane dash", lane_dash), ("Crosswalk", crosswalk), ("Manhole", manhole), ("Traffic signal", traffic_signal),
-    ("Sailboat", sailboat),
+    ("Sailboat", sailboat), *CARS,
 ]
 
 
@@ -560,10 +673,23 @@ def build_kit():
     return root, groups
 
 
-def move(group, position, scale=(1, 1, 1)):
+def move(group, position, scale=(1, 1, 1), yaw=0.0):
     """部品の空オブジェクトを、親 (City kit) から見たUnity座標の位置へ動かす。"""
     group.location = bkit.to_fbx(position)
     group.scale = scale
+    # FBX座標 (X反転) では、UnityのY回転は逆向きになる
+    group.rotation_euler = (0, -math.radians(yaw), 0)
+
+
+def preview_only(path, names, groups, **kwargs):
+    """names の部品だけを描画する (ほかは一時的に隠す)。"""
+    shown = {o for name in names for o in groups[name].children}
+    hidden = [o for o in bkit.bpy.context.scene.objects if o.type == "MESH" and o not in shown]
+    for o in hidden:
+        o.hide_render = True
+    bkit.render_preview(path, focus=list(shown), **kwargs)
+    for o in hidden:
+        o.hide_render = False
 
 
 def duplicate(group):
@@ -598,6 +724,8 @@ def layout_preview(groups):
     move(groups["Lane dash"], (5.0, 0.02, -48.0))
     move(groups["Manhole"], (-6.0, 0.02, -48.0))
     move(groups["Sailboat"], (14.0, 0, -36.0), (0.6, 0.6, 0.6))
+    for c, (name, _) in enumerate(CARS):
+        move(groups[name], ((c - 1) * 3.0, 0.72, 10.0), yaw=c * 25.0 - 25.0)
     for variant in range(3):
         move(groups[f"Cloud {variant}"], ((variant - 1) * 14.0, 14.0, 6.0), (0.3, 0.3, 0.3))
         move(groups[f"Island {variant}"], ((variant - 1) * 22.0, 0, 28.0), (0.3, 0.3, 0.3))
@@ -616,3 +744,8 @@ if __name__ == "__main__":
     layout_preview(groups)
     bkit.render_preview(os.path.join(out, "CityKit.png"), direction=(0.35, 0.75, -1.0), distance=2.0, lens=35,
                         resolution=(1600, 1000), floor_color=(0.85, 0.82, 0.74))
+    cars = [name for name, _ in CARS]
+    preview_only(os.path.join(out, "Cars.png"), cars, groups, direction=(0.9, 0.55, 1.0), distance=2.4, lens=40,
+                 resolution=(1600, 900), floor_color=(0.45, 0.48, 0.52))
+    preview_only(os.path.join(out, "CarsBack.png"), cars, groups, direction=(-0.8, 0.6, -1.0), distance=2.4, lens=40,
+                 resolution=(1600, 900), floor_color=(0.45, 0.48, 0.52))

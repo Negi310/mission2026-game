@@ -68,7 +68,7 @@ namespace TankTown
             if (!visible || controller == null) return;
             if (font == null)
             {
-                font = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 20);
+                font = Resources.Load<Font>("Fonts/NotoSansJP-Regular") != null ? Instantiate(Resources.Load<Font>("Fonts/NotoSansJP-Regular")) : Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 20);
                 label = new GUIStyle(GUI.skin.label) { font = font, fontSize = 19, wordWrap = true };
                 heading = new GUIStyle(label) { fontSize = 24, fontStyle = FontStyle.Bold };
                 button = new GUIStyle(GUI.skin.button) { font = font, fontSize = 19, padding = new RectOffset(12, 12, 6, 6) };
@@ -127,3 +127,4 @@ namespace TankTown
         private void OnDestroy() { if (font != null) Destroy(font); if (backdrop != null) Destroy(backdrop); }
     }
 }
+

@@ -19,6 +19,17 @@ namespace TankTown
         private volatile string connectionError;
         private string previousError;
         private MicrobitDiagnostics diagnostics = new MicrobitDiagnostics();
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern void TankTownRegisterController(string receiver);
+        private readonly MicrobitLineDecoder browserDecoder = new MicrobitLineDecoder();
+        public void ReceiveBrowserData(string data)
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(data);
+            diagnostics.Bytes(bytes, bytes.Length);
+            browserDecoder.Feed(bytes, bytes.Length, frame => { diagnostics.Frame(frame); inbox.Enqueue(frame, Now); });
+        }
+#endif
         internal MicrobitDiagnostics.Snapshot DiagnosticState => diagnostics.Read();
         internal MicrobitInputSettings Configuration => settings;
         internal bool Armed => session != null && session.Armed;
@@ -59,6 +70,9 @@ namespace TankTown
             inbox = new MicrobitReceiveBuffer();
             inbox.Reset();
             InputSystem.onBeforeUpdate += ProcessInput;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            TankTownRegisterController(gameObject.name);
+#endif
             Debug.Log("MICROBIT WAITING: " + settings.transport + "; settings: " + ConfigurationPath);
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             cancellation = new CancellationTokenSource();

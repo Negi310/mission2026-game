@@ -36,8 +36,8 @@ namespace TankTown
         private TownTrafficGrid trafficGrid;
         private Mesh proxyCube;
         private readonly TownMeshWorkspace meshWorkspace = new TownMeshWorkspace();
-        private Mesh vehicleMesh;
-        private Material[] vehiclePaints;
+        // One shared mesh per car shape; each car only swaps its body paint (the template paint).
+        private readonly List<(Mesh mesh, Material[] paints)> vehicleModels = new List<(Mesh mesh, Material[] paints)>();
         private Material vehicleTemplatePaint;
         private readonly TownCrowdGeometry crowdGeometry = new TownCrowdGeometry();
         internal void DrawCitizen(Transform model, Transform[] limbs, int variant, Material shirt, Material skin, Material clothing, Mesh head)
@@ -59,6 +59,10 @@ namespace TankTown
         private Material road, cream, dark, glass, lime, grass, frame, rubber, wood, cannonPaint, lampGlow;
         // Blender street furniture and building trim for the ordinary city stages; null keeps the box versions.
         private TownModelKit cityKit;
+        // The same city kit supplies the traffic cars on every stage; candy houses use their own kit.
+        private TownModelKit vehicleKit, candyKit;
+        internal TownModelKit CandyKit => candyKit;
+        internal static readonly string[] CarModels = { "Car hatchback", "Car van", "Car pickup" };
         private readonly Dictionary<string, Material> kitPaints = new Dictionary<string, Material>();
         internal TownModelKit CityKit => cityKit;
         internal Dictionary<string, Material> KitPaints(string key, Material paint) { kitPaints.Clear(); kitPaints[key] = paint; return kitPaints; }
@@ -128,14 +132,18 @@ namespace TankTown
             ShotMaterial = MakeMaterial(new Color(1, .83f, .07f));
             lampGlow = MakeMaterial(new Color(1, .85f, .54f), ToySurface.Glass);
             lampGlow.SetColor("_EmissionColor", new Color(1.8f, 1.25f, .55f));
-            if (game.Settings.importedCityModels && !CandyTheme && !AmusementTheme)
-                cityKit = TownModelKit.Load(new Dictionary<string, Material>
+            if (game.Settings.importedCityModels)
+            {
+                vehicleKit = TownModelKit.Load(new Dictionary<string, Material>
                 {
                     ["CityGlass"] = glass, ["CityFrame"] = frame, ["CityCream"] = cream, ["CityDark"] = dark,
                     ["CityPaint"] = frame, ["CityLamp"] = lampGlow, ["CityYellow"] = ShotMaterial, ["CityWood"] = wood,
                     ["CityLeaf"] = grass, ["CityGreen"] = grass, ["CityRed"] = ShotMaterial, ["CityWhite"] = cream,
-                    ["CityRock"] = wood, ["CityLime"] = lime, ["CitySand"] = cream, ["CityIsland"] = grass, ["CityCloud"] = frame
+                    ["CityRock"] = wood, ["CityLime"] = lime, ["CitySand"] = cream, ["CityIsland"] = grass, ["CityCloud"] = frame,
+                    ["CityRubber"] = rubber
                 });
+                if (!CandyTheme && !AmusementTheme) cityKit = vehicleKit;
+            }
             cannonShellMaterials = new[]
             {
                 MakeMaterial(new Color(.32f, .44f, .18f), ToySurface.Metal),
@@ -157,22 +165,34 @@ namespace TankTown
             for (int i = -half; i <= half; i++)
             {
                 float lane = i * spacing;
-                Terrain.Surface("North south ramp avenue", new Vector2(lane - RoadWidth / 2, -paving / 2), new Vector2(RoadWidth, paving), .045f, road);
-                Terrain.Surface("East west ramp avenue", new Vector2(-paving / 2, lane - RoadWidth / 2), new Vector2(paving, RoadWidth), .05f, road);
+                // Streets inside a merged amusement lot are left out, so the plaza shows through.
+                foreach (var (from, to) in StreetRuns(true, i, paving))
+                    Terrain.Surface("North south ramp avenue", new Vector2(lane - RoadWidth / 2, from), new Vector2(RoadWidth, to - from), .045f, road);
+                foreach (var (from, to) in StreetRuns(false, i, paving))
+                    Terrain.Surface("East west ramp avenue", new Vector2(from, lane - RoadWidth / 2), new Vector2(to - from, RoadWidth), .05f, road);
                 // Kit crosswalks occupy 8.3–10.9m from each junction, so the dashes start beyond them.
                 float clear = RoadWidth / 2 + (cityKit != null ? 4.5f : 1);
                 for (float d = -paving / 2 + 2; d < paving / 2; d += 4)
                 {
                     if (Mathf.Abs(d - Mathf.Round(d / spacing) * spacing) < clear) continue;
+                    int segment = Mathf.FloorToInt(d / spacing);
+                    bool northSouth = !Layout.StreetRemoved(true, i, segment), eastWest = !Layout.StreetRemoved(false, i, segment);
                     if (cityKit != null)
                     {
                         RoadMark("Lane dash", new Vector3(lane, 0, d), 0);
                         RoadMark("Lane dash", new Vector3(d, 0, lane), 90);
                         continue;
                     }
-                    SurfaceBox("Lane dash", new Vector3(lane, 0, d), new Vector3(.32f, .02f, 2.1f), cream);
-                    SurfaceBox("Lane dash", new Vector3(d, 0, lane), new Vector3(2.1f, .02f, .32f), cream);
+                    if (northSouth) SurfaceBox("Lane dash", new Vector3(lane, 0, d), new Vector3(.32f, .02f, 2.1f), cream);
+                    if (eastWest) SurfaceBox("Lane dash", new Vector3(d, 0, lane), new Vector3(2.1f, .02f, .32f), cream);
                 }
+            }
+            foreach (var footprint in Layout.Footprints)
+            {
+                // The merged lot is one coloured plaza from street edge to street edge.
+                var minimum = new Vector2(footprint.xMin * spacing + RoadWidth / 2, footprint.yMin * spacing + RoadWidth / 2);
+                var size = new Vector2(footprint.width * spacing - RoadWidth, footprint.height * spacing - RoadWidth);
+                Terrain.Surface("Attraction plaza", minimum, size, .03f, parkPlaza);
             }
             if (cityKit != null) CreateRoadMarkings();
             var buildingPaints = new Material[6];
@@ -184,17 +204,29 @@ namespace TankTown
                     int x = plot.X, z = plot.Z;
                     var center = GroundPoint(new Vector3((x + .5f) * spacing, 0, (z + .5f) * spacing));
                     if (plot.Park) CreatePark(center);
+                    else if (plot.Covered) { }
+                    else if (AmusementTheme) CreateAmusementBuilding(GroundPoint(plot.Center), plot);
                     else CreateBuilding(GroundPoint(plot.Center), plot.Floors, buildingPaints[(int)plot.Reward], plot.Width, plot.Style, plot.Reward);
                     float sidewalk = BuildingWidth / 2 + 1.5f;
-                    CreateProp(center + new Vector3(-sidewalk, 0, -sidewalk), "Street sign", ShotMaterial, true);
-                    CreateProp(center + new Vector3(sidewalk, 0, sidewalk), "Tree", grass, false);
-                    CreateProp(center + new Vector3(-sidewalk, 0, sidewalk), "Street lamp", cream, true);
-                    var crate = Box("Crushable crate", GroundPoint(center + new Vector3(sidewalk, 0, -sidewalk), .6f), Vector3.one * 1.2f, lime);
-                    AddBlock(crate, true);
-                    KitModel(crate, "Crate");
+                    // A merged lot keeps street furniture on its outer corners only.
+                    int lot = Layout.FootprintAt(x, z);
+                    bool Corner(int sx, int sz) => lot < 0 || (Layout.FootprintAt(x + sx, z) != lot && Layout.FootprintAt(x, z + sz) != lot);
+                    if (Corner(-1, -1)) CreateProp(center + new Vector3(-sidewalk, 0, -sidewalk), "Street sign", ShotMaterial, true);
+                    if (Corner(1, 1)) CreateProp(center + new Vector3(sidewalk, 0, sidewalk), "Tree", grass, false);
+                    if (Corner(-1, 1)) CreateProp(center + new Vector3(-sidewalk, 0, sidewalk), "Street lamp", cream, true);
+                    if (Corner(1, -1))
+                    {
+                        var crate = Box("Crushable crate", GroundPoint(center + new Vector3(sidewalk, 0, -sidewalk), .6f), Vector3.one * 1.2f, lime);
+                        AddBlock(crate, true);
+                        KitModel(crate, "Crate");
+                    }
+                    // Upgrades on a street that became plaza are skipped; the draws stay, so other pickups keep their places.
                     var pickupPosition = new Vector3(x * spacing, 1.2f, (z + .2f + (float)random.NextDouble() * .6f) * spacing);
-                    CreatePickup(pickupPosition, (UpgradeKind)random.Next(4));
-                    CreatePickup(new Vector3((x + .2f + (float)random.NextDouble() * .6f) * spacing, 1.2f, z * spacing), (UpgradeKind)random.Next(4));
+                    var kind = (UpgradeKind)random.Next(4);
+                    if (!Layout.StreetRemoved(true, x, z)) CreatePickup(pickupPosition, kind);
+                    pickupPosition = new Vector3((x + .2f + (float)random.NextDouble() * .6f) * spacing, 1.2f, z * spacing);
+                    kind = (UpgradeKind)random.Next(4);
+                    if (!Layout.StreetRemoved(false, z, x)) CreatePickup(pickupPosition, kind);
                 }
             // The first straight has all four upgrades, so their effect is easy to try.
             for (int i = 0; i < 4; i++) CreatePickup(SpawnPosition + new Vector3(0, .2f, 8 + i * 7), (UpgradeKind)i, false);
@@ -208,13 +240,14 @@ namespace TankTown
             var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
             proxyCube = Instantiate(source.GetComponent<MeshFilter>().sharedMesh); proxyCube.name = "Proxy cube";
             source.SetActive(false); Destroy(source);
-            var distantShape = CandyTheme ? new System.Func<Mesh, Mesh>(candyGeometry.DistantSilhouette) : null;
-            if (AmusementTheme) distantShape = amusementGeometry.DistantSilhouette;
+            var distantShape = CandyTheme ? new System.Func<Mesh, Mesh>(mesh => candyGeometry.DistantSilhouette(mesh) ?? candyKit?.DistantShape(mesh)) : null;
+            if (AmusementTheme) distantShape = mesh => amusementGeometry.DistantSilhouette(mesh) ?? amusementKit?.DistantShape(mesh);
             if (cityKit != null) distantShape = cityKit.DistantShape;
             foreach (var building in Buildings) building.Presentation = new TownBuildingVisual(building, proxyCube, meshWorkspace, distantShape);
             foreach (var renderer in GetComponentsInChildren<MeshRenderer>())
             {
-                if (renderer.gameObject.name != "Town paving" && renderer.gameObject.name != "North south ramp avenue" && renderer.gameObject.name != "East west ramp avenue") continue;
+                string surface = renderer.gameObject.name;
+                if (surface != "Town paving" && surface != "North south ramp avenue" && surface != "East west ramp avenue" && surface != "Attraction plaza") continue;
                 var copy = new GameObject("Minimap " + renderer.name, typeof(MeshFilter), typeof(MeshRenderer)); copy.transform.SetParent(transform, false);
                 copy.layer = TownPhysics.MapLayer;
                 copy.GetComponent<MeshFilter>().sharedMesh = renderer.GetComponent<MeshFilter>().sharedMesh;
@@ -230,13 +263,36 @@ namespace TankTown
             BatchStaticSurfaces();
         }
 
+        // The stretches of one street line to pave, leaving out streets and junctions inside merged lots.
+        private List<(float from, float to)> StreetRuns(bool northSouth, int line, float paving)
+        {
+            float spacing = game.Settings.blockSpacing, edge = RoadWidth / 2;
+            int half = game.Settings.cityHalfBlocks;
+            var gaps = new List<(float from, float to)>();
+            for (int segment = -half; segment < half; segment++)
+                if (Layout.StreetRemoved(northSouth, line, segment)) gaps.Add((segment * spacing + edge, (segment + 1) * spacing - edge));
+            for (int junction = -half; junction <= half; junction++)
+                if (northSouth ? Layout.JunctionInside(line, junction) : Layout.JunctionInside(junction, line))
+                    gaps.Add((junction * spacing - edge, junction * spacing + edge));
+            gaps.Sort((a, b) => a.from.CompareTo(b.from));
+            var runs = new List<(float from, float to)>();
+            float start = -paving / 2;
+            foreach (var gap in gaps)
+            {
+                if (gap.from > start + .01f) runs.Add((start, gap.from));
+                start = Mathf.Max(start, gap.to);
+            }
+            if (paving / 2 > start + .01f) runs.Add((start, paving / 2));
+            return runs;
+        }
+
         private void CreateTraffic()
         {
             int half = game.Settings.cityHalfBlocks;
             float spacing = game.Settings.blockSpacing, shoulder = RoadWidth / 2 + 1.2f;
             for (int x = -half; x <= half; x++) for (int z = -half; z <= half; z++)
             {
-                if ((x + z + half * 2) % 3 == 0)
+                if ((x + z + half * 2) % 3 == 0 && !Layout.JunctionInside(x, z))
                 {
                     var junction = new Vector3(x * spacing, 0, z * spacing);
                     var root = new GameObject("Crushable traffic signal"); root.transform.SetParent(transform);
@@ -265,7 +321,7 @@ namespace TankTown
                     }
                     var signal = root.AddComponent<TownTrafficSignal>(); signal.Initialize(game, junction, lights, (x - z + half * 2) * .75f); Signals.Add(signal);
                 }
-                if (x == half || z == half || (x + z) % 2 != 0) continue;
+                if (x == half || z == half || (x + z) % 2 != 0 || Layout.StreetRemoved(true, x, z)) continue;
                 var point = GroundPoint(new Vector3(x * spacing + shoulder, 0, (z + .5f) * spacing));
                 var pole = CreatePowerPole(point);
                 var other = CreatePowerPole(GroundPoint(point + Vector3.forward * 12));
@@ -277,6 +333,7 @@ namespace TankTown
             }
             for (int ring = 1; ring <= half; ring++)
             {
+                if (Layout.RingClosed(ring)) continue;
                 float extent = ring * spacing + 3.6f, radius = 6;
                 // One circuit passes through the starting avenue, so traffic is
                 // visible during ordinary play instead of only around the outskirts.
@@ -319,14 +376,19 @@ namespace TankTown
             int half = game.Settings.cityHalfBlocks, variant = 0; float spacing = game.Settings.blockSpacing, sidewalk = RoadWidth / 2 + 1.1f;
             for (int x = -half; x < half; x++) for (int z = -half; z < half; z++)
             {
-                float left = x * spacing + sidewalk, right = (x + 1) * spacing - sidewalk;
-                float south = z * spacing + sidewalk, north = (z + 1) * spacing - sidewalk;
+                // A merged lot has one walk around its outside, with the people of all its blocks.
+                var block = new RectInt(x, z, 1, 1);
+                int lot = Layout.FootprintAt(x, z);
+                if (lot >= 0) { block = Layout.Footprints[lot]; if (block.x != x || block.y != z) continue; }
+                float left = block.xMin * spacing + sidewalk, right = block.xMax * spacing - sidewalk;
+                float south = block.yMin * spacing + sidewalk, north = block.yMax * spacing - sidewalk;
                 var route = new[] { new Vector3(left, 0, south), new Vector3(left, 0, north), new Vector3(right, 0, north), new Vector3(right, 0, south) };
-                for (int i = 0; i < game.Settings.pedestriansPerBlock; i++, variant++)
+                int people = game.Settings.pedestriansPerBlock * block.width * block.height;
+                for (int i = 0; i < people; i++, variant++)
                 {
                     var root = new GameObject("City pedestrian " + variant); root.transform.SetParent(transform);
                     var person = root.AddComponent<TownPedestrian>();
-                    person.Initialize(game, route, i / (float)game.Settings.pedestriansPerBlock, variant, shirts[variant % shirts.Length], skins[variant % skins.Length], dark, geometry.LowPolyHead());
+                    person.Initialize(game, route, i / (float)people, variant, shirts[variant % shirts.Length], skins[variant % skins.Length], dark, geometry.LowPolyHead());
                     Pedestrians.Add(person);
                 }
             }
@@ -354,18 +416,31 @@ namespace TankTown
             var root = new GameObject("Explosive city car"); root.transform.SetParent(transform);
             var collider = root.AddComponent<BoxCollider>(); collider.center = Vector3.up * .25f; collider.size = new Vector3(1.8f, 2, 3.3f);
             if (!carPaints.TryGetValue(color, out var bodyColor)) { bodyColor = MakeMaterial(color); carPaints.Add(color, bodyColor); }
-            if (vehicleMesh == null) CreateSharedCarMesh(root.transform, bodyColor);
-            var paints = (Material[])vehiclePaints.Clone();
+            if (vehicleModels.Count == 0) CreateSharedCarMeshes(root.transform, bodyColor);
+            var model = vehicleModels[TrafficCars.Count % vehicleModels.Count];
+            var paints = (Material[])model.paints.Clone();
             for (int i = 0; i < paints.Length; i++) if (paints[i] == vehicleTemplatePaint) paints[i] = bodyColor;
             var visual = new GameObject("Batched traffic car", typeof(MeshFilter), typeof(MeshRenderer)); visual.transform.SetParent(root.transform, false);
-            visual.GetComponent<MeshFilter>().sharedMesh = vehicleMesh; visual.GetComponent<MeshRenderer>().sharedMaterials = paints;
+            visual.GetComponent<MeshFilter>().sharedMesh = model.mesh; visual.GetComponent<MeshRenderer>().sharedMaterials = paints;
             AddBlock(root, true);
             var explosive = root.AddComponent<ChainExplosive>(); explosive.Initialize(game, game.Settings.carExplosionRadius, vehicle: true); Explosives.Add(explosive);
             var traffic = root.AddComponent<TownTrafficCar>(); traffic.Initialize(game, route, phase, speed); TrafficCars.Add(traffic);
         }
 
-        private void CreateSharedCarMesh(Transform parent, Material bodyColor)
+        private void CreateSharedCarMeshes(Transform parent, Material bodyColor)
         {
+            vehicleTemplatePaint = bodyColor;
+            if (vehicleKit != null && System.Array.TrueForAll(CarModels, vehicleKit.Has))
+            {
+                // Blender cars: the body paint is combined first so it stays submesh 0 for the per-car paint.
+                foreach (var name in CarModels)
+                {
+                    meshWorkspace.Begin();
+                    vehicleKit.Combine(meshWorkspace, name, Matrix4x4.identity, KitPaints("CityPaint", bodyColor), "CityPaint");
+                    vehicleModels.Add((meshWorkspace.Combine("Shared traffic car " + name.Substring(4), out var shapePaints), shapePaints));
+                }
+                return;
+            }
             var root = new GameObject("Car mesh template"); root.transform.SetParent(parent, false);
             Box("Car body", Vector3.zero, new Vector3(1.7f, .55f, 3.2f), bodyColor, root.transform, false);
             Box("Car cabin", new Vector3(0, .75f, -.15f), new Vector3(1.4f, 1.05f, 1.65f), bodyColor, root.transform, false);
@@ -392,7 +467,7 @@ namespace TankTown
                 meshWorkspace.Add(renderer.sharedMaterial, filter.sharedMesh, root.transform.worldToLocalMatrix * renderer.transform.localToWorldMatrix);
                 renderer.enabled = false;
             }
-            vehicleMesh = meshWorkspace.Combine("Shared traffic car", out vehiclePaints); vehicleTemplatePaint = bodyColor;
+            vehicleModels.Add((meshWorkspace.Combine("Shared traffic car", out var paints), paints));
             root.SetActive(false); Destroy(root);
         }
 
@@ -494,15 +569,16 @@ namespace TankTown
             ItemPickups.Add(pickup);
         }
 
-        private void CreateExplosiveCluster(BlockBuilding building)
+        // Barrels and a fuel tank beside the building, or from start in steps of step when given.
+        private void CreateExplosiveCluster(BlockBuilding building, Vector3? from = null, Vector3? step = null)
         {
             float side = building.transform.position.x < 0 ? 1 : -1;
-            var start = building.transform.position + new Vector3(side * (building.Width / 2 + 1.5f), 0, -building.Width * .35f);
+            var start = from ?? building.transform.position + new Vector3(side * (building.Width / 2 + 1.5f), 0, -building.Width * .35f);
             var red = MakeMaterial(new Color(1, .11f, .025f));
             for (int i = 0; i < 4; i++)
             {
                 bool tank = i == 3;
-                var point = GroundPoint(start + Vector3.forward * i * 3.5f, tank ? 1.1f : .95f);
+                var point = GroundPoint(start + (step ?? Vector3.forward * 3.5f) * i, tank ? 1.1f : .95f);
                 var root = new GameObject(tank ? "Explosive fuel tank" : "Explosive red barrel");
                 root.transform.SetParent(transform); root.transform.position = point;
                 var collider = root.AddComponent<BoxCollider>();
@@ -540,7 +616,6 @@ namespace TankTown
 
         private void CreateBuilding(Vector3 center, int floors, Material color, float width, int style, ItemKind reward)
         {
-            if (AmusementTheme) { CreateAmusementBuilding(center, width, style, reward); return; }
             var root = new GameObject(CandyTheme ? CandyHouseName(style) : style == 0 ? "Tower frame" : style == 1 ? "Apartment frame" : "Shop frame");
             root.transform.SetParent(transform);
             root.transform.position = center;
@@ -799,9 +874,11 @@ namespace TankTown
         {
             foreach (var building in Buildings) building.Presentation?.Dispose();
             if (proxyCube != null) Destroy(proxyCube);
-            cityKit?.Dispose();
+            vehicleKit?.Dispose();
+            candyKit?.Dispose();
+            amusementKit?.Dispose();
             crowdGeometry.Dispose();
-            if (vehicleMesh != null) Destroy(vehicleMesh);
+            foreach (var model in vehicleModels) if (model.mesh != null) Destroy(model.mesh);
             meshWorkspace.Dispose();
             Terrain?.Dispose();
             geometry.Dispose();
