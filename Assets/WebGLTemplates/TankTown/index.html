@@ -3,7 +3,7 @@
 <body><header><b>TANK TOWN</b><span id="status" aria-live="polite"></span><button id="connect" disabled>ハンドル接続</button><button id="fullscreen" disabled>全画面</button></header>
 <main><canvas id="unity-canvas" tabindex="0"></canvas><div id="loading"><h2>街をじゅんび中！</h2><progress id="progress" max="1" value="0"></progress><p>初回は読み込みに時間がかかります。<br>PCのChrome / Edgeをおすすめします。</p><p id="error"></p></div></main>
 
-<script src="Build/{{{ LOADER_FILENAME }}}"></script><script>
+<script src="Build/{{{ LOADER_FILENAME }}}?v={{{ PRODUCT_VERSION }}}"></script><script>
 const status=document.getElementById('status'),canvas=document.getElementById('unity-canvas'),connect=document.getElementById('connect');
 let server, characteristic;
 const uuid=s=>'6e40000'+s+'-b5a3-f393-e0a9-e50e24dcca9e';
@@ -22,5 +22,5 @@ connect.onclick=async()=>{try{
  }catch(error){status.textContent=error.message;}finally{connect.disabled=false;}};
 function receive(event){const bytes=new Uint8Array(event.target.value.buffer,event.target.value.byteOffset,event.target.value.byteLength);const text=new TextDecoder().decode(bytes);if(window.tankTownReceiver&&window.tankTownInstance)window.tankTownInstance.SendMessage(window.tankTownReceiver,'ReceiveBrowserData',text);status.textContent='ハンドル接続中';}
 canvas.addEventListener('keydown',event=>{if(['ArrowLeft','ArrowRight','Space','F7','F8'].includes(event.code))event.preventDefault();});
-createUnityInstance(canvas,{dataUrl:'Build/{{{ DATA_FILENAME }}}',frameworkUrl:'Build/{{{ FRAMEWORK_FILENAME }}}',codeUrl:'Build/{{{ CODE_FILENAME }}}',streamingAssetsUrl:'StreamingAssets',devicePixelRatio:Math.min(window.devicePixelRatio||1,1.5),companyName:'Tank Town',productName:'Tank Town',productVersion:'{{{ PRODUCT_VERSION }}}'},value=>document.getElementById('progress').value=value).then(instance=>{window.tankTownInstance=instance;document.getElementById('loading').hidden=true;connect.disabled=false;const full=document.getElementById('fullscreen');full.disabled=false;full.onclick=()=>instance.SetFullscreen(1);canvas.focus();}).catch(error=>{document.getElementById('error').textContent='起動できませんでした: '+error+'。再読み込みしてください。PCのChrome / Edgeをおすすめします。';});
+createUnityInstance(canvas,{dataUrl:'Build/{{{ DATA_FILENAME }}}?v={{{ PRODUCT_VERSION }}}',frameworkUrl:'Build/{{{ FRAMEWORK_FILENAME }}}?v={{{ PRODUCT_VERSION }}}',codeUrl:'Build/{{{ CODE_FILENAME }}}?v={{{ PRODUCT_VERSION }}}',streamingAssetsUrl:'StreamingAssets',devicePixelRatio:Math.min(window.devicePixelRatio||1,1.5),companyName:'Tank Town',productName:'Tank Town',productVersion:'{{{ PRODUCT_VERSION }}}'},value=>document.getElementById('progress').value=value).then(instance=>{window.tankTownInstance=instance;document.getElementById('loading').hidden=true;connect.disabled=false;const full=document.getElementById('fullscreen');full.disabled=false;full.onclick=()=>instance.SetFullscreen(1);canvas.focus();}).catch(error=>{document.getElementById('error').textContent='起動できませんでした: '+error+'。再読み込みしてください。PCのChrome / Edgeをおすすめします。';});
 </script></body></html>
