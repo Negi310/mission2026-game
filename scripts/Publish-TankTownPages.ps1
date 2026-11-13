@@ -58,4 +58,6 @@ try {
     @{build_type='legacy';source=@{branch='gh-pages';path='/'}}|ConvertTo-Json|Set-Content -LiteralPath $config -Encoding utf8
     gh api "repos/$Repository/pages" -X PUT --input $config
     if($LASTEXITCODE -ne 0){throw 'Pagesの公開設定に失敗しました。'}
+    gh api "repos/$Repository/pages/builds" -X POST
+    if($LASTEXITCODE -ne 0){throw 'Pagesの配信開始リクエストに失敗しました。'}
 } finally {$env:GIT_INDEX_FILE=$oldIndex}
