@@ -12,6 +12,8 @@ namespace TankTown
         private readonly TankTownGame game;
         private readonly TankTownMenuLayout menu;
         private readonly TankTownCardCarousel actions;
+        private readonly ResultConfirmGate confirmGate = new ResultConfirmGate();
+        internal bool CanConfirm => showing && confirmGate.Ready;
         private int confirmFrame = -1;
         private readonly RectTransform card;
         private readonly CanvasGroup cardGroup;
@@ -97,7 +99,7 @@ namespace TankTown
                 recordPoints[i] = menu.Label(row.transform, "Ranking score " + i, "—", new Vector2(72, 0), new Vector2(228, 38), 22, Ink, displayFont);
                 recordPoints[i].alignment = TextAnchor.MiddleRight;
             }
-            closeDetails = Action(details.transform, "Result details close button", "ボタンで もどる", new Vector2(54, -666), new Vector2(1204, 72), false, ToggleDetails);
+            closeDetails = Action(details.transform, "Result details close button", "もどる", new Vector2(54, -666), new Vector2(1204, 72), false, ToggleDetails);
             confettiArt = Art(menu.Layout, "Result confetti", new Vector2(1440, 900), ResultArtKind.Confetti);
             details.SetActive(false); menu.Root.SetActive(false);
             actions = new TankTownCardCarousel(game, canvas, font, style, "Result actions");
@@ -107,17 +109,33 @@ namespace TankTown
         private void ResetActions()
         {
             actions.Set("", "", new[] {
-                new TankTownCardCarousel.Choice("もういちど！", "", "", Pink, game.StartOrRestart),
+                new TankTownCardCarousel.Choice("もういちど！", "", "", Pink, () => RunAction(game.StartOrRestart)),
                 new TankTownCardCarousel.Choice("きろく", "", "", Purple, ToggleDetails),
-                new TankTownCardCarousel.Choice("タイトルへ", "", "", new Color(.05f,.7f,.92f), game.ReturnToTitle)
+                new TankTownCardCarousel.Choice("タイトルへ", "", "", new Color(.05f,.7f,.92f), () => RunAction(game.ReturnToTitle))
             });
         }
         internal bool Confirm()
         {
             if(confirmFrame == Time.frameCount) return true;
             confirmFrame = Time.frameCount;
+            if (!AcceptInput()) return true;
             if(DetailsOpen){ToggleDetails();return true;}
             return actions.Confirm();
+        }
+
+        private bool AcceptInput()
+        {
+            if (game.State != RoundState.Results) return false;
+            // Input can arrive before the HUD's first results update.
+            if (!showing) Tick(0);
+            bool accepted = confirmGate.TryConfirm(Time.unscaledTimeAsDouble);
+            actions.ConfirmEnabled = accepted;
+            return accepted;
+        }
+
+        private void RunAction(System.Action action)
+        {
+            if (AcceptInput()) action();
         }
 
         private static void Outline(Text label, Color tint, float width)
@@ -140,11 +158,11 @@ namespace TankTown
 
         internal void ToggleDetails()
         {
-            if (game.State != RoundState.Results) return;
+            if (!AcceptInput()) return;
             DetailsOpen = !DetailsOpen;
             card.gameObject.SetActive(!DetailsOpen); details.SetActive(DetailsOpen);
             confettiArt.gameObject.SetActive(!DetailsOpen);
-            if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject((DetailsOpen ? closeDetails : showDetails).gameObject);
+            if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
         }
 
         public void Tick(float dt)
@@ -157,6 +175,7 @@ namespace TankTown
             if (!showing)
             {
                 showing = true; elapsed = tickAt = 0; DetailsOpen = false; settled = false; fanfareNote = 0;
+                confirmGate.Reset(Time.unscaledTimeAsDouble);
                 ResetActions();
                 roundStage.text = recordStage.text = game.StageLabel;
                 card.gameObject.SetActive(true); details.SetActive(false);
@@ -180,9 +199,11 @@ namespace TankTown
                     recordPoints[i].color = current ? Pink : Ink;
                     recordRows[i].color = current ? new Color(1, .8f, .89f) : new Color(1, 1, 1, i % 2 == 0 ? .85f : .35f);
                 }
-                if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(replay.gameObject);
+                if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
                 game.PlayTone(523.25f, .12f, .10f);
             }
+            confirmGate.Observe(Time.unscaledTimeAsDouble, game.Input.MenuConfirmHeld);
+            actions.ConfirmEnabled = confirmGate.Ready && game.State == RoundState.Results;
             // Capture refreshes may tick several times in one frame; consume a key once.
             if (inputFrame != Time.frameCount && game.State == RoundState.Results)
             {
@@ -228,6 +249,34 @@ namespace TankTown
         {
             float x = t - 1;
             return 1 + 2.70158f * x * x * x + 1.70158f * x * x;
+        }
+    }
+
+    // Require the score reveal and a quiet interval; continuous firing never arms it.
+    internal sealed class ResultConfirmGate
+    {
+        internal const double MinimumDelay = 1.35;
+        internal const double QuietSeconds = .65;
+        private double earliest, lastObserved, quiet;
+        internal bool Ready { get; private set; }
+        internal void Reset(double now) { earliest = now + MinimumDelay; lastObserved = now; quiet = 0; Ready = false; }
+        internal void Observe(double now, bool held)
+        {
+            if (Ready) return;
+            if (held) { lastObserved = now; quiet = 0; }
+            else AdvanceQuiet(now);
+        }
+        internal bool TryConfirm(double now)
+        {
+            if (!Ready) { AdvanceQuiet(now); if (!Ready) quiet = 0; }
+            return Ready;
+        }
+        private void AdvanceQuiet(double now)
+        {
+            // A stalled frame is not evidence that the player stopped firing.
+            quiet += System.Math.Min(.1, System.Math.Max(0, now - lastObserved));
+            lastObserved = now;
+            Ready = now >= earliest && quiet + 1e-9 >= QuietSeconds;
         }
     }
 }

@@ -31,6 +31,7 @@ namespace TankTown
         private bool armed;
         private readonly bool actionsOnly;
         internal int Selected => Mod(target);
+        internal bool ConfirmEnabled { get; set; } = true;
         internal GameObject Root => menu.Root;
         internal static Color Ink => new Color(.09f, .13f, .25f);
         internal static Color Pink => new Color(1, .25f, .48f);
@@ -56,12 +57,6 @@ namespace TankTown
             subtitle.alignment = TextAnchor.MiddleCenter;
             counter = menu.Label(menu.Layout, name + " page", "", new Vector2(590, -768), new Vector2(260, 40), 22, Color.white);
             counter.alignment = TextAnchor.MiddleCenter;
-            var controls = menu.Label(menu.Layout, name + " controls", "左右に回して えらぶ     ● ボタンで きめる", new Vector2(320, actionsOnly ? -770 : -800), new Vector2(800, 36), 22, actionsOnly ? Ink : Color.white);
-            controls.alignment = TextAnchor.MiddleCenter;
-            if (!actionsOnly)
-            {
-                var edge = controls.gameObject.AddComponent<Outline>(); edge.effectColor = new Color(Ink.r,Ink.g,Ink.b,.8f); edge.effectDistance = new Vector2(1,-1);
-            }
             heading.gameObject.SetActive(!actionsOnly); subtitle.gameObject.SetActive(!actionsOnly);
             counter.gameObject.SetActive(false);
             var previous = menu.Button(menu.Layout, name + " previous", "‹", new Vector2(58, actionsOnly ? -626 : -641), new Vector2(58, 62), Ink, () => {Move(-1); ClearPointerFocus();});
@@ -79,6 +74,7 @@ namespace TankTown
             choices.Clear(); cards.Clear(); groups.Clear(); choices.AddRange(items);
             target = selected + items.Length; position = target; armed = false; repeatAt = 0;
             heading.text = title; subtitle.text = detail;
+            subtitle.gameObject.SetActive(!actionsOnly && !string.IsNullOrEmpty(detail));
             for (int i = 0; i < items.Length * 3; i++)
             {
                 int index = i % items.Length; var item = items[index];
@@ -111,7 +107,7 @@ namespace TankTown
         internal void Caption(string title, string detail) { heading.text = title; subtitle.text = detail; }
         internal bool Confirm()
         {
-            if (choices.Count == 0 || confirmedFrame == Time.frameCount) return true;
+            if (!ConfirmEnabled || choices.Count == 0 || confirmedFrame == Time.frameCount) return true;
             confirmedFrame = Time.frameCount; choices[Selected].Select?.Invoke(); return true;
         }
         internal void Move(int direction) { target += direction; game.PlayTone(560 + Selected * 65, .045f, .055f); }
@@ -132,8 +128,8 @@ namespace TankTown
                 var rect = cards[i]; rect.anchoredPosition = new Vector2(720 + delta * 415, actionsOnly ? -670 : -685);
                 rect.localScale = Vector3.one * Mathf.Max(.65f, 1 - distance * .2f);
                 rect.localRotation = Quaternion.identity;
-                groups[i].alpha = Mathf.Clamp01((2 - distance) / .65f) * Mathf.Clamp01(1 - distance * .34f);
-                groups[i].interactable = distance < 1.7f; groups[i].blocksRaycasts = distance < 1.7f;
+                groups[i].alpha = Mathf.Clamp01((2 - distance) / .65f) * Mathf.Clamp01(1 - distance * .34f) * (ConfirmEnabled ? 1 : .55f);
+                groups[i].interactable = ConfirmEnabled && distance < 1.7f; groups[i].blocksRaycasts = distance < 1.7f;
             }
             for(int i=0;i<dots.Count;i++) {dots[i].color = i==Selected ? choices[i].Color : actionsOnly ? new Color(.2f,.15f,.35f,.2f) : new Color(1,1,1,.4f); dots[i].rectTransform.localScale = Vector3.one*(i==Selected?1.35f:1);}
             if (cards.Count > 0) cards[(target % cards.Count + cards.Count) % cards.Count].SetAsLastSibling();

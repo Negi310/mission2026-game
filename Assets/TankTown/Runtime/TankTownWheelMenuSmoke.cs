@@ -37,12 +37,25 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(.3f); Capture("wheel-pause-help");
             game.Input.PulsePad(0); yield return null;
             if(game.State != RoundState.Paused) { Debug.LogError("WHEEL MENU FAILED: pause tutorial return"); Application.Quit(1); yield break; }
-            game.TogglePause(); game.AdvanceTime(100); yield return new WaitForSecondsRealtime(1.3f); Capture("wheel-results");
+            game.TogglePause(); game.AdvanceTime(100);
+            for (int i = 0; i < 18; i++)
+            {
+                game.Input.PulsePad(i % 2);
+                if (game.State != RoundState.Results) { Debug.LogError("WHEEL MENU FAILED: firing burst restarted the round"); Application.Quit(1); yield break; }
+                yield return new WaitForSecondsRealtime(.1f);
+            }
+            game.Input.SetPressure(0, 1); yield return new WaitForSecondsRealtime(1.5f);
+            if(game.GetComponent<TankTownHUD>().ResultsView.CanConfirm) { Debug.LogError("WHEEL MENU FAILED: held pressure armed results"); Application.Quit(1); yield break; }
+            game.Input.SetPressure(0, 0);
+            float deadline = Time.realtimeSinceStartup + 4;
+            while (!game.GetComponent<TankTownHUD>().ResultsView.CanConfirm && Time.realtimeSinceStartup < deadline) yield return null;
+            if(!game.GetComponent<TankTownHUD>().ResultsView.CanConfirm) { Debug.LogError("WHEEL MENU FAILED: results did not rearm after release"); Application.Quit(1); yield break; }
+            Capture("wheel-results");
             game.Input.SetWheel(1); yield return new WaitForSecondsRealtime(.2f); game.Input.SetWheel(0);
             yield return new WaitForSecondsRealtime(.35f); game.Input.PulsePad(0);
             yield return new WaitForSecondsRealtime(.3f); Capture("wheel-records");
             if (!game.GetComponent<TankTownHUD>().ResultsView.DetailsOpen) { Debug.LogError("WHEEL MENU FAILED: result confirm"); Application.Quit(1); yield break; }
-            Debug.Log("WHEEL MENU SMOKE COMPLETE: title, steering, howto, pause, pause guide, results, records"); Application.Quit(0);
+            Debug.Log("WHEEL MENU SMOKE COMPLETE: title, steering, howto, pause, pause guide, results, records, firing burst and held-pressure guard"); Application.Quit(0);
         }
     }
 }
