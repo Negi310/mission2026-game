@@ -19,7 +19,9 @@ namespace TankTown
         internal void ExposeForCamera(bool value)
         {
             if (CameraExposed == value) return;
-            CameraExposed = value; Building?.RegisterDamage();
+            bool wasSeparate = RenderSeparately;
+            CameraExposed = value;
+            if (wasSeparate != RenderSeparately) Building?.RegisterDamage();
         }
         public float Durability01 => Detached ? 0 : Mathf.Clamp01(1 - accumulatedDamage / MaxDurability);
         public readonly List<DestructibleBlock> Links = new List<DestructibleBlock>();
@@ -55,11 +57,14 @@ namespace TankTown
         internal bool DamageFromBlast(Vector3 origin, float damage, float impulse, float forceRadius)
         {
             if (Detached || game == null || !game.IsPlaying || damage <= 0) return false;
+            bool wasSeparate = RenderSeparately;
             accumulatedDamage += damage;
             if (accumulatedDamage + .0001f >= MaxDurability) Break(origin, impulse, forceRadius);
             else
             {
-                Building?.RegisterDamage();
+                // Only the first visible crack changes which parts belong in the
+                // combined mesh; later damage updates the individual renderer only.
+                if (!wasSeparate && RenderSeparately) Building?.RegisterDamage();
                 if (damageProperties == null) damageProperties = new MaterialPropertyBlock();
                 foreach (var renderer in GetComponentsInChildren<Renderer>())
                 {

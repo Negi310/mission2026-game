@@ -72,6 +72,17 @@ namespace TankTown.Tests
             finally { if (device.added) InputSystem.RemoveDevice(device); }
         }
 
+        [UnityTest]
+        public IEnumerator F7TuningAndF8DiagnosticsDoNotOverlap()
+        {
+            var tuning = game.Input.GetComponent<TankControlTuningPanel>();
+            var diagnostics = game.Input.GetComponent<MicrobitDiagnosticsPanel>();
+            Assert.That(tuning, Is.Not.Null); Assert.That(diagnostics, Is.Not.Null);
+            yield return Press(Key.F7); Assert.That(tuning.Visible, Is.True);
+            yield return Press(Key.F8); Assert.That(tuning.Visible, Is.False); Assert.That(diagnostics.Visible, Is.True);
+            yield return Press(Key.F7); Assert.That(diagnostics.Visible, Is.False); Assert.That(tuning.Visible, Is.True);
+            yield return Press(Key.F7); Assert.That(tuning.Visible, Is.False);
+        }
         private IEnumerator Press(Key key)
         {
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(key)); yield return null;

@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace TankTown
 {
-    internal enum ResultArtKind { Panel, Details, Emblem, Action, Party, Confetti, TitleDecor, TitleAction }
+    internal enum ResultArtKind { Panel, Details, Emblem, Action, Party, Confetti, TitleDecor, TitleAction, Guide, MenuAction }
 
     // Bright toy-like vector artwork. Decorations never intercept result controls.
     public sealed class TankTownResultArt : MaskableGraphic
@@ -32,7 +32,7 @@ namespace TankTown
         {
             vh.Clear(); bounds = rectTransform.rect;
             if (kind == ResultArtKind.Emblem) DrawEmblem(vh);
-            else if (kind == ResultArtKind.Action || kind == ResultArtKind.TitleAction) DrawAction(vh);
+            else if (kind == ResultArtKind.Action || kind == ResultArtKind.TitleAction || kind == ResultArtKind.MenuAction) DrawAction(vh);
             else if (kind == ResultArtKind.Party || kind == ResultArtKind.Confetti) DrawParty(vh);
             else if (kind == ResultArtKind.TitleDecor) DrawTitleDecor(vh);
             else DrawPanel(vh);
@@ -62,6 +62,7 @@ namespace TankTown
             Star(vh, 832, 66, 29, 13, -12, Yellow);
             Star(vh, w - 48, 146, 18, 8, 12, Aqua);
             for (int i = 0; i < 7; i++) Circle(vh, 890 + i * 50, 34, 7, Palette[i % Palette.Length]);
+            if (kind == ResultArtKind.Guide) return;
             if (kind == ResultArtKind.Details)
             {
                 Rounded(vh, 34, 170, 818, 190, 30, new Color(1, .94f, .71f), new Color(1, .97f, .84f));
@@ -103,6 +104,13 @@ namespace TankTown
         private void DrawAction(VertexHelper vh)
         {
             float w = bounds.width, h = bounds.height;
+            if (kind == ResultArtKind.MenuAction)
+            {
+                Rounded(vh, 0, 8, w, h - 8, 25, Color.Lerp(accent, Ink, .55f), Color.Lerp(accent, Ink, .55f));
+                Rounded(vh, 0, 0, w, h - 9, 25, Color.Lerp(accent, Color.white, .1f), accent);
+                Line(vh, new Vector2(25, 10), new Vector2(w - 25, 10), 3, new Color(1,1,1,.4f));
+                return;
+            }
             if (kind == ResultArtKind.TitleAction)
             {
                 var shadow = new Color(Ink.r, Ink.g, Ink.b, .15f);

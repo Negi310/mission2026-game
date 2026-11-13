@@ -30,7 +30,7 @@ namespace TankTown
         private void Update()
         {
             if (Keyboard.current != null && Keyboard.current.f8Key.wasPressedThisFrame)
-            { visible = !visible; if (visible) ReadSettings(); }
+            { if (!visible) GetComponent<TankControlTuningPanel>()?.Close(); visible = !visible; if (visible) ReadSettings(); }
             BlockMenuClicks();
             if (visible && Time.unscaledTime >= loggedAt)
             { loggedAt = Time.unscaledTime + 2; Debug.Log("MICROBIT DIAG: " + Report().Replace('\n', ' ')); }
@@ -68,7 +68,7 @@ namespace TankTown
             if (!visible || controller == null) return;
             if (font == null)
             {
-                font = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 20);
+                font = Resources.Load<Font>("Fonts/NotoSansJP-Regular") != null ? Instantiate(Resources.Load<Font>("Fonts/NotoSansJP-Regular")) : Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 20);
                 label = new GUIStyle(GUI.skin.label) { font = font, fontSize = 19, wordWrap = true };
                 heading = new GUIStyle(label) { fontSize = 24, fontStyle = FontStyle.Bold };
                 button = new GUIStyle(GUI.skin.button) { font = font, fontSize = 19, padding = new RectOffset(12, 12, 6, 6) };
@@ -123,6 +123,8 @@ namespace TankTown
             finally { GUILayout.EndScrollView(); GUILayout.EndArea(); GUI.matrix = previous; }
         }
         private void OnDisable() { if (blockedUi != null) blockedUi.enabled = uiWasEnabled; blockedUi = null; }
+        internal void Close() { visible = false; BlockMenuClicks(); }
         private void OnDestroy() { if (font != null) Destroy(font); if (backdrop != null) Destroy(backdrop); }
     }
 }
+

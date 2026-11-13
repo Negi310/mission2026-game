@@ -46,7 +46,7 @@ foreach ($name in $allowed) {
     }
 }
 
-foreach ($relative in @('docs/microbit-controller.md', 'hardware/microbit/main.py')) {
+foreach ($relative in @('docs/microbit-controller.md', 'docs/control-tuning.md', 'docs/card-menu.md', 'docs/NotoFonts-LICENSE.txt', 'hardware/microbit/main.py')) {
     $sourcePath = Join-Path $buildRoot $relative
     if (!(Test-Path -LiteralPath $sourcePath)) { throw "コントローラーの配布ファイルがありません: $relative" }
     $destination = Join-Path $gameRoot $relative
@@ -66,32 +66,34 @@ TANK TOWN v$($info.version) / Windows 64bit
 遊び方
 1. ZIPを右クリックして「すべて展開」してください。
 2. TankTownフォルダ内のTankTown.exeを起動します。Unityは不要です。
-3. タイトルで街を選び、SpaceまたはEnterで開始します。
-   1: いつもの街 / 2: 大きな街 / 3: お菓子の街 / 4: 遊園地（試作）
+3. ハンドルの左右、A/Dまたは左右矢印でカードを回し、中央の街を選びます。
+4. 砲撃ボタン、SpaceまたはEnterで中央のカードを決定します。
+   タイトル・遊び方・リザルト・一時停止は同じカード操作です。
 
 前進: 自動
 左右のハンドル: A / D、または左右矢印
 砲撃・所持しているレーザーや巨大爆弾を使用: Space / J / K
 一時停止: Esc
 詳しい操作: タイトルの「あそびかた」
-リザルト: Spaceでもういちど / Tabで記録を見る / Escで記録を閉じる
+リザルト: 左右で「もういちど」「きろく」「タイトルへ」を選び、ボタンで決定
 終了: Alt+F4（標準は全画面表示）
 
 Bluetoothハンドル（Windowsにペアリング済みのBLE UART／Bluetooth COMが対象）
 1. WindowsのBluetooth設定からコントローラーをペアリングします。
 2. コントローラー側で「角度,ピエゾ値」と改行を続けて送信してください。
 3. ゲームは自動でBLE UARTとBluetooth COMを探し、受信するとハンドルと砲撃に反映します。
-4. 感度・閾値・接続先は同じフォルダのmicrobit-controller.jsonを編集して再起動します。
+4. F7で操作感の調整画面を開き、感度や砲撃の閾値を変更できます。
+   下へスクロールして「適用」または「適用して保存」を押してください。
+   調整画面を開いている間もゲームと制限時間は進みます。
+   設定の詳しい説明はdocs/control-tuning.mdを参照してください。
    初期値: 角度の送信値±1023で最大旋回、砲撃350以上、再受付180以下。
 詳しくはdocs/microbit-controller.mdを参照してください。
-Bluetooth機器での通信と送信コードのUUID適合は未確認です。
 既存の送信プログラムはそのまま使ってください。同梱main.pyは旧USB方式専用です。
 
 旋回・砲撃ができないとき
 1. ゲームを閉じて、接続診断.cmdを起動します（ゲーム中のF8でも診断を開けます）。
 2. 受信bytes・有効行・最後の文字列・ピエゾの値と砲撃判定を確認します。
 3. 「診断をコピー」の内容と送信側のコードを開発者に伝えてください。
-   今回報告された実機接続不具合の原因は未確定です。解決を保証する版ではありません。
 
 TankTown_Data、UnityPlayer.dll、MonoBleedingEdgeなどは起動に必要です。
 exeだけ取り出さず、同梱フォルダごと保持してください。

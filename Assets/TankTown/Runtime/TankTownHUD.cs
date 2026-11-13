@@ -14,11 +14,20 @@ namespace TankTown
         private Transform canvas;
         private GameObject gameplay, titleScreen;
         private TankTownTitleScreen titleView;
+        private TankTownPauseScreen pauseView;
+        internal bool ConfirmMenu()
+        {
+            if (game.Input.GetComponent<TankControlTuningPanel>()?.Visible == true || game.Input.GetComponent<MicrobitDiagnosticsPanel>()?.Visible == true) return true;
+            if (game.State == RoundState.Ready) return titleView?.Confirm() ?? false;
+            if (game.State == RoundState.Results) return ResultsView?.Confirm() ?? false;
+            if (game.State == RoundState.Paused) return pauseView?.Confirm() ?? false;
+            return false;
+        }
         internal TankTownResultsScreen ResultsView { get; private set; }
         internal TankTownMinimap Minimap { get; private set; }
         private Text countdown;
         private CanvasGroup countdownGroup;
-        private Text timer, score, cardTitle, cardBody, buttonText;
+        private Text timer, score;
         private ToyHudStyle style;
         private Image viewFade;
         private Image pointsBacking;
@@ -30,7 +39,6 @@ namespace TankTown
         private float pickupUntil, lastPickupAt = -10;
         private int pickupCount;
         private TankTownChainDisplay chainDisplay;
-        private GameObject card, modalShade;
         private readonly Color ink = new Color(.08f, .17f, .22f);
         private readonly Color yellow = new Color(.81f, 1, .14f);
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -49,8 +57,15 @@ namespace TankTown
         {
             game = owner;
             style = new ToyHudStyle();
-            font = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 24);
+            font = Resources.Load<Font>("Fonts/NotoSansJP-Regular");
+            if (font == null) font = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 24);
+            displayFont = font;
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             displayFont = Font.CreateDynamicFontFromOSFont(new[] { "Arial Rounded MT Bold", "Arial Black", "Arial" }, 40);
+#elif UNITY_WEBGL
+            // Keep Latin headings and compact counters within the desktop layout.
+            displayFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+#endif
             var root = new GameObject("Tank Town HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas = root.transform;
             root.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -114,32 +129,10 @@ namespace TankTown
             aim.rectTransform.anchorMin = aim.rectTransform.anchorMax = aim.rectTransform.pivot = Vector2.one * .5f;
             aim.rectTransform.sizeDelta = new Vector2(80, 80);
             aim.raycastTarget = false;
-            modalShade = Panel("Pause and results backdrop", hud, Vector2.zero, Vector2.zero, new Color(.025f, .07f, .12f, .62f));
-            modalShade.GetComponent<Image>().sprite = null;
-            var shadeRect = modalShade.GetComponent<RectTransform>();
-            shadeRect.anchorMin = Vector2.zero; shadeRect.anchorMax = Vector2.one;
-            shadeRect.offsetMin = shadeRect.offsetMax = Vector2.zero;
-            card = Panel("Round card", hud, Vector2.zero, new Vector2(630, 440), new Color(.98f, .97f, .91f, .98f));
-            style.Card(card, ink);
-            var cr = card.GetComponent<RectTransform>();
-            cr.anchorMin = cr.anchorMax = cr.pivot = new Vector2(.5f, .5f);
-            Label(card.transform, "DESTRUCTION PLAYGROUND", new Vector2(38, -30), new Vector2(570, 27), 16, new Color(.22f, .55f, .43f));
-            cardTitle = Label(card.transform, "", new Vector2(38, -78), new Vector2(560, 62), 42, ink);
-            cardTitle.fontStyle = FontStyle.Bold;
-            cardBody = Label(card.transform, "", new Vector2(40, -156), new Vector2(550, 110), 21, ink);
-            cardBody.fontStyle = FontStyle.Bold;
-            var button = Panel("Start button", card.transform, new Vector2(40, -285), new Vector2(550, 60), yellow);
-            button.AddComponent<Button>().onClick.AddListener(game.StartOrRestart);
-            buttonText = Label(button.transform, "", new Vector2(0, -10), new Vector2(550, 42), 23, ink);
-            buttonText.alignment = TextAnchor.MiddleCenter;
-            buttonText.fontStyle = FontStyle.Bold;
-            var back = Panel("Title button", card.transform, new Vector2(40, -365), new Vector2(550, 44), ink);
-            back.AddComponent<Button>().onClick.AddListener(game.ReturnToTitle);
-            var backLabel = Label(back.transform, "タイトルへ", new Vector2(0, -5), new Vector2(550, 34), 19, Color.white);
-            backLabel.alignment = TextAnchor.MiddleCenter;
             titleView = new TankTownTitleScreen(game, canvas, font, displayFont, style);
             titleScreen = titleView.Root;
             ResultsView = new TankTownResultsScreen(game, canvas, font, displayFont, style);
+            pauseView = new TankTownPauseScreen(game, canvas, font, style);
             var countdownRoot = Panel("Start countdown", canvas, Vector2.zero, new Vector2(540, 232), Color.clear);
             var countdownRect = (RectTransform)countdownRoot.transform;
             countdownRect.anchorMin = countdownRect.anchorMax = countdownRect.pivot = Vector2.one * .5f;
@@ -201,6 +194,7 @@ namespace TankTown
             if (game.State == RoundState.Ready) titleView.Fit();
             gameplay.SetActive(game.State != RoundState.Ready && game.State != RoundState.Results && game.State != RoundState.Restarting);
             ResultsView.Tick(Time.unscaledDeltaTime);
+            pauseView.Tick(Time.unscaledDeltaTime);
             countdown.text = game.Presentation.Countdown;
             float beat = Mathf.Clamp01(game.Presentation.BeatProgress);
             countdownGroup.alpha = countdown.text.Length == 0 ? 0 : Mathf.Min(1, (1 - beat) * 5);
@@ -219,14 +213,6 @@ namespace TankTown
             pickupText.text = pickupCount > 1 ? $"+{pickupCount}" : "";
             pickupText.gameObject.SetActive(game.IsPlaying && !respawning && Time.time < pickupUntil && pickupCount > 1);
             aim.gameObject.SetActive(game.IsPlaying && !game.Tank.Respawning);
-            card.SetActive(game.State == RoundState.Paused);
-            modalShade.SetActive(game.State == RoundState.Paused);
-            if (game.State == RoundState.Paused)
-            {
-                cardTitle.text = "ひとやすみ";
-                cardBody.text = "準備ができたら、もういちど出発！\n時間は止まっているよ。";
-                buttonText.text = "つづける   →   SPACE";
-            }
         }
 
         private void ShowUpgrade(UpgradeKind kind)
@@ -238,8 +224,10 @@ namespace TankTown
         {
             if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
             UpgradesView?.Dispose(); SpecialsView?.Dispose(); titleView?.Dispose();
-            if (font != null) Destroy(font);
-            if (displayFont != null) Destroy(displayFont);
+            // The bundled font is a shared Resources asset.
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            if(displayFont != null && displayFont != font) Destroy(displayFont);
+#endif
             style?.Dispose();
             Minimap?.Dispose();
             ((System.IDisposable)timerMetrics).Dispose(); ((System.IDisposable)pointsMetrics).Dispose();
@@ -289,3 +277,4 @@ namespace TankTown
         }
     }
 }
+

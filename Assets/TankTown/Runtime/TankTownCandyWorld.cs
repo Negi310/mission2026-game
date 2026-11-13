@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TankTown
@@ -61,6 +62,17 @@ namespace TankTown
             candyMint = CandyMaterial("Glaze", .35f, .32f, .02f, new Color(.45f, .97f, .80f));
             candyAquaGlass = MakeMaterial(new Color(.035f, .48f, .70f), ToySurface.Glass);
             candyMintGlass = MakeMaterial(new Color(.10f, .58f, .52f), ToySurface.Glass);
+            if (game.Settings.importedCityModels)
+            {
+                // Blender candy decorations (scripts/blender/models/candy_kit.py) on the existing candy materials.
+                candyKit = TownModelKit.Load(new Dictionary<string, Material>
+                {
+                    ["CandyCream"] = candyCream, ["CandyWafer"] = candyWafer, ["CandyChocolate"] = candyChocolate, ["CandyJam"] = candyJam,
+                    ["CandyLeaf"] = candyLeaf, ["CandyPaint"] = candyPink, ["CandyFrame"] = candyCream, ["CandyGlass"] = candyAquaGlass,
+                    ["CandyPastelPink"] = candyPastelPink, ["CandyAqua"] = candyAqua, ["CandyYellow"] = ShotMaterial
+                }, "Models/CandyKit");
+                candyKit?.RoundInDistance("Wrapped candy", "Cupcake topper", "Ice cream topper", "Candy dome topper");
+            }
             road.SetColor("_BaseColor", new Color(.18f, .09f, .10f));
             grass.SetColor("_BaseColor", new Color(.48f, .93f, .71f));
             cream.SetColor("_BaseColor", new Color(1, .88f, .59f));
@@ -69,6 +81,21 @@ namespace TankTown
             : style == 4 ? candyPastelPink : style == 5 ? candyAqua : style == 6 ? candyWafer : candyBiscuit;
         private static string CandyHouseName(int style) => style == 0 ? "Shortcake tower" : style == 1 ? "Chocolate house"
             : style == 4 ? "Pink candy shop" : style == 5 ? "Aqua ice cream shop" : style == 6 ? "Cupcake cafe" : "Biscuit house";
+
+        private readonly Dictionary<string, Material> candyPaints = new Dictionary<string, Material>();
+        // Kit colours per house: CandyPaint is the reward colour, CandyFrame the trim and CandyGlass the windows.
+        private Dictionary<string, Material> CandyPaints(Material reward, Material trim = null, Material windows = null)
+        {
+            candyPaints.Clear(); candyPaints["CandyPaint"] = reward;
+            if (trim != null) candyPaints["CandyFrame"] = trim;
+            if (windows != null) candyPaints["CandyGlass"] = windows;
+            return candyPaints;
+        }
+        private bool CandyKitHas(string piece) => candyKit != null && candyKit.Has(piece);
+        // Reward-coloured icing with drips, stretched from the kit's 9 x .32 x .48 band. Ground floors with an
+        // awning use half-height drips so they stay clear of it.
+        private void CandyDrips(Transform parent, Vector3 point, Vector3 size, Material color, Quaternion rotation)
+            => candyKit.Attach(parent, "Icing drip edge", point, new Vector3(size.x / 9, size.y / .32f, size.z / .48f), rotation, CandyPaints(color));
 
         // Decorations retain metre-sized geometry even when their structural parent is a thin scaled panel.
         private GameObject CandyDetail(Transform parent, string label, Vector3 point, Vector3 size, Material material, Mesh shape = null)
@@ -112,11 +139,23 @@ namespace TankTown
                     var insetSize = new Vector3(size.x - .66f, size.y - .66f, .025f);
                     CandyDetail(cell.transform, "Chocolate inset", new Vector3(0, 0, size.z * .29f + .015f), insetSize, candyChocolate, geometry.RoundedBox(insetSize));
                 }
-                CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 - .04f, .17f), new Vector3(w + .12f, .18f, 1.1f), color);
+                if (CandyKitHas("Icing drip edge")) CandyDrips(wall.transform, new Vector3(0, h / 2 - .04f, .17f), new Vector3(w + .12f, .18f, 1.1f), color, Quaternion.identity);
+                else CandyDetail(wall.transform, "Reward-colored icing", new Vector3(0, h / 2 - .04f, .17f), new Vector3(w + .12f, .18f, 1.1f), color);
             }
             else if (style >= 4)
             {
                 DecoratePastelShop(wall, style, color);
+            }
+            else if (CandyKitHas("Candy biscuit window"))
+            {
+                float face = wall.transform.localScale.z / 2;
+                CandyDrips(wall.transform, new Vector3(0, h / 2 - .12f, .20f), new Vector3(w + .10f, wall.Level == 0 ? .16f : .32f, .48f), color, Quaternion.identity);
+                // Kit window: 3.0 x 1.7 arched chocolate pane with piped cream and a reward-coloured sugar cross.
+                candyKit.Attach(wall.transform, "Candy biscuit window", new Vector3(0, -.18f, face), new Vector3(w * .36f / 3, h * .56f / 1.7f, 1), CandyPaints(color));
+                foreach (int side in new[] { -1, 1 })
+                    CandyDetail(wall.transform, "Wafer edge", new Vector3(side * w * .44f, -.1f, .19f), new Vector3(.18f, h * .75f, .15f), candyCream);
+                if (wall.Level == 0)
+                    candyKit.Attach(wall.transform, "Candy awning", new Vector3(0, h * .20f + .08f, face), new Vector3(w * .68f / 6, 1, 1), CandyPaints(color, candyCream));
             }
             else
             {
@@ -144,6 +183,18 @@ namespace TankTown
             var frameColor = style == 5 ? candyPastelPink : candyCream;
             var windowColor = style == 4 ? candyAquaGlass : candyMintGlass;
             float windowWidth = w * .66f, windowHeight = h * .63f;
+            if (CandyKitHas("Candy shop window"))
+            {
+                float face = wall.transform.localScale.z / 2;
+                // Kit window: 6.0 x 1.86 rounded glass ("Pastel candy window") in a thick piped sugar frame.
+                candyKit.Attach(wall.transform, "Candy shop window", new Vector3(0, -.05f, face), new Vector3(windowWidth / 6, windowHeight / 1.86f, 1), CandyPaints(rewardColor, frameColor, windowColor));
+                CandyDrips(wall.transform, new Vector3(0, h / 2 - .08f, .27f), new Vector3(w + .12f, wall.Level == 0 ? .175f : .35f, .65f), rewardColor, Quaternion.identity);
+                if (style == 6)
+                    CandyDetail(wall.transform, "Cupcake wrapper trim", new Vector3(0, -h / 2 + .14f, .25f), new Vector3(w + .1f, .28f, .40f), candyPastelPink);
+                if (wall.Level == 0)
+                    candyKit.Attach(wall.transform, "Candy awning", new Vector3(0, h * .25f - .04f, face), new Vector3(w * .86f / 6, 1, 1), CandyPaints(rewardColor, frameColor));
+                return;
+            }
             // Pastry texture, generous shop windows and sugar frames, with no extra physics bodies.
             CandyDetail(wall.transform, "Pastel candy window", new Vector3(0, -.05f, .24f), new Vector3(windowWidth, windowHeight, .10f), windowColor);
             foreach (int side in new[] { -1, 1 })
@@ -170,6 +221,16 @@ namespace TankTown
         private void DecorateBiscuitRoof(DestructibleBlock roof, Material color)
         {
             Vector3 size = roof.transform.localScale;
+            if (CandyKitHas("Icing drip edge"))
+            {
+                // Dripping icing along the eave, the lower outer edge of each tilted roof half.
+                float side = Mathf.Sign(roof.transform.localPosition.z);
+                int count = Mathf.Max(1, Mathf.RoundToInt(size.x / 9)); float span = size.x / count;
+                for (int i = 0; i < count; i++)
+                    CandyDrips(roof.transform, new Vector3((i + .5f) * span - size.x / 2, .02f, side * (size.z / 2 - .1f)), new Vector3(span, .28f, .36f), color,
+                        side > 0 ? Quaternion.identity : Quaternion.Euler(0, 180, 0));
+                return;
+            }
             CandyDetail(roof.transform, "Icing roof edge", new Vector3(0, .20f, -size.z * .45f), new Vector3(size.x, .28f, .36f), color);
         }
         private void DecorateCandyRoof(DestructibleBlock roof, int style, Material color, float width)
@@ -184,12 +245,22 @@ namespace TankTown
                     CandyDetail(berry.transform, "Strawberry leaf", new Vector3(0, 1.65f, 0), new Vector3(1.8f, .22f, .7f), candyLeaf);
                     CandyDetail(berry.transform, "Strawberry leaf", new Vector3(0, 1.65f, 0), new Vector3(.7f, .22f, 1.8f), candyLeaf);
                 }
+                else if (CandyKitHas("Wrapped candy"))
+                    candyKit.Attach(roof.transform, "Wrapped candy", new Vector3(point.x, roof.transform.localScale.y / 2 + .75f, point.z), Vector3.one * 1.7f,
+                        Quaternion.Euler(0, x * z > 0 ? 45 : -45, 0), CandyPaints(color));
                 else CandyDetail(roof.transform, "Roof candy", point - Vector3.up * .8f, new Vector3(2, 1.2f, 2), color, candyGeometry.Sphere);
             }
         }
         private void DecoratePastelRoof(DestructibleBlock roof, int style, Material rewardColor, float width)
         {
             float surface = roof.transform.localScale.y / 2;
+            // Kit toppers are modelled for the 18.4 m pastel shop roof; the ice cream keeps its fixed size.
+            var spread = new Vector3(width / 18.4f, 1, width / 18.4f);
+            if (style == 6 && CandyKitHas("Cupcake topper"))
+            {
+                candyKit.Attach(roof.transform, "Cupcake topper", new Vector3(0, surface, 0), spread, CandyPaints(rewardColor));
+                return;
+            }
             if (style == 6)
             {
                 CandyDetail(roof.transform, "Cupcake icing cap", new Vector3(0, surface + .40f, 0), new Vector3(width * 1.04f, 2.5f, width * 1.04f), candyPastelPink, candyGeometry.Sphere);
@@ -200,7 +271,11 @@ namespace TankTown
                 return;
             }
             CandyDetail(roof.transform, "Pastel roof icing", new Vector3(0, surface, 0), new Vector3(width * .82f, 1.2f, width * .82f), style == 4 ? candyPastelPink : candyAqua, candyGeometry.Sphere);
-            if (style == 5)
+            if (style == 5 && CandyKitHas("Ice cream topper"))
+                candyKit.Attach(roof.transform, "Ice cream topper", new Vector3(0, surface, 0), Vector3.one, CandyPaints(rewardColor));
+            else if (style == 4 && CandyKitHas("Candy dome topper"))
+                candyKit.Attach(roof.transform, "Candy dome topper", new Vector3(0, surface, 0), spread, CandyPaints(rewardColor));
+            else if (style == 5)
             {
                 CandyDetail(roof.transform, "Ice cream wafer cone", new Vector3(0, surface + 2.6f, 0), new Vector3(4.6f, 5.2f, 4.6f), candyWafer, candyGeometry.Cone);
                 CandyDetail(roof.transform, "Ice cream scoop", new Vector3(0, surface + 5.35f, 0), new Vector3(6.1f, 3.8f, 6.1f), candyCream, candyGeometry.Sphere);

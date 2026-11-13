@@ -50,6 +50,9 @@ namespace TankTown
         private void OnCollisionEnter(Collision hit)
         {
             if (ImpactSpent || !game.IsPlaying || Generation >= game.Settings.debrisChainLimit) return;
+            // Most debris contacts are slow bounces. Avoid a hierarchy lookup and
+            // contact-point iteration unless the relative speed can trigger a blast.
+            if (hit.relativeVelocity.sqrMagnitude < game.Settings.debrisImpactSpeed * game.Settings.debrisImpactSpeed) return;
             var target = hit.collider.GetComponentInParent<DestructibleBlock>();
             if (target == null || target.Detached) return;
             float closingSpeed = 0; Vector3 point = Vector3.zero; int contacts = 0;

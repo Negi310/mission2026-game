@@ -58,6 +58,30 @@ namespace TankTown.Editor
             BuildWindowsPlayer("Builds/TankTown/TankTown.exe", BuildOptions.Development);
         }
 
+        public static void BuildMenuPreviewAndRelease()
+        {
+            BuildWindows();
+            BuildWindowsRelease();
+        }
+
+        public static void BuildWeb()
+        {
+            EnsureAssets();
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
+            PlayerSettings.WebGL.decompressionFallback = true;
+            PlayerSettings.WebGL.template = "PROJECT:TankTown";
+            PlayerSettings.WebGL.initialMemorySize = 256;
+            PlayerSettings.WebGL.maximumMemorySize = 2048;
+            PlayerSettings.runInBackground = true;
+            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.WebGL, false);
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.WebGL, new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 });
+            var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions {
+                scenes = new[] { ScenePath }, locationPathName = "Builds/Web", target = BuildTarget.WebGL, options = BuildOptions.None });
+            if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
+                throw new System.Exception("Web build failed: " + report.summary.result);
+            File.Copy("Assets/TankTown/Resources/Fonts/LICENSE.txt", "Builds/Web/NotoFonts-LICENSE.txt", true);
+        }
+
         public static void BuildWindowsRelease()
         {
             const string outputPath = "Builds/TankTown-Release/TankTown.exe";
@@ -100,12 +124,13 @@ namespace TankTown.Editor
             });
             if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 throw new System.Exception("Tank Town build failed: " + report.summary.result);
-            foreach (string relative in new[] { "microbit-controller.json", "docs/microbit-controller.md", "hardware/microbit/main.py" })
+            foreach (string relative in new[] { "microbit-controller.json", "docs/microbit-controller.md", "docs/control-tuning.md", "docs/card-menu.md", "hardware/microbit/main.py" })
             {
                 string destination = Path.Combine(Path.GetDirectoryName(outputPath), relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(destination));
                 File.Copy(relative, destination, true);
             }
+            File.Copy("Assets/TankTown/Resources/Fonts/LICENSE.txt", Path.Combine(Path.GetDirectoryName(outputPath), "docs/NotoFonts-LICENSE.txt"), true);
             File.Copy("hardware/microbit/launch-diagnostics.cmd",
                 Path.Combine(Path.GetDirectoryName(outputPath), "接続診断.cmd"), true);
         }

@@ -11,6 +11,8 @@ namespace TankTown
         private const float EntrySeconds = .38f;
         private readonly TankTownGame game;
         private readonly TankTownMenuLayout menu;
+        private readonly TankTownCardCarousel actions;
+        private int confirmFrame = -1;
         private readonly RectTransform card;
         private readonly CanvasGroup cardGroup;
         private readonly RectTransform emblem;
@@ -18,6 +20,7 @@ namespace TankTown
         private readonly TankTownResultArt panelArt, emblemArt, partyArt, confettiArt;
         private readonly GameObject details;
         private readonly Text score, recordInfo, best, finalRank, detailScore, heroRank;
+        private readonly Text roundStage, recordStage;
         private readonly Text[] recordPoints = new Text[TankTownRanking.Capacity];
         private readonly Image[] recordRows = new Image[TankTownRanking.Capacity];
         private readonly Text[] metrics = new Text[4];
@@ -45,7 +48,7 @@ namespace TankTown
             var heading = menu.Label(card, "Result heading", "けっか はっぴょう！", new Vector2(61, -31), new Vector2(712, 104), 62, Color.white);
             heading.alignment = TextAnchor.MiddleCenter;
             Outline(heading, new Color(.64f, .05f, .35f), 3);
-            menu.Label(card, "Result round label", game.StageLabel, new Vector2(880, -67), new Vector2(375, 40), 23, Purple).alignment = TextAnchor.MiddleRight;
+            roundStage = menu.Label(card, "Result round label", game.StageLabel, new Vector2(880, -67), new Vector2(375, 40), 23, Purple); roundStage.alignment = TextAnchor.MiddleRight;
             menu.Label(card, "Result score caption", "SCORE", new Vector2(65, -190), new Vector2(760, 40), 27, Pink, displayFont);
             score = menu.Label(card, "Result score", "0", new Vector2(55, -235), new Vector2(819, 202), 156, Ink, displayFont);
             score.alignment = TextAnchor.MiddleCenter; score.fontStyle = FontStyle.Bold;
@@ -65,11 +68,12 @@ namespace TankTown
             var title = menu.ActionButton(card, "Result title button", "タイトルへ", new Vector2(54, -704), new Vector2(240, 40), false, game.ReturnToTitle, quiet: true);
             title.GetComponentInChildren<Text>().alignment = TextAnchor.MiddleLeft;
             title.GetComponentInChildren<Text>().color = Purple;
+            replay.gameObject.SetActive(false); showDetails.gameObject.SetActive(false); title.gameObject.SetActive(false);
 
             details = menu.Panel(menu.Layout, "Result details card", new Vector2(64, -64), new Vector2(1312, 772), Color.clear);
             Art(details.transform, "Result record toy board", new Vector2(1312, 772), ResultArtKind.Details);
             menu.Label(details.transform, "Result details heading", "きろくを みよう！", new Vector2(61, -39), new Vector2(710, 62), 42, Color.white);
-            menu.Label(details.transform, "Result details stage", game.StageLabel, new Vector2(61, -108), new Vector2(710, 32), 20, Color.white);
+            recordStage = menu.Label(details.transform, "Result details stage", game.StageLabel, new Vector2(61, -108), new Vector2(710, 32), 20, Color.white);
             detailScore = menu.Label(details.transform, "Result detail score", "", new Vector2(65, -194), new Vector2(760, 68), 48, Ink, displayFont);
             best = menu.Label(details.transform, "Result best score", "", new Vector2(68, -280), new Vector2(730, 40), 25, Purple, displayFont);
             string[] headings = { "パーツ", "誘爆", "最高チェイン", "リスポーン" };
@@ -93,10 +97,27 @@ namespace TankTown
                 recordPoints[i] = menu.Label(row.transform, "Ranking score " + i, "—", new Vector2(72, 0), new Vector2(228, 38), 22, Ink, displayFont);
                 recordPoints[i].alignment = TextAnchor.MiddleRight;
             }
-            closeDetails = Action(details.transform, "Result details close button", "もどる", new Vector2(54, -666), new Vector2(320, 72), false, ToggleDetails, "ESC");
-            Action(details.transform, "Result details replay button", "もういちど", new Vector2(394, -666), new Vector2(864, 72), true, game.StartOrRestart, "SPACE");
+            closeDetails = Action(details.transform, "Result details close button", "ボタンで もどる", new Vector2(54, -666), new Vector2(1204, 72), false, ToggleDetails);
             confettiArt = Art(menu.Layout, "Result confetti", new Vector2(1440, 900), ResultArtKind.Confetti);
             details.SetActive(false); menu.Root.SetActive(false);
+            actions = new TankTownCardCarousel(game, canvas, font, style, "Result actions");
+            actions.Root.SetActive(false);
+        }
+
+        private void ResetActions()
+        {
+            actions.Set("", "", new[] {
+                new TankTownCardCarousel.Choice("もういちど！", "", "", Pink, game.StartOrRestart),
+                new TankTownCardCarousel.Choice("きろく", "", "", Purple, ToggleDetails),
+                new TankTownCardCarousel.Choice("タイトルへ", "", "", new Color(.05f,.7f,.92f), game.ReturnToTitle)
+            });
+        }
+        internal bool Confirm()
+        {
+            if(confirmFrame == Time.frameCount) return true;
+            confirmFrame = Time.frameCount;
+            if(DetailsOpen){ToggleDetails();return true;}
+            return actions.Confirm();
         }
 
         private static void Outline(Text label, Color tint, float width)
@@ -114,20 +135,7 @@ namespace TankTown
 
         private Button Action(Transform parent, string name, string caption, Vector2 point, Vector2 size, bool primary, UnityEngine.Events.UnityAction action, string key = null)
         {
-            var root = menu.Panel(parent, name, point, size, Color.clear); root.GetComponent<Image>().raycastTarget = true;
-            var art = Art(root.transform, name + " visual", size, ResultArtKind.Action);
-            var visual = (RectTransform)art.transform; visual.anchorMin = visual.anchorMax = visual.pivot = Vector2.one * .5f; visual.anchoredPosition = Vector2.zero;
-            art.SetAccent(primary ? Pink : Purple);
-            var button = root.AddComponent<Button>(); button.targetGraphic = art; button.onClick.AddListener(action);
-            var colors = button.colors; colors.normalColor = Color.white; colors.highlightedColor = new Color(1, 1, .85f);
-            colors.selectedColor = Color.white; colors.pressedColor = new Color(.65f, .8f, .9f); colors.fadeDuration = .08f; button.colors = colors;
-            float reserved = key == null ? 64 : 180;
-            menu.Label(visual, name + " label", caption, new Vector2(32, 0), new Vector2(size.x - reserved, size.y - 4), primary ? 30 : 25,
-                Color.white).alignment = TextAnchor.MiddleLeft;
-            if (key != null) menu.Keycap(visual, name + " key", key, new Vector2(size.x - 140, -(size.y - 36) / 2), new Vector2(92, 36), 18,
-                Color.white);
-            root.AddComponent<TankTownMenuHover>().Initialize(button, visual);
-            return button;
+            return TankTownCardCarousel.CreateAction(menu, parent, name, caption, point, size, primary ? Pink : Purple, () => action());
         }
 
         internal void ToggleDetails()
@@ -143,11 +151,14 @@ namespace TankTown
         {
             bool visible = game.State == RoundState.Results || game.State == RoundState.Restarting;
             menu.Root.SetActive(visible);
+            actions.Root.SetActive(visible && !DetailsOpen);
             if (!visible) { showing = false; return; }
             menu.Fit();
             if (!showing)
             {
                 showing = true; elapsed = tickAt = 0; DetailsOpen = false; settled = false; fanfareNote = 0;
+                ResetActions();
+                roundStage.text = recordStage.text = game.StageLabel;
                 card.gameObject.SetActive(true); details.SetActive(false);
                 confettiArt.gameObject.SetActive(true);
                 recordInfo.text = game.NewBest ? "ベスト こうしん！" : $"BEST {game.BestScore:N0} pt";
@@ -199,6 +210,7 @@ namespace TankTown
             emblemArt.SetMotion(Mathf.Clamp01(elapsed / CountSeconds));
             partyArt.SetMotion(0, elapsed);
             confettiArt.SetMotion(0, elapsed - CountSeconds);
+            if(!DetailsOpen) actions.Tick(dt);
             if (!settled && elapsed >= CountSeconds)
             {
                 settled = true;
