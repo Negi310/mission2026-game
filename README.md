@@ -4,6 +4,12 @@
 
 ![TANK TOWN タイトル画面](docs/images/title-open-20261029.png)
 
+## ブラウザーで遊ぶ
+
+[GitHub Pages版を開く](https://negi310.github.io/mission2026-game/)。PCのChrome / Edgeで、A/D・左右矢印でメニュー選択とハンドル、Spaceで決定と砲撃、Escで一時停止です。読み込み後にゲーム画面をクリックするとキーボードを使えます。
+
+BLE UARTコントローラーは、ページ上の「ハンドル接続」からブラウザーに接続を許可します。既存の「角度,ピエゾ値＋改行」を送るmicro:bitプログラムを使います。Windows版の自動接続とは接続手順が異なります。ブラウザーでの実機接続は未検証です。
+
 ## 起動
 
 Windowsで遊ぶ場合は[最新リリース](https://github.com/Negi310/mission2026-game/releases/latest)から **TankTown-vX.Y.Z-Windows-x64.zip** をダウンロードしてください。ZIPを「すべて展開」し、展開先の`TankTown/TankTown.exe`を起動します。Unityのインストールは不要です。`TankTown_Data`などの同梱ファイルは移動せず、フォルダごと保持してください。更新時は新しいZIPを別フォルダへ展開します。ランキングは同じPC・Windowsユーザーで引き継ぎます。

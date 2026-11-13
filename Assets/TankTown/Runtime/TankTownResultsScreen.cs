@@ -135,20 +135,7 @@ namespace TankTown
 
         private Button Action(Transform parent, string name, string caption, Vector2 point, Vector2 size, bool primary, UnityEngine.Events.UnityAction action, string key = null)
         {
-            var root = menu.Panel(parent, name, point, size, Color.clear); root.GetComponent<Image>().raycastTarget = true;
-            var art = Art(root.transform, name + " visual", size, ResultArtKind.Action);
-            var visual = (RectTransform)art.transform; visual.anchorMin = visual.anchorMax = visual.pivot = Vector2.one * .5f; visual.anchoredPosition = Vector2.zero;
-            art.SetAccent(primary ? Pink : Purple);
-            var button = root.AddComponent<Button>(); button.targetGraphic = art; button.onClick.AddListener(action);
-            var colors = button.colors; colors.normalColor = Color.white; colors.highlightedColor = new Color(1, 1, .85f);
-            colors.selectedColor = Color.white; colors.pressedColor = new Color(.65f, .8f, .9f); colors.fadeDuration = .08f; button.colors = colors;
-            float reserved = key == null ? 64 : 180;
-            menu.Label(visual, name + " label", caption, new Vector2(32, 0), new Vector2(size.x - reserved, size.y - 4), primary ? 30 : 25,
-                Color.white).alignment = TextAnchor.MiddleLeft;
-            if (key != null) menu.Keycap(visual, name + " key", key, new Vector2(size.x - 140, -(size.y - 36) / 2), new Vector2(92, 36), 18,
-                Color.white);
-            root.AddComponent<TankTownMenuHover>().Initialize(button, visual);
-            return button;
+            return TankTownCardCarousel.CreateAction(menu, parent, name, caption, point, size, primary ? Pink : Purple, () => action());
         }
 
         internal void ToggleDetails()

@@ -13,7 +13,11 @@ namespace TankTown
     {
         public TankTownSettings Settings { get; private set; }
         public int CitySeed { get; private set; }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        internal static TownStage SelectedStage = TownStage.Town;
+#else
         internal static TownStage SelectedStage = TownStage.CandyTown;
+#endif
         public TownStage Stage { get; private set; }
         internal TownStage BuiltStage { get; private set; }
         internal TownTitlePreview TitlePreview { get; private set; }

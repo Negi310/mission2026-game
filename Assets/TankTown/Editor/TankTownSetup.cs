@@ -67,15 +67,19 @@ namespace TankTown.Editor
         public static void BuildWeb()
         {
             EnsureAssets();
-            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
+            PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.WebGL.template = "PROJECT:TankTown";
             PlayerSettings.WebGL.initialMemorySize = 256;
             PlayerSettings.WebGL.maximumMemorySize = 2048;
             PlayerSettings.runInBackground = true;
+            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.WebGL, false);
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.WebGL, new[] { UnityEngine.Rendering.GraphicsDeviceType.OpenGLES3 });
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions {
                 scenes = new[] { ScenePath }, locationPathName = "Builds/Web", target = BuildTarget.WebGL, options = BuildOptions.None });
             if (report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
                 throw new System.Exception("Web build failed: " + report.summary.result);
+            File.Copy("Assets/TankTown/Resources/Fonts/LICENSE.txt", "Builds/Web/NotoFonts-LICENSE.txt", true);
         }
 
         public static void BuildWindowsRelease()

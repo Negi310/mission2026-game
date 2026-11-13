@@ -62,6 +62,9 @@ namespace TankTown
             displayFont = font;
 #if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             displayFont = Font.CreateDynamicFontFromOSFont(new[] { "Arial Rounded MT Bold", "Arial Black", "Arial" }, 40);
+#elif UNITY_WEBGL
+            // Keep Latin headings and compact counters within the desktop layout.
+            displayFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 #endif
             var root = new GameObject("Tank Town HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas = root.transform;
@@ -222,7 +225,9 @@ namespace TankTown
             if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
             UpgradesView?.Dispose(); SpecialsView?.Dispose(); titleView?.Dispose();
             // The bundled font is a shared Resources asset.
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             if(displayFont != null && displayFont != font) Destroy(displayFont);
+#endif
             style?.Dispose();
             Minimap?.Dispose();
             ((System.IDisposable)timerMetrics).Dispose(); ((System.IDisposable)pointsMetrics).Dispose();

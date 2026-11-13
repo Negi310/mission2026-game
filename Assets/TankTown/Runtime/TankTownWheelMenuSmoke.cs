@@ -28,14 +28,21 @@ namespace TankTown
             game.Input.SetWheel(1); yield return new WaitForSecondsRealtime(.2f);
             game.Input.SetWheel(0); yield return new WaitForSecondsRealtime(.4f); Capture("wheel-title-turn");
             game.ToggleHowTo(); yield return new WaitForSecondsRealtime(.3f); Capture("wheel-help");
-            game.ToggleHowTo(); game.StartOrRestart(); yield return null;
+            game.Input.PulsePad(0); yield return null;
+            if(game.HowToOpen || game.State != RoundState.Ready) { Debug.LogError("WHEEL MENU FAILED: tutorial return"); Application.Quit(1); yield break; }
+            game.StartOrRestart(); yield return null;
             game.TogglePause(); yield return new WaitForSecondsRealtime(.3f); Capture("wheel-pause");
+            game.Input.SetWheel(1); yield return new WaitForSecondsRealtime(.2f); game.Input.SetWheel(0);
+            yield return new WaitForSecondsRealtime(.3f); game.Input.PulsePad(0);
+            yield return new WaitForSecondsRealtime(.3f); Capture("wheel-pause-help");
+            game.Input.PulsePad(0); yield return null;
+            if(game.State != RoundState.Paused) { Debug.LogError("WHEEL MENU FAILED: pause tutorial return"); Application.Quit(1); yield break; }
             game.TogglePause(); game.AdvanceTime(100); yield return new WaitForSecondsRealtime(1.3f); Capture("wheel-results");
             game.Input.SetWheel(1); yield return new WaitForSecondsRealtime(.2f); game.Input.SetWheel(0);
             yield return new WaitForSecondsRealtime(.35f); game.Input.PulsePad(0);
             yield return new WaitForSecondsRealtime(.3f); Capture("wheel-records");
             if (!game.GetComponent<TankTownHUD>().ResultsView.DetailsOpen) { Debug.LogError("WHEEL MENU FAILED: result confirm"); Application.Quit(1); yield break; }
-            Debug.Log("WHEEL MENU SMOKE COMPLETE: title, steering, howto, pause, results, records"); Application.Quit(0);
+            Debug.Log("WHEEL MENU SMOKE COMPLETE: title, steering, howto, pause, pause guide, results, records"); Application.Quit(0);
         }
     }
 }

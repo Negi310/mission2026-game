@@ -24,6 +24,7 @@ namespace TankTown.Tests
             carousel.Tick(.1f); Assert.That(carousel.Selected, Is.Zero, "Held wheel on entry requires neutral first");
             game.Input.SetWheel(0); yield return null; carousel.Tick(.1f);
             game.Input.SetWheel(.3f); yield return null; carousel.Tick(.1f); Assert.That(carousel.Selected, Is.Zero, "Small noise cannot change selection");
+            game.Input.SetWheel(.65f); yield return null; carousel.Tick(.1f); Assert.That(carousel.Selected, Is.Zero, "Tilting beyond the former threshold must no longer switch menus");
             game.Input.SetWheel(1); yield return null; carousel.Tick(.1f); Assert.That(carousel.Selected, Is.EqualTo(1));
             carousel.Confirm(); carousel.Confirm(); Assert.That(second, Is.EqualTo(1)); Assert.That(first, Is.Zero);
             Object.Destroy(canvas); style.Dispose(); game.Input.SetWheel(0);
