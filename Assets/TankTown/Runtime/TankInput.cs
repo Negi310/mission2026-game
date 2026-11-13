@@ -19,6 +19,21 @@ namespace TankTown
         private float wheel;
         private readonly bool[] held = new bool[2];
 
+        internal bool MenuConfirmHeld
+        {
+            get
+            {
+                var keys = Keyboard.current;
+                var pad = Gamepad.current;
+                var microbit = MicrobitWheel.current;
+                return held[0] || held[1]
+                    || (keys != null && (keys.spaceKey.isPressed || keys.jKey.isPressed || keys.kKey.isPressed || keys.enterKey.isPressed))
+                    || (pad != null && (pad.leftShoulder.isPressed || pad.rightShoulder.isPressed || pad.startButton.isPressed))
+                    || (microbit != null && microbit.added && microbit.horn.isPressed)
+                    || (Mouse.current != null && Mouse.current.leftButton.isPressed);
+            }
+        }
+
         private void Awake() => gameObject.AddComponent<MicrobitController>();
 
         public void SetWheel(float normalized) => wheel = Mathf.Clamp(normalized, -1, 1);

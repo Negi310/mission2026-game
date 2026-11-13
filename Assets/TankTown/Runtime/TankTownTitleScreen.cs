@@ -16,7 +16,7 @@ namespace TankTown
             var rect = (RectTransform)root.transform; rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
             carousel = new TankTownCardCarousel(owner, root.transform, font, style, "Title screen");
             carousel.SetHeadingFont(displayFont);
-            carousel.Set("<color=#FFD43B>TANK</color> <color=#52DCFF>TOWN</color>", "街をえらんで、ドカーンと出発！", new[] {
+            carousel.Set("<color=#FFD43B>TANK</color> <color=#52DCFF>TOWN</color>", "", new[] {
                 Stage("いつもの街", new Color(.02f,.7f,.92f), TownStage.Town),
                 Stage("大きな街", new Color(.62f,.28f,.96f), TownStage.BigCity),
                 Stage("お菓子の街", TankTownCardCarousel.Pink, TownStage.CandyTown),
@@ -26,7 +26,7 @@ namespace TankTown
             help = new TankTownMenuLayout("How to overlay", root.transform, font, style, new Color(.08f,.35f,.7f,.96f));
             var tutorial = new TankTownHowToScreen(game, help, style);
             tutorial.Play.onClick.RemoveAllListeners(); tutorial.Play.onClick.AddListener(game.ToggleHowTo);
-            tutorial.Play.GetComponentInChildren<Text>().text = "ボタンで もどる";
+            tutorial.Play.GetComponentInChildren<Text>().text = "もどる";
             help.Root.SetActive(false);
         }
         private TankTownCardCarousel.Choice Stage(string label, Color color, TownStage stage)

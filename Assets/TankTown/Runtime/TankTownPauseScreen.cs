@@ -29,7 +29,7 @@ namespace TankTown
             if(next&&!visible)
             {
                 guideOpen=false;
-                carousel.Set("ひとやすみ","じゅんびができたら、また出発！",new[]{
+                carousel.Set("ひとやすみ","",new[]{
                     new TankTownCardCarousel.Choice("つづける","","",TankTownCardCarousel.Pink,game.TogglePause),
                     new TankTownCardCarousel.Choice("あそびかた","","",new Color(.62f,.28f,.96f),()=>guideOpen=true),
                     new TankTownCardCarousel.Choice("タイトルへ","","",new Color(.06f,.7f,.9f),game.ReturnToTitle)});

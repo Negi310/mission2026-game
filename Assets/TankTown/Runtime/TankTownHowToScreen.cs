@@ -54,7 +54,7 @@ namespace TankTown
             var automatic = Group(panel.transform, "Automatic specials", new Vector2(506, -480), new Vector2(752, 164), "拾うと発動", Lime);
             Item(automatic, ItemKind.Missiles, 99, "ミサイル"); Item(automatic, ItemKind.Magnet, 283, "マグネット");
             Item(automatic, ItemKind.Bulldozer, 467, "ブルドーザー"); Item(automatic, ItemKind.HighSpeed, 651, "ハイスピード");
-            Play = TankTownCardCarousel.CreateAction(menu, panel.transform, "How to close button", "ボタンで もどる", new Vector2(54, -666), new Vector2(1204, 78), TankTownResultArt.Pink, game.ToggleHowTo);
+            Play = TankTownCardCarousel.CreateAction(menu, panel.transform, "How to close button", "もどる", new Vector2(54, -666), new Vector2(1204, 78), TankTownResultArt.Pink, game.ToggleHowTo);
         }
 
         private void Artwork(Transform parent, string name, Vector2 point, Vector2 size, ResultArtKind kind)

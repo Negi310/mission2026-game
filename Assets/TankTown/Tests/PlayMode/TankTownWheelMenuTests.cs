@@ -7,6 +7,97 @@ namespace TankTown.Tests
 {
     public sealed class TankTownWheelMenuTests
     {
+        [Test]
+        public void ResultConfirmWaitsForRevealAndForTheFiringBurstToStop()
+        {
+            var gate = new ResultConfirmGate(); gate.Reset(10);
+            Assert.That(gate.TryConfirm(10), Is.False, "The frame ending the round cannot confirm a menu");
+            for (int i = 1; i <= 40; i++)
+            {
+                double now = 10 + i * .1;
+                gate.Observe(now, false);
+                Assert.That(gate.TryConfirm(now), Is.False, "Continuous firing must remain blocked after the reveal");
+            }
+            for (int i = 1; i <= 6; i++) gate.Observe(14 + i * .1, false);
+            Assert.That(gate.Ready, Is.False);
+            gate.Observe(14.66, false); Assert.That(gate.Ready, Is.True);
+            Assert.That(gate.TryConfirm(14.7), Is.True, "A fresh decision after the quiet interval works");
+            gate.Reset(20); Assert.That(gate.Ready, Is.False, "Every result starts locked");
+            Assert.That(gate.TryConfirm(21), Is.False, "Even idle entry must finish the reveal first");
+        }
+
+        [Test]
+        public void HoldingConfirmCannotArmTheResultMenu()
+        {
+            var gate = new ResultConfirmGate(); gate.Reset(0);
+            for (int i = 0; i <= 50; i++) gate.Observe(i * .1, true);
+            Assert.That(gate.Ready, Is.False);
+            for (int i = 1; i <= 6; i++) gate.Observe(5 + i * .1, false);
+            Assert.That(gate.Ready, Is.False);
+            gate.Observe(5.66, false); Assert.That(gate.Ready, Is.True);
+            Assert.That(gate.TryConfirm(5.7), Is.True);
+        }
+
+        [Test]
+        public void SlowFramesCannotMakeContinuousFiringCountAsIdle()
+        {
+            var gate = new ResultConfirmGate(); gate.Reset(0);
+            for (int i = 1; i <= 10; i++)
+            {
+                gate.Observe(i * 2, false);
+                Assert.That(gate.TryConfirm(i * 2), Is.False, "A long frame between firing events must not arm replay");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator FiringAcrossRoundEndCannotRestartUntilReleasedAndPressedAgain()
+        {
+            var oldStage = TankTownGame.SelectedStage;
+            var oldSeed = TankTownGame.GenerationSeedOverride;
+            var oldSkip = TankTownGame.SkipIntroForTests;
+            var oldSaving = TankTownGame.DisableRecordSavingForTests;
+            TankTownGame game = null;
+            try
+            {
+                TankTownGame.SelectedStage = TownStage.Town;
+                TankTownGame.GenerationSeedOverride = 2026;
+                TankTownGame.SkipIntroForTests = true;
+                TankTownGame.DisableRecordSavingForTests = true;
+                SceneManager.LoadScene("TankTown"); yield return null;
+                game = Object.FindFirstObjectByType<TankTownGame>();
+                var view = game.GetComponent<TankTownHUD>().ResultsView;
+                game.StartOrRestart(); Assert.That(game.State, Is.EqualTo(RoundState.Playing));
+                game.AdvanceTime(100);
+                game.Input.PulsePad(0);
+                Assert.That(game.State, Is.EqualTo(RoundState.Results), "Input before the first results HUD update is consumed");
+                for (int i = 0; i < 18; i++)
+                {
+                    yield return new WaitForSecondsRealtime(.1f);
+                    game.Input.PulsePad(i % 2);
+                    Assert.That(game.State, Is.EqualTo(RoundState.Results), "Firing continues past the reveal without replaying");
+                }
+                game.Input.SetPressure(0, 1);
+                yield return new WaitForSecondsRealtime(1.5f);
+                Assert.That(view.CanConfirm, Is.False, "Held pressure never arms the menu");
+                game.Input.SetPressure(0, 0);
+                float deadline = Time.realtimeSinceStartup + 4;
+                while (!view.CanConfirm && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(view.CanConfirm, Is.True);
+                TankTownGame.SkipIntroForTests = false;
+                game.Input.PulsePad(0);
+                Assert.That(game.State, Is.EqualTo(RoundState.Restarting), "A new press after releasing starts one replay");
+            }
+            finally
+            {
+                if (game != null) Object.Destroy(game.gameObject);
+                TankTownGame.SelectedStage = oldStage;
+                TankTownGame.GenerationSeedOverride = oldSeed;
+                TankTownGame.SkipIntroForTests = oldSkip;
+                TankTownGame.DisableRecordSavingForTests = oldSaving;
+            }
+            yield return null;
+        }
+
         [UnityTest]
         public IEnumerator SteeringHasNeutralGateAndConfirmInvokesOnlyOneChoice()
         {
