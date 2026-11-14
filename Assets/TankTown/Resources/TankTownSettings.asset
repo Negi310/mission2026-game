@@ -12,6 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: efb55b8b074edc749b29833fe70fbd3b, type: 3}
   m_Name: TankTownSettings
   m_EditorClassIdentifier: TankTown.Runtime::TankTown.TankTownSettings
+  menuSteeringThreshold: 0.72
+  menuNeutralThreshold: 0.32
+  menuHoldDelay: 0.65
+  menuRepeatInterval: 0.4
   roundSeconds: 80
   respawnPenalty: 3
   respawnDelay: 0.45

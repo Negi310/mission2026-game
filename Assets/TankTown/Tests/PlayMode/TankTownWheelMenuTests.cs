@@ -8,6 +8,80 @@ namespace TankTown.Tests
     public sealed class TankTownWheelMenuTests
     {
         [Test]
+        public void MenuSettingsKeepNeutralBelowSwitchThresholdAndRepeatTimesPositive()
+        {
+            var settings = ScriptableObject.CreateInstance<TankTownSettings>();
+            try
+            {
+                settings.menuSteeringThreshold = .4f;
+                settings.menuNeutralThreshold = 1;
+                settings.menuHoldDelay = 0;
+                settings.menuRepeatInterval = -1;
+                Assert.That(settings.MenuNeutralThreshold, Is.LessThan(settings.MenuSteeringThreshold));
+                Assert.That(settings.MenuHoldDelay, Is.GreaterThan(0));
+                Assert.That(settings.MenuRepeatInterval, Is.GreaterThan(0));
+            }
+            finally { Object.DestroyImmediate(settings); }
+        }
+
+        [UnityTest]
+        public IEnumerator MenuSensitivityAndRepeatTimingCanChangeWhileAMenuIsOpen()
+        {
+            var oldStage = TankTownGame.SelectedStage;
+            var oldSaving = TankTownGame.DisableRecordSavingForTests;
+            var settings = ScriptableObject.CreateInstance<TankTownSettings>();
+            GameObject canvas = null;
+            ToyHudStyle style = null;
+            TankTownGame game = null;
+            try
+            {
+                TankTownGame.SelectedStage = TownStage.Town;
+                TankTownGame.DisableRecordSavingForTests = true;
+                SceneManager.LoadScene("TankTown"); yield return null;
+                game = Object.FindFirstObjectByType<TankTownGame>();
+                game.Input.useHardware = true; game.Input.SetWheel(0); yield return null;
+                canvas = new GameObject("Configurable menu test", typeof(Canvas));
+                style = new ToyHudStyle();
+                settings.menuSteeringThreshold = .9f; settings.menuNeutralThreshold = .1f;
+                settings.menuHoldDelay = 1.2f; settings.menuRepeatInterval = .25f;
+                var carousel = new TankTownCardCarousel(game, canvas.transform, Resources.Load<Font>("Fonts/NotoSansJP-Regular"), style, "Settings test", settings);
+                carousel.Set("", "", new[] {
+                    new TankTownCardCarousel.Choice("A", "", "", Color.red, null),
+                    new TankTownCardCarousel.Choice("B", "", "", Color.green, null),
+                    new TankTownCardCarousel.Choice("C", "", "", Color.blue, null) });
+                carousel.Tick(0, 100);
+                game.Input.SetWheel(.8f); yield return null;
+                carousel.Tick(0, 100.1f); Assert.That(carousel.Selected, Is.Zero);
+                settings.menuSteeringThreshold = .6f;
+                carousel.Tick(0, 100.1f); Assert.That(carousel.Selected, Is.EqualTo(1), "Changing the shared settings affects an already open menu");
+                carousel.Tick(0, 101.29f); Assert.That(carousel.Selected, Is.EqualTo(1));
+                carousel.Tick(0, 101.31f); Assert.That(carousel.Selected, Is.EqualTo(2), "Initial held delay comes from settings");
+                carousel.Tick(0, 101.55f); Assert.That(carousel.Selected, Is.EqualTo(2));
+                settings.menuRepeatInterval = .5f;
+                carousel.Tick(0, 101.57f); Assert.That(carousel.Selected, Is.Zero);
+                carousel.Tick(0, 101.9f); Assert.That(carousel.Selected, Is.Zero, "The new repeat interval is used");
+                game.Input.SetWheel(.4f); yield return null;
+                settings.menuNeutralThreshold = .5f;
+                carousel.Tick(0, 102);
+                game.Input.SetWheel(-.8f); yield return null;
+                carousel.Tick(0, 102.01f); Assert.That(carousel.Selected, Is.EqualTo(2), "The edited neutral range rearms left/right input");
+                settings.menuNeutralThreshold = 0;
+                game.Input.SetWheel(0); yield return null; carousel.Tick(0, 102.02f);
+                game.Input.SetWheel(.8f); yield return null; carousel.Tick(0, 102.03f);
+                Assert.That(carousel.Selected, Is.Zero, "An exact zero neutral range still accepts a centered wheel");
+            }
+            finally
+            {
+                if (canvas != null) Object.Destroy(canvas);
+                style?.Dispose(); Object.Destroy(settings);
+                if (game != null) Object.Destroy(game.gameObject);
+                TankTownGame.SelectedStage = oldStage;
+                TankTownGame.DisableRecordSavingForTests = oldSaving;
+            }
+            yield return null;
+        }
+
+        [Test]
         public void MenuTextStillProducesGlyphsWhenFontMetricsExceedItsLabelBox()
         {
             var canvas = new GameObject("Font layout regression", typeof(Canvas));
