@@ -54,7 +54,7 @@ namespace TankTown
             var root = new GameObject(name, typeof(RectTransform), typeof(Text)); root.transform.SetParent(transform, false);
             var text = root.GetComponent<Text>(); text.font = font; text.fontSize = fontSize; text.fontStyle = FontStyle.Bold;
             text.color = Color.white; text.alignment = alignment; text.raycastTarget = false;
-            text.horizontalOverflow = HorizontalWrapMode.Overflow; text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow; text.verticalOverflow = VerticalWrapMode.Overflow;
             var outline = root.AddComponent<Outline>(); outline.effectColor = new Color(.025f, .07f, .11f, .95f);
             outline.effectDistance = new Vector2(1, -1);
             var shadow = root.AddComponent<Shadow>(); shadow.effectColor = new Color(0, 0, 0, .35f);

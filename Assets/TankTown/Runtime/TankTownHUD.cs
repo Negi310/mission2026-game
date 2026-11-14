@@ -58,14 +58,9 @@ namespace TankTown
             game = owner;
             style = new ToyHudStyle();
             font = Resources.Load<Font>("Fonts/NotoSansJP-Regular");
-            if (font == null) font = Font.CreateDynamicFontFromOSFont(new[] { "Yu Gothic", "Meiryo", "Arial" }, 24);
-            displayFont = font;
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-            displayFont = Font.CreateDynamicFontFromOSFont(new[] { "Arial Rounded MT Bold", "Arial Black", "Arial" }, 40);
-#elif UNITY_WEBGL
-            // Keep Latin headings and compact counters within the desktop layout.
+            if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // Use the same embedded numeric/Latin font on every PC.
             displayFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-#endif
             var root = new GameObject("Tank Town HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas = root.transform;
             root.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -224,10 +219,7 @@ namespace TankTown
         {
             if (game != null && game.Stats != null) game.Stats.Changed -= ShowUpgrade;
             UpgradesView?.Dispose(); SpecialsView?.Dispose(); titleView?.Dispose();
-            // The bundled font is a shared Resources asset.
-#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
-            if(displayFont != null && displayFont != font) Destroy(displayFont);
-#endif
+            // Both the Japanese asset and Unity's built-in font are shared resources.
             style?.Dispose();
             Minimap?.Dispose();
             ((System.IDisposable)timerMetrics).Dispose(); ((System.IDisposable)pointsMetrics).Dispose();

@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.IO;
 using UnityEngine;
+using UnityEngine.UI;
 namespace TankTown
 {
     public sealed class TankTownWheelMenuSmoke : MonoBehaviour
@@ -23,7 +24,11 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(1);
             var game = FindFirstObjectByType<TankTownGame>(); game.Input.useHardware = true;
             string folder = Path.Combine(Application.dataPath, "..", "Captures"); Directory.CreateDirectory(folder);
-            void Capture(string name) => TankTownSmokeCapture.Capture(Path.Combine(folder, name + ".png"), true, 1440, 900);
+            void Capture(string name)
+            {
+                foreach (var size in new[] { new Vector2Int(1280, 720), new Vector2Int(1024, 768), new Vector2Int(1920, 1080) })
+                    TankTownSmokeCapture.Capture(Path.Combine(folder, name + "-" + size.x + "x" + size.y + ".png"), true, size.x, size.y, ValidateText);
+            }
             Capture("wheel-title");
             game.Input.SetWheel(1); yield return new WaitForSecondsRealtime(.2f);
             game.Input.SetWheel(0); yield return new WaitForSecondsRealtime(.4f); Capture("wheel-title-turn");
@@ -55,7 +60,34 @@ namespace TankTown
             yield return new WaitForSecondsRealtime(.35f); game.Input.PulsePad(0);
             yield return new WaitForSecondsRealtime(.3f); Capture("wheel-records");
             if (!game.GetComponent<TankTownHUD>().ResultsView.DetailsOpen) { Debug.LogError("WHEEL MENU FAILED: result confirm"); Application.Quit(1); yield break; }
-            Debug.Log("WHEEL MENU SMOKE COMPLETE: title, steering, howto, pause, pause guide, results, records, firing burst and held-pressure guard"); Application.Quit(0);
+            Debug.Log("WHEEL MENU SMOKE COMPLETE: title, steering, howto, pause, pause guide, results, records, firing burst and held-pressure guard, text geometry at 1280x720, 1024x768, 1920x1080"); Application.Quit(0);
+        }
+
+        private static void ValidateText()
+        {
+            var canvas = FindFirstObjectByType<Canvas>();
+            var area = ((RectTransform)canvas.transform).rect;
+            int checkedLabels = 0;
+            foreach (var text in canvas.GetComponentsInChildren<Text>())
+            {
+                if (!text.enabled || string.IsNullOrWhiteSpace(text.text)) continue;
+                float alpha = text.color.a;
+                foreach (var group in text.GetComponentsInParent<CanvasGroup>()) alpha *= group.alpha;
+                if (alpha < .01f) continue;
+                var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(canvas.transform, text.transform);
+                if (bounds.max.x < area.xMin || bounds.min.x > area.xMax || bounds.max.y < area.yMin || bounds.min.y > area.yMax) continue;
+                if (text.font == null) throw new InvalidOperationException("MENU FONT FAILED: missing font: " + text.name);
+                text.font.RequestCharactersInTexture(text.text, text.fontSize, text.fontStyle);
+                using (var generator = new TextGenerator())
+                {
+                    generator.Populate(text.text, text.GetGenerationSettings(text.rectTransform.rect.size));
+                    if (generator.vertexCount < 4)
+                        throw new InvalidOperationException("MENU FONT FAILED: empty glyph mesh: " + text.name + "; text=" + text.text + "; font=" + text.font.name);
+                }
+                checkedLabels++;
+            }
+            if (checkedLabels < 3) throw new InvalidOperationException("MENU FONT FAILED: no visible menu labels were checked");
+            Debug.Log("MENU TEXT GEOMETRY PASS: " + checkedLabels + " visible labels");
         }
     }
 }
