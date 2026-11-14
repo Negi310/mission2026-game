@@ -5,6 +5,32 @@ namespace TankTown
     [CreateAssetMenu(menuName = "Tank Town/Settings")]
     public sealed class TankTownSettings : ScriptableObject
     {
+        [Header("メニューのハンドル操作")]
+        [InspectorName("切り替えの閾値"), Range(.05f, .99f)]
+        [Tooltip("ハンドル入力の絶対値がこの値を超えると選択を切り替えます。小さいほど敏感になります。入力の最大値は1です。")]
+        public float menuSteeringThreshold = .72f;
+        [InspectorName("中立に戻す閾値"), Range(0, .98f)]
+        [Tooltip("次の操作を受け付ける中立の範囲です。切り替えの閾値より小さい値に自動調整します。")]
+        public float menuNeutralThreshold = .32f;
+        [InspectorName("長押しの初回待ち時間（秒）"), Min(.05f)]
+        public float menuHoldDelay = .65f;
+        [InspectorName("長押しの切り替え間隔（秒）"), Min(.05f)]
+        public float menuRepeatInterval = .4f;
+
+        internal float MenuSteeringThreshold => Mathf.Clamp(menuSteeringThreshold, .05f, .99f);
+        internal float MenuNeutralThreshold => Mathf.Clamp(menuNeutralThreshold, 0, MenuSteeringThreshold - .01f);
+        internal float MenuHoldDelay => Mathf.Max(.05f, menuHoldDelay);
+        internal float MenuRepeatInterval => Mathf.Max(.05f, menuRepeatInterval);
+
+        private void OnValidate()
+        {
+            menuSteeringThreshold = MenuSteeringThreshold;
+            menuNeutralThreshold = MenuNeutralThreshold;
+            menuHoldDelay = MenuHoldDelay;
+            menuRepeatInterval = MenuRepeatInterval;
+        }
+
+        [Header("ラウンド")]
         [Min(1)] public float roundSeconds = 80;
         [Min(0)] public float respawnPenalty = 3;
         [Min(0.1f)] public float respawnDelay = .45f;

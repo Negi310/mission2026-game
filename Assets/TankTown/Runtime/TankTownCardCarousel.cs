@@ -23,8 +23,7 @@ namespace TankTown
         private readonly List<RectTransform> cards = new List<RectTransform>();
         private readonly List<CanvasGroup> groups = new List<CanvasGroup>();
         private readonly List<Image> dots = new List<Image>();
-        internal const float EnterThreshold = .72f;
-        internal const float ReleaseThreshold = .32f;
+        private readonly TankTownSettings navigationSettings;
         private readonly Text heading, subtitle, counter;
         private int target, confirmedFrame = -1;
         private float position, repeatAt;
@@ -35,9 +34,11 @@ namespace TankTown
         internal GameObject Root => menu.Root;
         internal static Color Ink => new Color(.09f, .13f, .25f);
         internal static Color Pink => new Color(1, .25f, .48f);
-        internal TankTownCardCarousel(TankTownGame owner, Transform canvas, Font font, ToyHudStyle style, string name)
+        internal TankTownCardCarousel(TankTownGame owner, Transform canvas, Font font, ToyHudStyle style, string name, TankTownSettings navigationSettings = null)
         {
             game = owner;
+            // Read the source asset directly so Inspector edits also affect open menus in Play Mode.
+            this.navigationSettings = navigationSettings != null ? navigationSettings : Resources.Load<TankTownSettings>("TankTownSettings") ?? owner.Settings;
             actionsOnly = name.EndsWith("actions", StringComparison.Ordinal);
             menu = new TankTownMenuLayout(name, canvas, font, style, actionsOnly ? Color.clear : new Color(.05f, .18f, .35f, name == "Title screen" ? .14f : .7f));
             if (name == "Title screen" || name == "Pause screen")
@@ -112,13 +113,16 @@ namespace TankTown
         }
         internal void Move(int direction) { target += direction; game.PlayTone(560 + Selected * 65, .045f, .055f); }
         internal void Tick(float dt)
+            => Tick(dt, Time.unscaledTime);
+
+        internal void Tick(float dt, float now)
         {
             menu.Fit();
             float steering = game.Input.Steering;
             if (game.Input.GetComponent<TankControlTuningPanel>()?.Visible == true || game.Input.GetComponent<MicrobitDiagnosticsPanel>()?.Visible == true) steering = 0;
-            if (Mathf.Abs(steering) < ReleaseThreshold) { armed = true; repeatAt = 0; }
-            if (armed && Mathf.Abs(steering) > EnterThreshold && Time.unscaledTime >= repeatAt)
-            { Move(steering < 0 ? -1 : 1); repeatAt = Time.unscaledTime + (repeatAt == 0 ? .65f : .4f); }
+            if (Mathf.Abs(steering) <= navigationSettings.MenuNeutralThreshold) { armed = true; repeatAt = 0; }
+            if (armed && Mathf.Abs(steering) > navigationSettings.MenuSteeringThreshold && now >= repeatAt)
+            { Move(steering < 0 ? -1 : 1); repeatAt = now + (repeatAt == 0 ? navigationSettings.MenuHoldDelay : navigationSettings.MenuRepeatInterval); }
             position = Mathf.Lerp(position, target, 1 - Mathf.Exp(-13 * dt));
             counter.text = (Selected + 1) + "  /  " + choices.Count;
             for (int i = 0; i < cards.Count; i++)
