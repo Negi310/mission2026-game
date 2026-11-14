@@ -8,6 +8,37 @@ namespace TankTown.Tests
     public sealed class TankTownWheelMenuTests
     {
         [Test]
+        public void MenuTextStillProducesGlyphsWhenFontMetricsExceedItsLabelBox()
+        {
+            var canvas = new GameObject("Font layout regression", typeof(Canvas));
+            var style = new ToyHudStyle();
+            var font = Resources.Load<Font>("Fonts/NotoSansJP-Regular");
+            Assert.That(font, Is.Not.Null, "Japanese font data must be bundled");
+            try
+            {
+                canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                var layout = new TankTownMenuLayout("Font layout", canvas.transform, font, style, Color.clear);
+                string[] samples = { "ひとやすみ", "TANK TOWN", "—", "もどる" };
+                int[] sizes = { 72, 92, 86, 29 };
+                float[] heights = { 125, 125, 110, 38 };
+                var missing = new System.Collections.Generic.List<string>();
+                for (int i = 0; i < samples.Length; i++)
+                {
+                    var label = layout.Label(layout.Layout, "Font sample " + i, samples[i], Vector2.zero, new Vector2(1200, heights[i]), sizes[i], Color.white);
+                    font.RequestCharactersInTexture(samples[i], sizes[i], FontStyle.Bold);
+                    using (var generator = new TextGenerator())
+                    {
+                        var settings = label.GetGenerationSettings(label.rectTransform.rect.size);
+                        generator.Populate(label.text, settings);
+                        if (generator.vertexCount < 4) missing.Add(samples[i] + " (font=" + sizes[i] + ", height=" + heights[i] + ")");
+                    }
+                }
+                Assert.That(missing, Is.Empty, "Visible menu labels must not disappear: " + string.Join(", ", missing));
+            }
+            finally { Object.DestroyImmediate(canvas); style.Dispose(); }
+        }
+
+        [Test]
         public void ResultConfirmWaitsForRevealAndForTheFiringBurstToStop()
         {
             var gate = new ResultConfirmGate(); gate.Reset(10);

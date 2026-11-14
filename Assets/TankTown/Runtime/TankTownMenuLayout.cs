@@ -49,7 +49,9 @@ namespace TankTown
             var item = new GameObject(name, typeof(RectTransform), typeof(Text)); item.transform.SetParent(parent, false);
             var text = item.GetComponent<Text>(); text.font = customFont != null ? customFont : font;
             text.text = value; text.fontSize = fontSize; text.fontStyle = FontStyle.Bold; text.color = color; text.raycastTarget = false;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap; text.verticalOverflow = VerticalWrapMode.Truncate;
+            // Font ascent/descent can exceed a single-line box at fractional UI scales.
+            // Truncate drops the entire line, including short button captions.
+            text.horizontalOverflow = HorizontalWrapMode.Wrap; text.verticalOverflow = VerticalWrapMode.Overflow;
             var rect = text.rectTransform; rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
             rect.anchoredPosition = point; rect.sizeDelta = size;
             return text;

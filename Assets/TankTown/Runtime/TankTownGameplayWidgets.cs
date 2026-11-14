@@ -36,7 +36,7 @@ namespace TankTown
             var rect = Root(parent, name, new Vector2(0, 1), new Vector2(0, 1), point, size);
             var text = rect.gameObject.AddComponent<Text>(); text.font = numeric ? numbers : font; text.text = value;
             text.fontSize = sizeInPoints; text.fontStyle = FontStyle.Bold; text.color = color; text.raycastTarget = false;
-            text.verticalOverflow = VerticalWrapMode.Truncate; return text;
+            text.verticalOverflow = VerticalWrapMode.Overflow; return text;
         }
     }
 

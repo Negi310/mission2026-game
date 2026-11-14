@@ -19,7 +19,8 @@ Web版はUnity 6000.3.19f1のWeb Build Supportを追加後、隔離したプロ�
 出力先はBuilds/Web。gzip圧縮とUnityの展開フォールバックを使い、GitHub Pagesで特別な圧縮ヘッダーを必要としない形式です。
 公開用テンプレートはAssets/WebGLTemplates/TankTown/index.htmlです。
 PCのChrome/Edgeで「ハンドル接続」からBLE UART機器を選択できます。
-日本語は同梱のNoto Sans JP、Web版の英字見出し・数値はUnity内蔵フォントを使い、OS依存のフォント取得や文字の欠けを避けます。
+日本語は同梱のNoto Sans JP、英字見出し・数値は全プラットフォームでUnity内蔵フォントを使います。フォントは共有資産として扱い、画面破棄時に破棄しません。
+メニュー・ステータス・チェインの文字は縦方向に切り捨てず、文字の高さや小数のUI倍率が表示枠を超えても一行全体が消えないようにしています。開発用メニュースモークは3解像度で全ての可視ラベルの描画頂点を検証します。
 接続はブラウザーの許可が必要で、自動接続ではありません。実機のブラウザー接続は未検証です。
 
 日本語フォントはNoto Sans JP（SIL Open Font License）。フォント本体とライセンスをResources/Fontsに同梱しています。
