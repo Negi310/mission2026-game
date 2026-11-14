@@ -37,8 +37,8 @@ namespace TankTown
         internal TankTownCardCarousel(TankTownGame owner, Transform canvas, Font font, ToyHudStyle style, string name, TankTownSettings navigationSettings = null)
         {
             game = owner;
-            // Read the source asset directly so Inspector edits also affect open menus in Play Mode.
-            this.navigationSettings = navigationSettings != null ? navigationSettings : Resources.Load<TankTownSettings>("TankTownSettings") ?? owner.Settings;
+            // F7 tuning and saved preferences update this runtime settings instance.
+            this.navigationSettings = navigationSettings != null ? navigationSettings : owner.Settings;
             actionsOnly = name.EndsWith("actions", StringComparison.Ordinal);
             menu = new TankTownMenuLayout(name, canvas, font, style, actionsOnly ? Color.clear : new Color(.05f, .18f, .35f, name == "Title screen" ? .14f : .7f));
             if (name == "Title screen" || name == "Pause screen")

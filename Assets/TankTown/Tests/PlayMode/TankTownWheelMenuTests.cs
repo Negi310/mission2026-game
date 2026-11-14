@@ -29,7 +29,7 @@ namespace TankTown.Tests
         {
             var oldStage = TankTownGame.SelectedStage;
             var oldSaving = TankTownGame.DisableRecordSavingForTests;
-            var settings = ScriptableObject.CreateInstance<TankTownSettings>();
+            TankTownSettings settings = null;
             GameObject canvas = null;
             ToyHudStyle style = null;
             TankTownGame game = null;
@@ -39,12 +39,13 @@ namespace TankTown.Tests
                 TankTownGame.DisableRecordSavingForTests = true;
                 SceneManager.LoadScene("TankTown"); yield return null;
                 game = Object.FindFirstObjectByType<TankTownGame>();
+                settings = game.Settings;
                 game.Input.useHardware = true; game.Input.SetWheel(0); yield return null;
                 canvas = new GameObject("Configurable menu test", typeof(Canvas));
                 style = new ToyHudStyle();
                 settings.menuSteeringThreshold = .9f; settings.menuNeutralThreshold = .1f;
                 settings.menuHoldDelay = 1.2f; settings.menuRepeatInterval = .25f;
-                var carousel = new TankTownCardCarousel(game, canvas.transform, Resources.Load<Font>("Fonts/NotoSansJP-Regular"), style, "Settings test", settings);
+                var carousel = new TankTownCardCarousel(game, canvas.transform, Resources.Load<Font>("Fonts/NotoSansJP-Regular"), style, "Settings test");
                 carousel.Set("", "", new[] {
                     new TankTownCardCarousel.Choice("A", "", "", Color.red, null),
                     new TankTownCardCarousel.Choice("B", "", "", Color.green, null),
@@ -52,7 +53,9 @@ namespace TankTown.Tests
                 carousel.Tick(0, 100);
                 game.Input.SetWheel(.8f); yield return null;
                 carousel.Tick(0, 100.1f); Assert.That(carousel.Selected, Is.Zero);
-                settings.menuSteeringThreshold = .6f;
+                var tuning = ControlTuning.Capture(settings, new MicrobitInputSettings());
+                tuning.menuSteeringThreshold = .6f;
+                tuning.Apply(settings, new MicrobitInputSettings());
                 carousel.Tick(0, 100.1f); Assert.That(carousel.Selected, Is.EqualTo(1), "Changing the shared settings affects an already open menu");
                 carousel.Tick(0, 101.29f); Assert.That(carousel.Selected, Is.EqualTo(1));
                 carousel.Tick(0, 101.31f); Assert.That(carousel.Selected, Is.EqualTo(2), "Initial held delay comes from settings");
@@ -73,7 +76,7 @@ namespace TankTown.Tests
             finally
             {
                 if (canvas != null) Object.Destroy(canvas);
-                style?.Dispose(); Object.Destroy(settings);
+                style?.Dispose();
                 if (game != null) Object.Destroy(game.gameObject);
                 TankTownGame.SelectedStage = oldStage;
                 TankTownGame.DisableRecordSavingForTests = oldSaving;

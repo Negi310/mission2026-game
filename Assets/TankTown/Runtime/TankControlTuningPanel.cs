@@ -36,7 +36,7 @@ namespace TankTown
         {
             if (visible || game == null) return;
             GetComponent<MicrobitDiagnosticsPanel>()?.Close();
-            draft = ControlTuning.Capture(game.Settings, Hardware); visible = true; message = "";
+            draft = ControlTuning.Capture(game.Settings, Hardware); visible = true; message = ""; scroll = Vector2.zero;
             var system = EventSystem.current;
             blockedUi = system != null ? system.GetComponent<BaseInputModule>() : null;
             if (blockedUi != null) { uiWasEnabled = blockedUi.enabled; blockedUi.enabled = false; }
@@ -89,31 +89,13 @@ namespace TankTown
             float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1280f, Screen.height / 720f), .55f, 1.5f);
             GUI.matrix = Matrix4x4.Scale(Vector3.one * scale);
             GUILayout.BeginArea(new Rect(12, 12, 850, 680), panel);
-            scroll = GUILayout.BeginScrollView(scroll);
             try
             {
                 GUILayout.Label("操作感の調整  [F7で閉じる]", heading);
                 GUILayout.Label("スライダーを動かし、適用して走行を試せます。ゲームは停止しません。", label);
-                GUILayout.Label("戦車の動き", heading);
-                draft.speed = Slider("移動速度", draft.speed, 1, 50);
-                draft.acceleration = Slider("加速", draft.acceleration, .1f, 50);
-                draft.turn = Slider("旋回速度", draft.turn, 10, 240);
-                draft.response = Slider("旋回の反応", draft.response, .1f, 40);
-                draft.grip = Slider("横滑りの抑え", draft.grip, .1f, 30);
-                draft.hullDelay = Slider("車体の旋回遅れ（秒）", draft.hullDelay, 0, .5f, "0.00");
-                draft.turretYaw = Slider("砲塔の最大旋回角", draft.turretYaw, 0, 60);
-                draft.turretSpeed = Slider("砲塔の追従速度", draft.turretSpeed, 30, 500);
-                draft.cooldown = Slider("射撃間隔（秒）", draft.cooldown, .12f, 2, "0.00");
-                GUILayout.Label("ハンドル・ピエゾ", heading);
-                draft.center = Slider("ハンドルの中立", draft.center, -1023, 1023, "0");
-                if (GUILayout.Button("現在のハンドル位置を中立にする", button))
-                    message = controller.Connected ? (draft.center = Mathf.Clamp(controller.Angle, -1023, 1023)).ToString("0") + " を中立に設定しました。適用してください。" : "コントローラーから受信していません。";
-                draft.sensitivity = Slider("最大旋回までの入力", draft.sensitivity, .1f, 1023, "0.0");
-                draft.deadzone = Slider("中立付近の遊び", Mathf.Min(draft.deadzone, draft.sensitivity - .01f), 0, draft.sensitivity - .01f, "0.0");
-                if (GUILayout.Button("左右反転: " + (draft.invert ? "ON" : "OFF"), button)) draft.invert = !draft.invert;
-                draft.threshold = Mathf.RoundToInt(Slider("砲撃の閾値", draft.threshold, 1, 1023, "0"));
-                draft.release = Mathf.RoundToInt(Slider("砲撃の再受付値", Mathf.Min(draft.release, draft.threshold - 1), 0, draft.threshold - 1, "0"));
-                draft.strikeCooldown = Slider("打撃の連続受付間隔（秒）", draft.strikeCooldown, 0, 2, "0.00");
+                scroll = GUILayout.BeginScrollView(scroll);
+                try { DrawSliders(); }
+                finally { GUILayout.EndScrollView(); }
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("適用", button)) Apply(false);
                 if (GUILayout.Button("適用して保存", button)) Apply(true);
@@ -122,7 +104,36 @@ namespace TankTown
                 GUILayout.EndHorizontal();
                 if (message.Length > 0) GUILayout.Label(message, label);
             }
-            finally { GUILayout.EndScrollView(); GUILayout.EndArea(); GUI.matrix = previous; }
+            finally { GUILayout.EndArea(); GUI.matrix = previous; }
+        }
+        private void DrawSliders()
+        {
+            GUILayout.Label("メニューのハンドル操作", heading);
+            GUILayout.Label("切り替えの閾値を小さくすると、軽く回すだけで選択できます。", label);
+            draft.menuSteeringThreshold = Slider("切り替えの閾値", draft.menuSteeringThreshold, .05f, .99f, "0.00");
+            draft.menuNeutralThreshold = Slider("中立に戻す閾値", Mathf.Min(draft.menuNeutralThreshold, draft.menuSteeringThreshold - .01f), 0, draft.menuSteeringThreshold - .01f, "0.00");
+            draft.menuHoldDelay = Slider("長押しの初回待ち時間（秒）", draft.menuHoldDelay, .05f, Mathf.Max(2, draft.menuHoldDelay), "0.00");
+            draft.menuRepeatInterval = Slider("長押しの切り替え間隔（秒）", draft.menuRepeatInterval, .05f, Mathf.Max(2, draft.menuRepeatInterval), "0.00");
+            GUILayout.Label("戦車の動き", heading);
+            draft.speed = Slider("移動速度", draft.speed, 1, 50);
+            draft.acceleration = Slider("加速", draft.acceleration, .1f, 50);
+            draft.turn = Slider("旋回速度", draft.turn, 10, 240);
+            draft.response = Slider("旋回の反応", draft.response, .1f, 40);
+            draft.grip = Slider("横滑りの抑え", draft.grip, .1f, 30);
+            draft.hullDelay = Slider("車体の旋回遅れ（秒）", draft.hullDelay, 0, .5f, "0.00");
+            draft.turretYaw = Slider("砲塔の最大旋回角", draft.turretYaw, 0, 60);
+            draft.turretSpeed = Slider("砲塔の追従速度", draft.turretSpeed, 30, 500);
+            draft.cooldown = Slider("射撃間隔（秒）", draft.cooldown, .12f, 2, "0.00");
+            GUILayout.Label("ハンドル・ピエゾ", heading);
+            draft.center = Slider("ハンドルの中立", draft.center, -1023, 1023, "0");
+            if (GUILayout.Button("現在のハンドル位置を中立にする", button))
+                message = controller.Connected ? (draft.center = Mathf.Clamp(controller.Angle, -1023, 1023)).ToString("0") + " を中立に設定しました。適用してください。" : "コントローラーから受信していません。";
+            draft.sensitivity = Slider("最大旋回までの入力", draft.sensitivity, .1f, 1023, "0.0");
+            draft.deadzone = Slider("中立付近の遊び", Mathf.Min(draft.deadzone, draft.sensitivity - .01f), 0, draft.sensitivity - .01f, "0.0");
+            if (GUILayout.Button("左右反転: " + (draft.invert ? "ON" : "OFF"), button)) draft.invert = !draft.invert;
+            draft.threshold = Mathf.RoundToInt(Slider("砲撃の閾値", draft.threshold, 1, 1023, "0"));
+            draft.release = Mathf.RoundToInt(Slider("砲撃の再受付値", Mathf.Min(draft.release, draft.threshold - 1), 0, draft.threshold - 1, "0"));
+            draft.strikeCooldown = Slider("打撃の連続受付間隔（秒）", draft.strikeCooldown, 0, 2, "0.00");
         }
         private void OnDisable() => Close();
         private void OnDestroy() { if (font != null) Destroy(font); if (backdrop != null) Destroy(backdrop); }
